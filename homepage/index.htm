@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Simple Link Storage</title>
+    <style>
+        /* Basic Reset and Styling */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        h1 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 30px;
+        }
+
+        /* Grid Container for 5 Columns */
+        .link-grid {
+            display: grid;
+            /* Creates 5 columns of equal width */
+            grid-template-columns: repeat(5, 1fr);
+            gap: 20px; /* Space between the columns/items */
+            max-width: 1200px; /* Limit the overall width */
+            margin: 0 auto; /* Center the grid container */
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Styling for each Column/Category */
+        .column {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 6px;
+            background-color: #e9f0f9;
+        }
+
+        .column h2 {
+            margin-top: 0;
+            color: #28a745;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 1.2em;
+        }
+
+        /* Styling for the Links */
+        .column ul {
+            list-style: none; /* Removes bullet points */
+            padding: 0;
+        }
+
+        .column li {
+            margin-bottom: 8px;
+        }
+
+        .column a {
+            text-decoration: none; /* Removes underline from links */
+            color: #0056b3;
+            display: block; /* Makes the whole list item clickable area */
+            padding: 3px 0;
+            transition: color 0.3s;
+        }
+
+        .column a:hover {
+            color: #007bff;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>My Categorized Link Hub</h1>
+    <div class="link-grid">
+
+        <div class="column">
+            <h2>Development</h2>
+            <ul>
+                <li><a href="https://github.com/" target="_blank">GitHub</a></li>
+                <li><a href="https://stackoverflow.com/" target="_blank">Stack Overflow</a></li>
+                <li><a href="https://developer.mozilla.org/en-US/" target="_blank">MDN Web Docs</a></li>
+                <li><a href="#">Link 4</a></li>
+            </ul>
+        </div>
+
+        <div class="column">
+            <h2>News & Media</h2>
+            <ul>
+                <li><a href="https://www.bbc.com/news" target="_blank">BBC News</a></li>
+                <li><a href="https://www.nytimes.com/" target="_blank">The New York Times</a></li>
+                <li><a href="#">Link 3</a></li>
+                <li><a href="#">Link 4</a></li>
+            </ul>
+        </div>
+
+        <div class="column">
+            <h2>Productivity</h2>
+            <ul>
+                <li><a href="https://mail.google.com/" target="_blank">Gmail</a></li>
+                <li><a href="https://trello.com/" target="_blank">Trello</a></li>
+                <li><a href="#">Link 3</a></li>
+                <li><a href="#">Link 4</a></li>
+            </ul>
+        </div>
+
+        <div class="column">
+            <h2>Design</h2>
+            <ul>
+                <li><a href="https://www.figma.com/" target="_blank">Figma</a></li>
+                <li><a href="https://dribbble.com/" target="_blank">Dribbble</a></li>
+                <li><a href="#">Link 3</a></li>
+                <li><a href="#">Link 4</a></li>
+            </ul>
+        </div>
+
+        <div class="column">
+            <h2>Entertainment</h2>
+            <ul>
+                <li><a href="https://www.youtube.com/" target="_blank">YouTube</a></li>
+                <li><a href="https://www.netflix.com/" target="_blank">Netflix</a></li>
+                <li><a href="#">Link 3</a></li>
+                <li><a href="#">Link 4</a></li>
+            </ul>
+        </div>
+
+    </div>
+
+</body>
+</html>
