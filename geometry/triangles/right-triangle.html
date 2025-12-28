@@ -3,133 +3,547 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Random Right-Angled Triangle</title>
+    <title>Interactive Triangle Generator</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             padding: 20px;
-            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        canvas {
-            border: 2px solid #333;
-            background-color: white;
-            margin: 20px 0;
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 1200px;
+            width: 100%;
+            animation: fadeIn 0.5s ease-in;
         }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        button:hover {
-            background-color: #45a049;
-        }
+
         h1 {
             color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .controls-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-group h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .triangle-types {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .type-btn {
+            padding: 12px;
+            font-size: 14px;
+            background-color: #e9ecef;
+            color: #333;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .type-btn:hover {
+            background-color: #dee2e6;
+            transform: translateY(-2px);
+        }
+
+        .type-btn.active {
+            background-color: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .slider-control {
+            margin-bottom: 15px;
+        }
+
+        .slider-control label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .slider-control input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 5px;
+            background: #d3d3d3;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .slider-control input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            display: inline-block;
+            min-width: 50px;
+            text-align: right;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        canvas {
+            border: 2px solid #dee2e6;
+            background-color: white;
+            border-radius: 10px;
+            max-width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .canvas-container.animating canvas {
+            animation: triangleGenerate 0.5s ease-out;
+        }
+
+        @keyframes triangleGenerate {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 15px 30px;
+            font-size: 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+
+        .properties-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .properties-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .properties-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .property-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .property-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .property-value {
+            color: #333;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .triangle-types {
+                grid-template-columns: 1fr;
+            }
+
+            .properties-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Random Right-Angled Triangle Generator</h1>
-    <canvas id="triangleCanvas" width="600" height="500"></canvas>
-    <button onclick="generateTriangle()">Generate New Triangle</button>
+    <div class="container">
+        <h1>Interactive Triangle Generator</h1>
+
+        <div class="controls-section">
+            <div class="control-group">
+                <h3>Triangle Type</h3>
+                <div class="triangle-types">
+                    <button class="type-btn active" onclick="setTriangleType('right')">Right-Angle</button>
+                    <button class="type-btn" onclick="setTriangleType('equilateral')">Equilateral</button>
+                    <button class="type-btn" onclick="setTriangleType('isosceles')">Isosceles</button>
+                    <button class="type-btn" onclick="setTriangleType('scalene')">Scalene</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Triangle Size</h3>
+                <div class="slider-control">
+                    <label>
+                        Base Length: <span class="slider-value" id="baseLengthValue">150</span>
+                    </label>
+                    <input type="range" id="baseLength" min="50" max="300" value="150" oninput="updateSliderValue('baseLength')">
+                </div>
+                <div class="slider-control" id="heightControl">
+                    <label>
+                        Height: <span class="slider-value" id="heightValue">150</span>
+                    </label>
+                    <input type="range" id="height" min="50" max="300" value="150" oninput="updateSliderValue('height')">
+                </div>
+            </div>
+        </div>
+
+        <button class="generate-btn" onclick="generateTriangle()">Generate New Triangle</button>
+
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="triangleCanvas"></canvas>
+        </div>
+
+        <div class="properties-section">
+            <h3>Triangle Properties</h3>
+            <div class="properties-grid" id="propertiesGrid">
+                <!-- Properties will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
 
     <script>
         const canvas = document.getElementById('triangleCanvas');
         const ctx = canvas.getContext('2d');
+        let currentType = 'right';
+        let currentTriangle = null;
+
+        // Set canvas size based on viewport
+        function resizeCanvas() {
+            const container = document.querySelector('.canvas-container');
+            const containerWidth = container.clientWidth - 40;
+            canvas.width = Math.min(containerWidth, 700);
+            canvas.height = Math.min(canvas.width * 0.8, 500);
+            if (currentTriangle) {
+                drawTriangle(currentTriangle);
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function setTriangleType(type) {
+            currentType = type;
+            document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Show/hide height control based on triangle type
+            const heightControl = document.getElementById('heightControl');
+            if (type === 'equilateral') {
+                heightControl.style.display = 'none';
+            } else {
+                heightControl.style.display = 'block';
+            }
+
+            generateTriangle();
+        }
+
+        function updateSliderValue(sliderId) {
+            const slider = document.getElementById(sliderId);
+            const valueDisplay = document.getElementById(sliderId + 'Value');
+            valueDisplay.textContent = slider.value;
+            generateTriangle();
+        }
 
         function generateTriangle() {
-            // Clear canvas
+            const canvasContainer = document.getElementById('canvasContainer');
+            canvasContainer.classList.add('animating');
+            setTimeout(() => canvasContainer.classList.remove('animating'), 500);
+
+            const baseLength = parseInt(document.getElementById('baseLength').value);
+            const height = parseInt(document.getElementById('height').value);
+
+            let triangle;
+            switch(currentType) {
+                case 'right':
+                    triangle = generateRightTriangle(baseLength, height);
+                    break;
+                case 'equilateral':
+                    triangle = generateEquilateralTriangle(baseLength);
+                    break;
+                case 'isosceles':
+                    triangle = generateIsoscelesTriangle(baseLength, height);
+                    break;
+                case 'scalene':
+                    triangle = generateScaleneTriangle(baseLength, height);
+                    break;
+            }
+
+            currentTriangle = triangle;
+            drawTriangle(triangle);
+            displayProperties(triangle);
+        }
+
+        function generateRightTriangle(base, height) {
+            const hypotenuse = Math.sqrt(base * base + height * height);
+            const angleA = Math.atan(height / base) * (180 / Math.PI);
+            const angleB = Math.atan(base / height) * (180 / Math.PI);
+
+            return {
+                type: 'Right-Angled',
+                sides: [base, height, hypotenuse],
+                sideLabels: ['a', 'b', 'c'],
+                angles: [90, angleA, angleB],
+                vertices: calculateCenteredVertices(base, height, 0)
+            };
+        }
+
+        function generateEquilateralTriangle(side) {
+            const height = side * Math.sqrt(3) / 2;
+
+            return {
+                type: 'Equilateral',
+                sides: [side, side, side],
+                sideLabels: ['a', 'b', 'c'],
+                angles: [60, 60, 60],
+                vertices: calculateCenteredVertices(side, height, side/2)
+            };
+        }
+
+        function generateIsoscelesTriangle(base, height) {
+            const side = Math.sqrt((base/2) * (base/2) + height * height);
+            const baseAngle = Math.atan((base/2) / height) * (180 / Math.PI);
+            const apexAngle = 180 - 2 * baseAngle;
+
+            return {
+                type: 'Isosceles',
+                sides: [base, side, side],
+                sideLabels: ['a', 'b', 'c'],
+                angles: [apexAngle, baseAngle, baseAngle],
+                vertices: calculateCenteredVertices(base, height, base/2)
+            };
+        }
+
+        function generateScaleneTriangle(base, height) {
+            const offset = base * 0.3;
+            const sideB = Math.sqrt(offset * offset + height * height);
+            const sideC = Math.sqrt((base - offset) * (base - offset) + height * height);
+
+            const angleA = Math.acos((sideB*sideB + sideC*sideC - base*base) / (2*sideB*sideC)) * (180/Math.PI);
+            const angleB = Math.acos((base*base + sideC*sideC - sideB*sideB) / (2*base*sideC)) * (180/Math.PI);
+            const angleC = 180 - angleA - angleB;
+
+            return {
+                type: 'Scalene',
+                sides: [base, sideB, sideC],
+                sideLabels: ['a', 'b', 'c'],
+                angles: [angleA, angleB, angleC],
+                vertices: calculateCenteredVertices(base, height, offset)
+            };
+        }
+
+        function calculateCenteredVertices(base, height, offset) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            const x1 = centerX - base / 2;
+            const y1 = centerY + height / 2;
+            const x2 = centerX + base / 2;
+            const y2 = centerY + height / 2;
+            const x3 = centerX - base / 2 + offset;
+            const y3 = centerY - height / 2;
+
+            return [{x: x1, y: y1}, {x: x2, y: y2}, {x: x3, y: y3}];
+        }
+
+        function drawTriangle(triangle) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Generate random side lengths for the two perpendicular sides
-            const sideA = Math.floor(Math.random() * 150) + 50; // 50-200
-            const sideB = Math.floor(Math.random() * 150) + 50; // 50-200
+            const vertices = triangle.vertices;
 
-            // Calculate hypotenuse using Pythagorean theorem
-            const hypotenuse = Math.sqrt(sideA * sideA + sideB * sideB);
+            // Draw triangle fill with gradient
+            const gradient = ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[2].x, vertices[2].y);
+            gradient.addColorStop(0, 'rgba(102, 126, 234, 0.1)');
+            gradient.addColorStop(1, 'rgba(118, 75, 162, 0.1)');
 
-            // Calculate angles in degrees
-            const angleA = Math.atan(sideB / sideA) * (180 / Math.PI);
-            const angleB = Math.atan(sideA / sideB) * (180 / Math.PI);
-            const rightAngle = 90;
-
-            // Set up drawing position (offset from edges for labels)
-            const offsetX = 100;
-            const offsetY = 100;
-
-            // Triangle vertices
-            const x1 = offsetX;
-            const y1 = offsetY + sideB;
-            const x2 = offsetX + sideA;
-            const y2 = offsetY + sideB;
-            const x3 = offsetX;
-            const y3 = offsetY;
-
-            // Draw triangle
             ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.lineTo(x3, y3);
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            ctx.lineTo(vertices[1].x, vertices[1].y);
+            ctx.lineTo(vertices[2].x, vertices[2].y);
             ctx.closePath();
-            ctx.strokeStyle = '#2196F3';
-            ctx.lineWidth = 2;
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Draw triangle outline
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
             ctx.stroke();
 
-            // Draw right angle indicator
-            const squareSize = 15;
-            ctx.strokeStyle = '#FF5722';
-            ctx.strokeRect(x1, y1 - squareSize, squareSize, squareSize);
+            // Draw vertices as circles
+            vertices.forEach((v, i) => {
+                ctx.beginPath();
+                ctx.arc(v.x, v.y, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#764ba2';
+                ctx.fill();
+            });
 
-            // Label side lengths
-            ctx.fillStyle = '#000';
+            // Draw right angle indicator if right triangle
+            if (triangle.type === 'Right-Angled') {
+                const squareSize = 15;
+                ctx.strokeStyle = '#FF5722';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(vertices[0].x, vertices[0].y - squareSize, squareSize, squareSize);
+            }
+
+            // Label sides
+            ctx.fillStyle = '#333';
             ctx.font = 'bold 14px Arial';
 
-            // Side A (bottom horizontal)
-            ctx.fillText(`a = ${sideA.toFixed(1)} px`,
-                         x1 + sideA / 2 - 30, y1 + 25);
+            const midpoints = [
+                {x: (vertices[0].x + vertices[1].x) / 2, y: (vertices[0].y + vertices[1].y) / 2 + 20},
+                {x: (vertices[1].x + vertices[2].x) / 2 + 20, y: (vertices[1].y + vertices[2].y) / 2},
+                {x: (vertices[2].x + vertices[0].x) / 2 - 20, y: (vertices[2].y + vertices[0].y) / 2}
+            ];
 
-            // Side B (left vertical)
-            ctx.fillText(`b = ${sideB.toFixed(1)} px`,
-                         x1 - 90, y1 - sideB / 2 + 5);
-
-            // Hypotenuse
-            ctx.fillText(`c = ${hypotenuse.toFixed(1)} px`,
-                         x1 + sideA / 2 + 15, y1 - sideB / 2 - 10);
+            triangle.sides.forEach((side, i) => {
+                ctx.fillText(`${triangle.sideLabels[i]} = ${side.toFixed(1)}`, midpoints[i].x, midpoints[i].y);
+            });
 
             // Label angles
             ctx.fillStyle = '#D32F2F';
             ctx.font = '12px Arial';
 
-            // Angle A (bottom right)
-            ctx.fillText(`∠A = ${angleA.toFixed(1)}°`,
-                         x2 - 70, y2 - 10);
+            const angleOffsets = [
+                {x: vertices[0].x + 25, y: vertices[0].y - 10},
+                {x: vertices[1].x - 65, y: vertices[1].y - 10},
+                {x: vertices[2].x + 10, y: vertices[2].y + 20}
+            ];
 
-            // Angle B (top)
-            ctx.fillText(`∠B = ${angleB.toFixed(1)}°`,
-                         x3 + 15, y3 + 15);
-
-            // Right angle (bottom left)
-            ctx.fillText(`∠C = ${rightAngle}°`,
-                         x1 + 15, y1 - 20);
-
-            // Draw additional info
-            ctx.fillStyle = '#333';
-            ctx.font = '14px Arial';
-            ctx.fillText('Right-angled triangle properties:', 20, canvas.height - 80);
-            ctx.font = '12px Arial';
-            ctx.fillText(`• Pythagorean theorem: a² + b² = c²`, 20, canvas.height - 60);
-            ctx.fillText(`• Verification: ${sideA.toFixed(1)}² + ${sideB.toFixed(1)}² = ${hypotenuse.toFixed(1)}²`, 20, canvas.height - 40);
-            ctx.fillText(`• Angles sum: ${angleA.toFixed(1)}° + ${angleB.toFixed(1)}° + ${rightAngle}° = 180°`, 20, canvas.height - 20);
+            triangle.angles.forEach((angle, i) => {
+                ctx.fillText(`${angle.toFixed(1)}°`, angleOffsets[i].x, angleOffsets[i].y);
+            });
         }
 
-        // Generate initial triangle on page load
+        function displayProperties(triangle) {
+            const sides = triangle.sides;
+            const perimeter = sides.reduce((a, b) => a + b, 0);
+
+            // Calculate area using Heron's formula
+            const s = perimeter / 2;
+            const area = Math.sqrt(s * (s - sides[0]) * (s - sides[1]) * (s - sides[2]));
+
+            // Calculate trigonometric ratios for the largest angle
+            const maxAngleIndex = triangle.angles.indexOf(Math.max(...triangle.angles));
+            const opposite = sides[maxAngleIndex];
+            const adjacent = sides[(maxAngleIndex + 1) % 3];
+            const hypotenuse = sides[(maxAngleIndex + 2) % 3];
+
+            const sinRatio = (opposite / hypotenuse) || (Math.sin(triangle.angles[maxAngleIndex] * Math.PI / 180));
+            const cosRatio = (adjacent / hypotenuse) || (Math.cos(triangle.angles[maxAngleIndex] * Math.PI / 180));
+            const tanRatio = (opposite / adjacent) || (Math.tan(triangle.angles[maxAngleIndex] * Math.PI / 180));
+
+            const properties = [
+                {label: 'Type', value: triangle.type},
+                {label: 'Perimeter', value: `${perimeter.toFixed(2)} units`},
+                {label: 'Area', value: `${area.toFixed(2)} sq units`},
+                {label: 'Side A', value: `${sides[0].toFixed(2)} units`},
+                {label: 'Side B', value: `${sides[1].toFixed(2)} units`},
+                {label: 'Side C', value: `${sides[2].toFixed(2)} units`},
+                {label: 'Angle A', value: `${triangle.angles[0].toFixed(2)}°`},
+                {label: 'Angle B', value: `${triangle.angles[1].toFixed(2)}°`},
+                {label: 'Angle C', value: `${triangle.angles[2].toFixed(2)}°`},
+                {label: 'sin(max angle)', value: sinRatio.toFixed(4)},
+                {label: 'cos(max angle)', value: cosRatio.toFixed(4)},
+                {label: 'tan(max angle)', value: tanRatio.toFixed(4)}
+            ];
+
+            const propertiesGrid = document.getElementById('propertiesGrid');
+            propertiesGrid.innerHTML = properties.map(prop => `
+                <div class="property-item">
+                    <div class="property-label">${prop.label}</div>
+                    <div class="property-value">${prop.value}</div>
+                </div>
+            `).join('');
+        }
+
+        // Generate initial triangle
         generateTriangle();
     </script>
 </body>
