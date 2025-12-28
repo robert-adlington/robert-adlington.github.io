@@ -502,20 +502,26 @@
 
             // Scale to fit canvas
             const maxSide = Math.max(a, b, c);
-            const scale = Math.min(300, canvas.width * 0.5) / maxSide;
+            const scale = Math.min(250, canvas.width * 0.4) / maxSide;
 
-            // Use law of cosines to position vertices
-            const x1 = centerX - (a * scale) / 2;
-            const y1 = centerY + 100;
-            const x2 = centerX + (a * scale) / 2;
-            const y2 = centerY + 100;
+            // Calculate angles using law of cosines
+            const angleA = Math.acos((b*b + c*c - a*a) / (2*b*c));
+            const angleB = Math.acos((a*a + c*c - b*b) / (2*a*c));
 
-            // Calculate third vertex position
-            const angleAtC = Math.acos((a*a + b*b - c*c) / (2*a*b)) * (180/Math.PI);
-            const x3 = x1 + b * scale * Math.cos((180 - angleAtC) * Math.PI / 180);
-            const y3 = y1 - b * scale * Math.sin((180 - angleAtC) * Math.PI / 180);
+            // Position vertices
+            // Vertex 0 (Angle A) - bottom left
+            const x0 = centerX - (c * scale) / 2;
+            const y0 = centerY + 80;
 
-            return [{x: x1, y: y1}, {x: x2, y: y2}, {x: x3, y: y3}];
+            // Vertex 1 (Angle B) - bottom right
+            const x1 = centerX + (c * scale) / 2;
+            const y1 = centerY + 80;
+
+            // Vertex 2 (Angle C) - calculated using angle A from vertex 0
+            const x2 = x0 + b * scale * Math.cos(angleA);
+            const y2 = y0 - b * scale * Math.sin(angleA);
+
+            return [{x: x0, y: y0}, {x: x1, y: y1}, {x: x2, y: y2}];
         }
 
         function drawTriangle(triangle) {
@@ -563,28 +569,42 @@
             ctx.fillStyle = '#333';
             ctx.font = 'bold 14px Arial';
 
+            // Calculate perpendicular offsets for better label positioning
             const midpoints = [
-                {x: (vertices[0].x + vertices[1].x) / 2, y: (vertices[0].y + vertices[1].y) / 2 + 20},
-                {x: (vertices[1].x + vertices[2].x) / 2 + 30, y: (vertices[1].y + vertices[2].y) / 2},
-                {x: (vertices[2].x + vertices[0].x) / 2 - 40, y: (vertices[2].y + vertices[0].y) / 2}
+                // Side BC (between vertices 1 and 2, opposite to angle A)
+                {
+                    x: (vertices[1].x + vertices[2].x) / 2 + 25,
+                    y: (vertices[1].y + vertices[2].y) / 2
+                },
+                // Side CA (between vertices 2 and 0, opposite to angle B)
+                {
+                    x: (vertices[2].x + vertices[0].x) / 2 - 50,
+                    y: (vertices[2].y + vertices[0].y) / 2
+                },
+                // Side AB (between vertices 0 and 1, opposite to angle C)
+                {
+                    x: (vertices[0].x + vertices[1].x) / 2,
+                    y: (vertices[0].y + vertices[1].y) / 2 + 20
+                }
             ];
 
             triangle.sides.forEach((side, i) => {
                 ctx.fillText(`${triangle.sideLabels[i]} = ${side.toFixed(1)} ${unit}`, midpoints[i].x, midpoints[i].y);
             });
 
-            // Label angles
+            // Label angles at vertices
             ctx.fillStyle = '#D32F2F';
-            ctx.font = '12px Arial';
+            ctx.font = 'bold 13px Arial';
 
+            const angleNames = ['A', 'B', 'C'];
             const angleOffsets = [
-                {x: vertices[0].x + 25, y: vertices[0].y - 10},
-                {x: vertices[1].x - 65, y: vertices[1].y - 10},
-                {x: vertices[2].x + 10, y: vertices[2].y + 20}
+                {x: vertices[0].x + 15, y: vertices[0].y - 5},   // Angle A (bottom left)
+                {x: vertices[1].x - 50, y: vertices[1].y - 5},   // Angle B (bottom right)
+                {x: vertices[2].x - 10, y: vertices[2].y + 25}   // Angle C (top)
             ];
 
             triangle.angles.forEach((angle, i) => {
-                ctx.fillText(`${angle.toFixed(1)}°`, angleOffsets[i].x, angleOffsets[i].y);
+                ctx.fillText(`${angleNames[i]} = ${angle.toFixed(1)}°`, angleOffsets[i].x, angleOffsets[i].y);
             });
         }
 
@@ -798,6 +818,14 @@
 
         function isValidTriangle(a, b, c) {
             return (a + b > c) && (a + c > b) && (b + c > a) && a > 0 && b > 0 && c > 0;
+        }
+
+        function updateTriangle() {
+            // Called when unit changes - just redraw with current triangle
+            if (currentTriangle) {
+                drawTriangle(currentTriangle);
+                displayProperties(currentTriangle);
+            }
         }
 
         // Initialize
