@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Right-Angled Triangle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 2px solid #333;
+            background-color: white;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Random Right-Angled Triangle Generator</h1>
+    <canvas id="triangleCanvas" width="600" height="500"></canvas>
+    <button onclick="generateTriangle()">Generate New Triangle</button>
+
+    <script>
+        const canvas = document.getElementById('triangleCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function generateTriangle() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Generate random side lengths for the two perpendicular sides
+            const sideA = Math.floor(Math.random() * 150) + 50; // 50-200
+            const sideB = Math.floor(Math.random() * 150) + 50; // 50-200
+
+            // Calculate hypotenuse using Pythagorean theorem
+            const hypotenuse = Math.sqrt(sideA * sideA + sideB * sideB);
+
+            // Calculate angles in degrees
+            const angleA = Math.atan(sideB / sideA) * (180 / Math.PI);
+            const angleB = Math.atan(sideA / sideB) * (180 / Math.PI);
+            const rightAngle = 90;
+
+            // Set up drawing position (offset from edges for labels)
+            const offsetX = 100;
+            const offsetY = 100;
+
+            // Triangle vertices
+            const x1 = offsetX;
+            const y1 = offsetY + sideB;
+            const x2 = offsetX + sideA;
+            const y2 = offsetY + sideB;
+            const x3 = offsetX;
+            const y3 = offsetY;
+
+            // Draw triangle
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.lineTo(x3, y3);
+            ctx.closePath();
+            ctx.strokeStyle = '#2196F3';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw right angle indicator
+            const squareSize = 15;
+            ctx.strokeStyle = '#FF5722';
+            ctx.strokeRect(x1, y1 - squareSize, squareSize, squareSize);
+
+            // Label side lengths
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 14px Arial';
+
+            // Side A (bottom horizontal)
+            ctx.fillText(`a = ${sideA.toFixed(1)} px`,
+                         x1 + sideA / 2 - 30, y1 + 25);
+
+            // Side B (left vertical)
+            ctx.fillText(`b = ${sideB.toFixed(1)} px`,
+                         x1 - 90, y1 - sideB / 2 + 5);
+
+            // Hypotenuse
+            ctx.fillText(`c = ${hypotenuse.toFixed(1)} px`,
+                         x1 + sideA / 2 + 15, y1 - sideB / 2 - 10);
+
+            // Label angles
+            ctx.fillStyle = '#D32F2F';
+            ctx.font = '12px Arial';
+
+            // Angle A (bottom right)
+            ctx.fillText(`∠A = ${angleA.toFixed(1)}°`,
+                         x2 - 70, y2 - 10);
+
+            // Angle B (top)
+            ctx.fillText(`∠B = ${angleB.toFixed(1)}°`,
+                         x3 + 15, y3 + 15);
+
+            // Right angle (bottom left)
+            ctx.fillText(`∠C = ${rightAngle}°`,
+                         x1 + 15, y1 - 20);
+
+            // Draw additional info
+            ctx.fillStyle = '#333';
+            ctx.font = '14px Arial';
+            ctx.fillText('Right-angled triangle properties:', 20, canvas.height - 80);
+            ctx.font = '12px Arial';
+            ctx.fillText(`• Pythagorean theorem: a² + b² = c²`, 20, canvas.height - 60);
+            ctx.fillText(`• Verification: ${sideA.toFixed(1)}² + ${sideB.toFixed(1)}² = ${hypotenuse.toFixed(1)}²`, 20, canvas.height - 40);
+            ctx.fillText(`• Angles sum: ${angleA.toFixed(1)}° + ${angleB.toFixed(1)}° + ${rightAngle}° = 180°`, 20, canvas.height - 20);
+        }
+
+        // Generate initial triangle on page load
+        generateTriangle();
+    </script>
+</body>
+</html>
