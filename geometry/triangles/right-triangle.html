@@ -221,6 +221,8 @@
             font-size: 1.2em;
             font-weight: bold;
             color: #667eea;
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
 
         .property-input {
@@ -554,49 +556,28 @@
                 ctx.strokeRect(vertices[0].x, vertices[0].y - squareSize, squareSize, squareSize);
             }
 
-            const unit = unitLabels[document.getElementById('unitSelect').value];
-
-            // Label sides
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 14px Arial';
-
-            // Calculate perpendicular offsets for better label positioning
-            const midpoints = [
-                // Side BC (between vertices 1 and 2, opposite to angle A)
-                {
-                    x: (vertices[1].x + vertices[2].x) / 2 + 25,
-                    y: (vertices[1].y + vertices[2].y) / 2
-                },
-                // Side CA (between vertices 2 and 0, opposite to angle B)
-                {
-                    x: (vertices[2].x + vertices[0].x) / 2 - 50,
-                    y: (vertices[2].y + vertices[0].y) / 2
-                },
-                // Side AB (between vertices 0 and 1, opposite to angle C)
-                {
-                    x: (vertices[0].x + vertices[1].x) / 2,
-                    y: (vertices[0].y + vertices[1].y) / 2 + 20
-                }
-            ];
-
-            triangle.sides.forEach((side, i) => {
-                ctx.fillText(`${triangle.sideLabels[i]} = ${side.toFixed(1)} ${unit}`, midpoints[i].x, midpoints[i].y);
-            });
-
-            // Label angles at vertices
-            ctx.fillStyle = '#D32F2F';
-            ctx.font = 'bold 13px Arial';
+            // Label vertices only (outside the triangle)
+            ctx.fillStyle = '#764ba2';
+            ctx.font = 'bold 16px Arial';
 
             const angleNames = ['A', 'B', 'C'];
-            const angleOffsets = [
-                {x: vertices[0].x + 15, y: vertices[0].y - 5},   // Angle A (bottom left)
-                {x: vertices[1].x - 50, y: vertices[1].y - 5},   // Angle B (bottom right)
-                {x: vertices[2].x - 10, y: vertices[2].y + 25}   // Angle C (top)
+            const vertexLabelOffsets = [
+                {x: vertices[0].x - 20, y: vertices[0].y + 20},   // Vertex A (bottom left) - outside
+                {x: vertices[1].x + 15, y: vertices[1].y + 20},   // Vertex B (bottom right) - outside
+                {x: vertices[2].x, y: vertices[2].y - 15}         // Vertex C (top) - outside
             ];
 
-            triangle.angles.forEach((angle, i) => {
-                ctx.fillText(`${angleNames[i]} = ${angle.toFixed(1)}°`, angleOffsets[i].x, angleOffsets[i].y);
+            angleNames.forEach((name, i) => {
+                ctx.fillText(name, vertexLabelOffsets[i].x, vertexLabelOffsets[i].y);
             });
+        }
+
+        function formatTanValue(tanValue) {
+            // If tan is very large or very small, use exponential notation
+            if (Math.abs(tanValue) > 999 || (Math.abs(tanValue) < 0.0001 && tanValue !== 0)) {
+                return tanValue.toExponential(2);
+            }
+            return tanValue.toFixed(4);
         }
 
         function displayProperties(triangle) {
@@ -612,7 +593,6 @@
 
             // Summary properties
             const summaryProperties = [
-                {label: 'Type', value: triangle.type},
                 {label: 'Perimeter', value: `${perimeter.toFixed(2)} ${unitLabel}`},
                 {label: 'Area', value: `${area.toFixed(2)} ${unitLabel}²`}
             ];
@@ -689,7 +669,7 @@
                         </div>
                         <div class="angle-property">
                             <div class="property-label">tan(${data.name})</div>
-                            <div class="property-value">${Math.tan(angleRad).toFixed(4)}</div>
+                            <div class="property-value">${formatTanValue(Math.tan(angleRad))}</div>
                         </div>
                     </div>
                 `;
