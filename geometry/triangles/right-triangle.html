@@ -26,7 +26,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 30px;
-            max-width: 1200px;
+            max-width: 1400px;
             width: 100%;
             animation: fadeIn 0.5s ease-in;
         }
@@ -45,7 +45,7 @@
 
         .controls-section {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -130,12 +130,49 @@
             cursor: pointer;
         }
 
+        .slider-control input[type="range"]:disabled::-webkit-slider-thumb {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        .slider-control input[type="range"]:disabled::-moz-range-thumb {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        .slider-control input[type="range"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .slider-value {
             display: inline-block;
-            min-width: 50px;
+            min-width: 60px;
             text-align: right;
             color: #667eea;
             font-weight: bold;
+        }
+
+        .unit-selector {
+            margin-bottom: 15px;
+        }
+
+        .unit-selector label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .unit-selector select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            background: white;
+            color: #333;
+            font-size: 14px;
+            cursor: pointer;
         }
 
         .canvas-container {
@@ -193,14 +230,23 @@
             margin-top: 20px;
         }
 
+        .properties-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
         .properties-section h3 {
             color: #667eea;
-            margin-bottom: 15px;
+            margin: 0;
         }
 
         .properties-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
         }
 
@@ -224,6 +270,12 @@
             color: #667eea;
         }
 
+        .locked-indicator {
+            color: #999;
+            font-size: 0.8em;
+            font-style: italic;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px;
@@ -238,6 +290,10 @@
             }
 
             .properties-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .controls-section {
                 grid-template-columns: 1fr;
             }
         }
@@ -259,30 +315,75 @@
             </div>
 
             <div class="control-group">
-                <h3>Triangle Size</h3>
+                <h3>Side Lengths</h3>
                 <div class="slider-control">
                     <label>
-                        Base Length: <span class="slider-value" id="baseLengthValue">150</span>
+                        Side A: <span class="slider-value" id="sideAValue">150</span>
                     </label>
-                    <input type="range" id="baseLength" min="50" max="300" value="150" oninput="updateSliderValue('baseLength')">
+                    <input type="range" id="sideA" min="50" max="300" value="150" step="1" oninput="updateSide('A')">
                 </div>
-                <div class="slider-control" id="heightControl">
+                <div class="slider-control">
                     <label>
-                        Height: <span class="slider-value" id="heightValue">150</span>
+                        Side B: <span class="slider-value" id="sideBValue">150</span>
                     </label>
-                    <input type="range" id="height" min="50" max="300" value="150" oninput="updateSliderValue('height')">
+                    <input type="range" id="sideB" min="50" max="300" value="150" step="1" oninput="updateSide('B')">
+                </div>
+                <div class="slider-control">
+                    <label>
+                        Side C: <span class="slider-value" id="sideCValue">212</span>
+                    </label>
+                    <input type="range" id="sideC" min="50" max="400" value="212" step="1" oninput="updateSide('C')">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>Angles</h3>
+                <div class="slider-control">
+                    <label>
+                        Angle A: <span class="slider-value" id="angleAValue">90°</span>
+                    </label>
+                    <input type="range" id="angleA" min="10" max="170" value="90" step="0.1" oninput="updateAngle('A')">
+                </div>
+                <div class="slider-control">
+                    <label>
+                        Angle B: <span class="slider-value" id="angleBValue">45°</span>
+                    </label>
+                    <input type="range" id="angleB" min="10" max="170" value="45" step="0.1" oninput="updateAngle('B')">
+                </div>
+                <div class="slider-control">
+                    <label>
+                        Angle C: <span class="slider-value" id="angleCValue">45°</span>
+                    </label>
+                    <input type="range" id="angleC" min="10" max="170" value="45" step="0.1" oninput="updateAngle('C')">
                 </div>
             </div>
         </div>
 
-        <button class="generate-btn" onclick="generateTriangle()">Generate New Triangle</button>
+        <button class="generate-btn" onclick="randomizeTriangle()">Generate Random Triangle</button>
 
         <div class="canvas-container" id="canvasContainer">
             <canvas id="triangleCanvas"></canvas>
         </div>
 
         <div class="properties-section">
-            <h3>Triangle Properties</h3>
+            <div class="properties-header">
+                <h3>Triangle Properties</h3>
+                <div class="unit-selector">
+                    <label>
+                        Unit:
+                        <select id="unitSelect" onchange="updateTriangle()">
+                            <option value="metre">metre (m)</option>
+                            <option value="centimetre">centimetre (cm)</option>
+                            <option value="millimetre">millimetre (mm)</option>
+                            <option value="kilometre">kilometre (km)</option>
+                            <option value="inch">inch (in)</option>
+                            <option value="foot">foot (ft)</option>
+                            <option value="yard">yard (yd)</option>
+                            <option value="mile">mile (mi)</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
             <div class="properties-grid" id="propertiesGrid">
                 <!-- Properties will be dynamically inserted here -->
             </div>
@@ -294,6 +395,18 @@
         const ctx = canvas.getContext('2d');
         let currentType = 'right';
         let currentTriangle = null;
+        let isUpdating = false;
+
+        const unitLabels = {
+            'metre': 'm',
+            'centimetre': 'cm',
+            'millimetre': 'mm',
+            'kilometre': 'km',
+            'inch': 'in',
+            'foot': 'ft',
+            'yard': 'yd',
+            'mile': 'mi'
+        };
 
         // Set canvas size based on viewport
         function resizeCanvas() {
@@ -313,122 +426,228 @@
             currentType = type;
             document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
+            updateTriangle();
+        }
 
-            // Show/hide height control based on triangle type
-            const heightControl = document.getElementById('heightControl');
-            if (type === 'equilateral') {
-                heightControl.style.display = 'none';
-            } else {
-                heightControl.style.display = 'block';
+        function updateSide(side) {
+            if (isUpdating) return;
+            isUpdating = true;
+
+            const sideA = parseFloat(document.getElementById('sideA').value);
+            const sideB = parseFloat(document.getElementById('sideB').value);
+            const sideC = parseFloat(document.getElementById('sideC').value);
+
+            document.getElementById('sideAValue').textContent = sideA.toFixed(1);
+            document.getElementById('sideBValue').textContent = sideB.toFixed(1);
+            document.getElementById('sideCValue').textContent = sideC.toFixed(1);
+
+            // Calculate angles from sides using law of cosines
+            if (isValidTriangle(sideA, sideB, sideC)) {
+                const angleA = Math.acos((sideB*sideB + sideC*sideC - sideA*sideA) / (2*sideB*sideC)) * (180/Math.PI);
+                const angleB = Math.acos((sideA*sideA + sideC*sideC - sideB*sideB) / (2*sideA*sideC)) * (180/Math.PI);
+                const angleC = 180 - angleA - angleB;
+
+                document.getElementById('angleA').value = angleA;
+                document.getElementById('angleB').value = angleB;
+                document.getElementById('angleC').value = angleC;
+                document.getElementById('angleAValue').textContent = angleA.toFixed(1) + '°';
+                document.getElementById('angleBValue').textContent = angleB.toFixed(1) + '°';
+                document.getElementById('angleCValue').textContent = angleC.toFixed(1) + '°';
             }
 
-            generateTriangle();
+            applyConstraints();
+            updateTriangle();
+            isUpdating = false;
         }
 
-        function updateSliderValue(sliderId) {
-            const slider = document.getElementById(sliderId);
-            const valueDisplay = document.getElementById(sliderId + 'Value');
-            valueDisplay.textContent = slider.value;
-            generateTriangle();
+        function updateAngle(angle) {
+            if (isUpdating) return;
+            isUpdating = true;
+
+            let angleA = parseFloat(document.getElementById('angleA').value);
+            let angleB = parseFloat(document.getElementById('angleB').value);
+            let angleC = parseFloat(document.getElementById('angleC').value);
+
+            // Ensure angles sum to 180
+            if (angle === 'A') {
+                const remaining = 180 - angleA;
+                angleB = remaining / 2;
+                angleC = remaining / 2;
+            } else if (angle === 'B') {
+                const remaining = 180 - angleB;
+                angleA = remaining / 2;
+                angleC = remaining / 2;
+            } else {
+                const remaining = 180 - angleC;
+                angleA = remaining / 2;
+                angleB = remaining / 2;
+            }
+
+            document.getElementById('angleA').value = angleA;
+            document.getElementById('angleB').value = angleB;
+            document.getElementById('angleC').value = angleC;
+            document.getElementById('angleAValue').textContent = angleA.toFixed(1) + '°';
+            document.getElementById('angleBValue').textContent = angleB.toFixed(1) + '°';
+            document.getElementById('angleCValue').textContent = angleC.toFixed(1) + '°';
+
+            // Update sides based on angles (keeping side A constant as reference)
+            const sideA = parseFloat(document.getElementById('sideA').value);
+            const sideB = sideA * Math.sin(angleB * Math.PI / 180) / Math.sin(angleA * Math.PI / 180);
+            const sideC = sideA * Math.sin(angleC * Math.PI / 180) / Math.sin(angleA * Math.PI / 180);
+
+            document.getElementById('sideB').value = sideB;
+            document.getElementById('sideC').value = sideC;
+            document.getElementById('sideBValue').textContent = sideB.toFixed(1);
+            document.getElementById('sideCValue').textContent = sideC.toFixed(1);
+
+            applyConstraints();
+            updateTriangle();
+            isUpdating = false;
         }
 
-        function generateTriangle() {
+        function isValidTriangle(a, b, c) {
+            return (a + b > c) && (a + c > b) && (b + c > a);
+        }
+
+        function applyConstraints() {
+            const sideAInput = document.getElementById('sideA');
+            const sideBInput = document.getElementById('sideB');
+            const sideCInput = document.getElementById('sideC');
+            const angleAInput = document.getElementById('angleA');
+            const angleBInput = document.getElementById('angleB');
+            const angleCInput = document.getElementById('angleC');
+
+            // Reset all to enabled
+            [sideAInput, sideBInput, sideCInput, angleAInput, angleBInput, angleCInput].forEach(input => {
+                input.disabled = false;
+            });
+
+            switch(currentType) {
+                case 'right':
+                    // One angle locked at 90
+                    angleAInput.value = 90;
+                    angleAInput.disabled = true;
+                    document.getElementById('angleAValue').innerHTML = '90° <span class="locked-indicator">(locked)</span>';
+                    break;
+                case 'equilateral':
+                    // All sides equal, all angles 60
+                    const sideA = parseFloat(sideAInput.value);
+                    sideBInput.value = sideA;
+                    sideCInput.value = sideA;
+                    sideBInput.disabled = true;
+                    sideCInput.disabled = true;
+                    angleAInput.value = 60;
+                    angleBInput.value = 60;
+                    angleCInput.value = 60;
+                    angleAInput.disabled = true;
+                    angleBInput.disabled = true;
+                    angleCInput.disabled = true;
+                    document.getElementById('sideBValue').innerHTML = sideA.toFixed(1) + ' <span class="locked-indicator">(locked)</span>';
+                    document.getElementById('sideCValue').innerHTML = sideA.toFixed(1) + ' <span class="locked-indicator">(locked)</span>';
+                    document.getElementById('angleAValue').innerHTML = '60° <span class="locked-indicator">(locked)</span>';
+                    document.getElementById('angleBValue').innerHTML = '60° <span class="locked-indicator">(locked)</span>';
+                    document.getElementById('angleCValue').innerHTML = '60° <span class="locked-indicator">(locked)</span>';
+                    break;
+                case 'isosceles':
+                    // Two sides equal (B and C)
+                    const sideB = parseFloat(sideBInput.value);
+                    sideCInput.value = sideB;
+                    sideCInput.disabled = true;
+                    document.getElementById('sideCValue').innerHTML = sideB.toFixed(1) + ' <span class="locked-indicator">(= Side B)</span>';
+
+                    // Two angles equal
+                    const angleB = parseFloat(angleBInput.value);
+                    angleCInput.value = angleB;
+                    angleCInput.disabled = true;
+                    document.getElementById('angleCValue').innerHTML = angleB.toFixed(1) + '° <span class="locked-indicator">(= Angle B)</span>';
+                    break;
+            }
+        }
+
+        function randomizeTriangle() {
             const canvasContainer = document.getElementById('canvasContainer');
             canvasContainer.classList.add('animating');
             setTimeout(() => canvasContainer.classList.remove('animating'), 500);
 
-            const baseLength = parseInt(document.getElementById('baseLength').value);
-            const height = parseInt(document.getElementById('height').value);
-
-            let triangle;
             switch(currentType) {
                 case 'right':
-                    triangle = generateRightTriangle(baseLength, height);
+                    document.getElementById('sideA').value = Math.random() * 200 + 50;
+                    document.getElementById('sideB').value = Math.random() * 200 + 50;
+                    updateSide('A');
                     break;
                 case 'equilateral':
-                    triangle = generateEquilateralTriangle(baseLength);
+                    document.getElementById('sideA').value = Math.random() * 200 + 50;
+                    applyConstraints();
+                    updateSide('A');
                     break;
                 case 'isosceles':
-                    triangle = generateIsoscelesTriangle(baseLength, height);
+                    document.getElementById('sideA').value = Math.random() * 200 + 50;
+                    document.getElementById('sideB').value = Math.random() * 200 + 50;
+                    applyConstraints();
+                    updateSide('A');
                     break;
                 case 'scalene':
-                    triangle = generateScaleneTriangle(baseLength, height);
+                    document.getElementById('sideA').value = Math.random() * 200 + 50;
+                    document.getElementById('sideB').value = Math.random() * 200 + 50;
+                    document.getElementById('sideC').value = Math.random() * 200 + 50;
+                    updateSide('A');
                     break;
             }
+        }
+
+        function updateTriangle() {
+            const sideA = parseFloat(document.getElementById('sideA').value);
+            const sideB = parseFloat(document.getElementById('sideB').value);
+            const sideC = parseFloat(document.getElementById('sideC').value);
+            const angleA = parseFloat(document.getElementById('angleA').value);
+            const angleB = parseFloat(document.getElementById('angleB').value);
+            const angleC = parseFloat(document.getElementById('angleC').value);
+
+            if (!isValidTriangle(sideA, sideB, sideC)) {
+                return;
+            }
+
+            const triangle = {
+                type: getTypeName(),
+                sides: [sideA, sideB, sideC],
+                sideLabels: ['a', 'b', 'c'],
+                angles: [angleA, angleB, angleC],
+                vertices: calculateVertices(sideA, sideB, sideC)
+            };
 
             currentTriangle = triangle;
             drawTriangle(triangle);
             displayProperties(triangle);
         }
 
-        function generateRightTriangle(base, height) {
-            const hypotenuse = Math.sqrt(base * base + height * height);
-            const angleA = Math.atan(height / base) * (180 / Math.PI);
-            const angleB = Math.atan(base / height) * (180 / Math.PI);
-
-            return {
-                type: 'Right-Angled',
-                sides: [base, height, hypotenuse],
-                sideLabels: ['a', 'b', 'c'],
-                angles: [90, angleA, angleB],
-                vertices: calculateCenteredVertices(base, height, 0)
+        function getTypeName() {
+            const names = {
+                'right': 'Right-Angled',
+                'equilateral': 'Equilateral',
+                'isosceles': 'Isosceles',
+                'scalene': 'Scalene'
             };
+            return names[currentType];
         }
 
-        function generateEquilateralTriangle(side) {
-            const height = side * Math.sqrt(3) / 2;
-
-            return {
-                type: 'Equilateral',
-                sides: [side, side, side],
-                sideLabels: ['a', 'b', 'c'],
-                angles: [60, 60, 60],
-                vertices: calculateCenteredVertices(side, height, side/2)
-            };
-        }
-
-        function generateIsoscelesTriangle(base, height) {
-            const side = Math.sqrt((base/2) * (base/2) + height * height);
-            const baseAngle = Math.atan((base/2) / height) * (180 / Math.PI);
-            const apexAngle = 180 - 2 * baseAngle;
-
-            return {
-                type: 'Isosceles',
-                sides: [base, side, side],
-                sideLabels: ['a', 'b', 'c'],
-                angles: [apexAngle, baseAngle, baseAngle],
-                vertices: calculateCenteredVertices(base, height, base/2)
-            };
-        }
-
-        function generateScaleneTriangle(base, height) {
-            const offset = base * 0.3;
-            const sideB = Math.sqrt(offset * offset + height * height);
-            const sideC = Math.sqrt((base - offset) * (base - offset) + height * height);
-
-            const angleA = Math.acos((sideB*sideB + sideC*sideC - base*base) / (2*sideB*sideC)) * (180/Math.PI);
-            const angleB = Math.acos((base*base + sideC*sideC - sideB*sideB) / (2*base*sideC)) * (180/Math.PI);
-            const angleC = 180 - angleA - angleB;
-
-            return {
-                type: 'Scalene',
-                sides: [base, sideB, sideC],
-                sideLabels: ['a', 'b', 'c'],
-                angles: [angleA, angleB, angleC],
-                vertices: calculateCenteredVertices(base, height, offset)
-            };
-        }
-
-        function calculateCenteredVertices(base, height, offset) {
+        function calculateVertices(a, b, c) {
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
 
-            const x1 = centerX - base / 2;
-            const y1 = centerY + height / 2;
-            const x2 = centerX + base / 2;
-            const y2 = centerY + height / 2;
-            const x3 = centerX - base / 2 + offset;
-            const y3 = centerY - height / 2;
+            // Scale to fit canvas
+            const maxSide = Math.max(a, b, c);
+            const scale = Math.min(300, canvas.width * 0.5) / maxSide;
+
+            // Use law of cosines to position vertices
+            const x1 = centerX - (a * scale) / 2;
+            const y1 = centerY + 100;
+            const x2 = centerX + (a * scale) / 2;
+            const y2 = centerY + 100;
+
+            // Calculate third vertex position
+            const angleAtC = Math.acos((a*a + b*b - c*c) / (2*a*b)) * (180/Math.PI);
+            const x3 = x1 + b * scale * Math.cos((180 - angleAtC) * Math.PI / 180);
+            const y3 = y1 - b * scale * Math.sin((180 - angleAtC) * Math.PI / 180);
 
             return [{x: x1, y: y1}, {x: x2, y: y2}, {x: x3, y: y3}];
         }
@@ -465,12 +684,14 @@
             });
 
             // Draw right angle indicator if right triangle
-            if (triangle.type === 'Right-Angled') {
+            if (currentType === 'right') {
                 const squareSize = 15;
                 ctx.strokeStyle = '#FF5722';
                 ctx.lineWidth = 2;
                 ctx.strokeRect(vertices[0].x, vertices[0].y - squareSize, squareSize, squareSize);
             }
+
+            const unit = unitLabels[document.getElementById('unitSelect').value];
 
             // Label sides
             ctx.fillStyle = '#333';
@@ -478,12 +699,12 @@
 
             const midpoints = [
                 {x: (vertices[0].x + vertices[1].x) / 2, y: (vertices[0].y + vertices[1].y) / 2 + 20},
-                {x: (vertices[1].x + vertices[2].x) / 2 + 20, y: (vertices[1].y + vertices[2].y) / 2},
-                {x: (vertices[2].x + vertices[0].x) / 2 - 20, y: (vertices[2].y + vertices[0].y) / 2}
+                {x: (vertices[1].x + vertices[2].x) / 2 + 30, y: (vertices[1].y + vertices[2].y) / 2},
+                {x: (vertices[2].x + vertices[0].x) / 2 - 40, y: (vertices[2].y + vertices[0].y) / 2}
             ];
 
             triangle.sides.forEach((side, i) => {
-                ctx.fillText(`${triangle.sideLabels[i]} = ${side.toFixed(1)}`, midpoints[i].x, midpoints[i].y);
+                ctx.fillText(`${triangle.sideLabels[i]} = ${side.toFixed(1)} ${unit}`, midpoints[i].x, midpoints[i].y);
             });
 
             // Label angles
@@ -509,29 +730,28 @@
             const s = perimeter / 2;
             const area = Math.sqrt(s * (s - sides[0]) * (s - sides[1]) * (s - sides[2]));
 
-            // Calculate trigonometric ratios for the largest angle
-            const maxAngleIndex = triangle.angles.indexOf(Math.max(...triangle.angles));
-            const opposite = sides[maxAngleIndex];
-            const adjacent = sides[(maxAngleIndex + 1) % 3];
-            const hypotenuse = sides[(maxAngleIndex + 2) % 3];
-
-            const sinRatio = (opposite / hypotenuse) || (Math.sin(triangle.angles[maxAngleIndex] * Math.PI / 180));
-            const cosRatio = (adjacent / hypotenuse) || (Math.cos(triangle.angles[maxAngleIndex] * Math.PI / 180));
-            const tanRatio = (opposite / adjacent) || (Math.tan(triangle.angles[maxAngleIndex] * Math.PI / 180));
+            const unit = document.getElementById('unitSelect').value;
+            const unitLabel = unitLabels[unit];
 
             const properties = [
                 {label: 'Type', value: triangle.type},
-                {label: 'Perimeter', value: `${perimeter.toFixed(2)} units`},
-                {label: 'Area', value: `${area.toFixed(2)} sq units`},
-                {label: 'Side A', value: `${sides[0].toFixed(2)} units`},
-                {label: 'Side B', value: `${sides[1].toFixed(2)} units`},
-                {label: 'Side C', value: `${sides[2].toFixed(2)} units`},
+                {label: 'Perimeter', value: `${perimeter.toFixed(2)} ${unitLabel}`},
+                {label: 'Area', value: `${area.toFixed(2)} ${unitLabel}²`},
+                {label: 'Side A', value: `${sides[0].toFixed(2)} ${unitLabel}`},
+                {label: 'Side B', value: `${sides[1].toFixed(2)} ${unitLabel}`},
+                {label: 'Side C', value: `${sides[2].toFixed(2)} ${unitLabel}`},
                 {label: 'Angle A', value: `${triangle.angles[0].toFixed(2)}°`},
                 {label: 'Angle B', value: `${triangle.angles[1].toFixed(2)}°`},
                 {label: 'Angle C', value: `${triangle.angles[2].toFixed(2)}°`},
-                {label: 'sin(max angle)', value: sinRatio.toFixed(4)},
-                {label: 'cos(max angle)', value: cosRatio.toFixed(4)},
-                {label: 'tan(max angle)', value: tanRatio.toFixed(4)}
+                {label: 'sin(Angle A)', value: Math.sin(triangle.angles[0] * Math.PI / 180).toFixed(4)},
+                {label: 'cos(Angle A)', value: Math.cos(triangle.angles[0] * Math.PI / 180).toFixed(4)},
+                {label: 'tan(Angle A)', value: Math.tan(triangle.angles[0] * Math.PI / 180).toFixed(4)},
+                {label: 'sin(Angle B)', value: Math.sin(triangle.angles[1] * Math.PI / 180).toFixed(4)},
+                {label: 'cos(Angle B)', value: Math.cos(triangle.angles[1] * Math.PI / 180).toFixed(4)},
+                {label: 'tan(Angle B)', value: Math.tan(triangle.angles[1] * Math.PI / 180).toFixed(4)},
+                {label: 'sin(Angle C)', value: Math.sin(triangle.angles[2] * Math.PI / 180).toFixed(4)},
+                {label: 'cos(Angle C)', value: Math.cos(triangle.angles[2] * Math.PI / 180).toFixed(4)},
+                {label: 'tan(Angle C)', value: Math.tan(triangle.angles[2] * Math.PI / 180).toFixed(4)}
             ];
 
             const propertiesGrid = document.getElementById('propertiesGrid');
@@ -543,8 +763,9 @@
             `).join('');
         }
 
-        // Generate initial triangle
-        generateTriangle();
+        // Initialize
+        applyConstraints();
+        updateTriangle();
     </script>
 </body>
 </html>
