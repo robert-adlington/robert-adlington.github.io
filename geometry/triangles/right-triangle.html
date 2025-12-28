@@ -675,7 +675,7 @@
                                    max="178"
                                    step="0.1"
                                    ${isAngleDisabled ? 'disabled' : ''}
-                                   onchange="updateFromAngle('${data.name}', this.value)">
+                                   oninput="updateFromAngle('${data.name}', this.value)">
                         </div>
                         <div class="angle-property">
                             <div class="property-label">Opposite Side ${data.oppositeSide} (${unitLabel})</div>
@@ -686,7 +686,7 @@
                                    min="1"
                                    step="0.1"
                                    ${isSideDisabled ? 'disabled' : ''}
-                                   onchange="updateFromSide('${data.oppositeSide}', this.value)">
+                                   oninput="updateFromSide('${data.oppositeSide}', this.value)">
                         </div>
                         <div class="angle-property">
                             <div class="property-label">sin(${data.name})</div>
