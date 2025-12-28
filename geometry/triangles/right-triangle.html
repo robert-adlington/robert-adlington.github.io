@@ -244,10 +244,33 @@
             margin: 0;
         }
 
+        .properties-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
         .properties-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .angle-column {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .angle-column h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            text-align: center;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
         }
 
         .property-item {
@@ -255,6 +278,13 @@
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .angle-property {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
         }
 
         .property-label {
@@ -268,6 +298,25 @@
             font-size: 1.2em;
             font-weight: bold;
             color: #667eea;
+        }
+
+        .generate-type-btn {
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            font-size: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .generate-type-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .locked-indicator {
@@ -293,6 +342,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .properties-summary {
+                grid-template-columns: 1fr;
+            }
+
             .controls-section {
                 grid-template-columns: 1fr;
             }
@@ -312,25 +365,26 @@
                     <button class="type-btn" onclick="setTriangleType('isosceles')">Isosceles</button>
                     <button class="type-btn" onclick="setTriangleType('scalene')">Scalene</button>
                 </div>
+                <button class="generate-type-btn" onclick="randomizeTriangle()">Generate</button>
             </div>
 
             <div class="control-group">
                 <h3>Side Lengths</h3>
                 <div class="slider-control">
                     <label>
-                        Side A: <span class="slider-value" id="sideAValue">150</span>
+                        Side BC (opposite ∠A): <span class="slider-value" id="sideAValue">150</span>
                     </label>
                     <input type="range" id="sideA" min="50" max="300" value="150" step="1" oninput="updateSide('A')">
                 </div>
                 <div class="slider-control">
                     <label>
-                        Side B: <span class="slider-value" id="sideBValue">150</span>
+                        Side CA (opposite ∠B): <span class="slider-value" id="sideBValue">150</span>
                     </label>
                     <input type="range" id="sideB" min="50" max="300" value="150" step="1" oninput="updateSide('B')">
                 </div>
                 <div class="slider-control">
                     <label>
-                        Side C: <span class="slider-value" id="sideCValue">212</span>
+                        Side AB (opposite ∠C): <span class="slider-value" id="sideCValue">212</span>
                     </label>
                     <input type="range" id="sideC" min="50" max="400" value="212" step="1" oninput="updateSide('C')">
                 </div>
@@ -359,8 +413,6 @@
             </div>
         </div>
 
-        <button class="generate-btn" onclick="randomizeTriangle()">Generate Random Triangle</button>
-
         <div class="canvas-container" id="canvasContainer">
             <canvas id="triangleCanvas"></canvas>
         </div>
@@ -384,8 +436,11 @@
                     </label>
                 </div>
             </div>
+            <div class="properties-summary" id="propertiesSummary">
+                <!-- Summary properties (Type, Perimeter, Area) will be inserted here -->
+            </div>
             <div class="properties-grid" id="propertiesGrid">
-                <!-- Properties will be dynamically inserted here -->
+                <!-- Angle columns will be dynamically inserted here -->
             </div>
         </div>
     </div>
@@ -549,11 +604,11 @@
                     document.getElementById('angleCValue').innerHTML = '60° <span class="locked-indicator">(locked)</span>';
                     break;
                 case 'isosceles':
-                    // Two sides equal (B and C)
+                    // Two sides equal (CA and AB)
                     const sideB = parseFloat(sideBInput.value);
                     sideCInput.value = sideB;
                     sideCInput.disabled = true;
-                    document.getElementById('sideCValue').innerHTML = sideB.toFixed(1) + ' <span class="locked-indicator">(= Side B)</span>';
+                    document.getElementById('sideCValue').innerHTML = sideB.toFixed(1) + ' <span class="locked-indicator">(= Side CA)</span>';
 
                     // Two angles equal
                     const angleB = parseFloat(angleBInput.value);
@@ -610,7 +665,7 @@
             const triangle = {
                 type: getTypeName(),
                 sides: [sideA, sideB, sideC],
-                sideLabels: ['a', 'b', 'c'],
+                sideLabels: ['BC', 'CA', 'AB'],
                 angles: [angleA, angleB, angleC],
                 vertices: calculateVertices(sideA, sideB, sideC)
             };
@@ -733,34 +788,72 @@
             const unit = document.getElementById('unitSelect').value;
             const unitLabel = unitLabels[unit];
 
-            const properties = [
+            // Summary properties
+            const summaryProperties = [
                 {label: 'Type', value: triangle.type},
                 {label: 'Perimeter', value: `${perimeter.toFixed(2)} ${unitLabel}`},
-                {label: 'Area', value: `${area.toFixed(2)} ${unitLabel}²`},
-                {label: 'Side A', value: `${sides[0].toFixed(2)} ${unitLabel}`},
-                {label: 'Side B', value: `${sides[1].toFixed(2)} ${unitLabel}`},
-                {label: 'Side C', value: `${sides[2].toFixed(2)} ${unitLabel}`},
-                {label: 'Angle A', value: `${triangle.angles[0].toFixed(2)}°`},
-                {label: 'Angle B', value: `${triangle.angles[1].toFixed(2)}°`},
-                {label: 'Angle C', value: `${triangle.angles[2].toFixed(2)}°`},
-                {label: 'sin(Angle A)', value: Math.sin(triangle.angles[0] * Math.PI / 180).toFixed(4)},
-                {label: 'cos(Angle A)', value: Math.cos(triangle.angles[0] * Math.PI / 180).toFixed(4)},
-                {label: 'tan(Angle A)', value: Math.tan(triangle.angles[0] * Math.PI / 180).toFixed(4)},
-                {label: 'sin(Angle B)', value: Math.sin(triangle.angles[1] * Math.PI / 180).toFixed(4)},
-                {label: 'cos(Angle B)', value: Math.cos(triangle.angles[1] * Math.PI / 180).toFixed(4)},
-                {label: 'tan(Angle B)', value: Math.tan(triangle.angles[1] * Math.PI / 180).toFixed(4)},
-                {label: 'sin(Angle C)', value: Math.sin(triangle.angles[2] * Math.PI / 180).toFixed(4)},
-                {label: 'cos(Angle C)', value: Math.cos(triangle.angles[2] * Math.PI / 180).toFixed(4)},
-                {label: 'tan(Angle C)', value: Math.tan(triangle.angles[2] * Math.PI / 180).toFixed(4)}
+                {label: 'Area', value: `${area.toFixed(2)} ${unitLabel}²`}
             ];
 
-            const propertiesGrid = document.getElementById('propertiesGrid');
-            propertiesGrid.innerHTML = properties.map(prop => `
+            const propertiesSummary = document.getElementById('propertiesSummary');
+            propertiesSummary.innerHTML = summaryProperties.map(prop => `
                 <div class="property-item">
                     <div class="property-label">${prop.label}</div>
                     <div class="property-value">${prop.value}</div>
                 </div>
             `).join('');
+
+            // Angle columns with opposite sides and trig functions
+            const angleData = [
+                {
+                    name: 'A',
+                    angle: triangle.angles[0],
+                    oppositeSide: 'BC',
+                    oppositeSideLength: sides[0]
+                },
+                {
+                    name: 'B',
+                    angle: triangle.angles[1],
+                    oppositeSide: 'CA',
+                    oppositeSideLength: sides[1]
+                },
+                {
+                    name: 'C',
+                    angle: triangle.angles[2],
+                    oppositeSide: 'AB',
+                    oppositeSideLength: sides[2]
+                }
+            ];
+
+            const propertiesGrid = document.getElementById('propertiesGrid');
+            propertiesGrid.innerHTML = angleData.map(data => {
+                const angleRad = data.angle * Math.PI / 180;
+                return `
+                    <div class="angle-column">
+                        <h4>Angle ${data.name}</h4>
+                        <div class="angle-property">
+                            <div class="property-label">Angle</div>
+                            <div class="property-value">${data.angle.toFixed(2)}°</div>
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">Opposite Side ${data.oppositeSide}</div>
+                            <div class="property-value">${data.oppositeSideLength.toFixed(2)} ${unitLabel}</div>
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">sin(${data.name})</div>
+                            <div class="property-value">${Math.sin(angleRad).toFixed(4)}</div>
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">cos(${data.name})</div>
+                            <div class="property-value">${Math.cos(angleRad).toFixed(4)}</div>
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">tan(${data.name})</div>
+                            <div class="property-value">${Math.tan(angleRad).toFixed(4)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Initialize
