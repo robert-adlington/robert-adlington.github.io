@@ -1,0 +1,642 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+export default function RandomRobby() {
+  const [diceCount, setDiceCount] = useState(1);
+  const [sides, setSides] = useState(2);
+  const [values, setValues] = useState([1]);
+  const [isRolling, setIsRolling] = useState(false);
+  const [hasRolled, setHasRolled] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isIntro, setIsIntro] = useState(true);
+  const hasInitialized = useRef(false);
+
+  // Initial 3-second roll on first visit with intro state
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      setIsRolling(true);
+      setHasRolled(true);
+
+      const cycleInterval = setInterval(() => {
+        setValues(prev => prev.map(() => Math.floor(Math.random() * sides) + 1));
+      }, 150);
+
+      setTimeout(() => {
+        clearInterval(cycleInterval);
+        setValues(prev => prev.map(() => Math.floor(Math.random() * sides) + 1));
+        setIsRolling(false);
+        setTimeout(() => setIsIntro(false), 800);
+      }, 3000);
+    }
+  }, []);
+
+  // Adjust values array when dice count changes
+  useEffect(() => {
+    setValues(prev => {
+      const newValues = [...prev];
+      while (newValues.length < diceCount) {
+        newValues.push(Math.floor(Math.random() * sides) + 1);
+      }
+      return newValues.slice(0, diceCount);
+    });
+  }, [diceCount]);
+
+  // Clamp values when sides change
+  useEffect(() => {
+    setValues(prev => prev.map(v => Math.min(v, sides)));
+  }, [sides]);
+
+  const roll = (duration = 2000) => {
+    if (isRolling) return;
+    setIsRolling(true);
+    setHasRolled(true);
+
+    const cycleInterval = setInterval(() => {
+      setValues(prev => prev.map(() => Math.floor(Math.random() * sides) + 1));
+    }, 150);
+
+    setTimeout(() => {
+      clearInterval(cycleInterval);
+      setValues(prev => prev.map(() => Math.floor(Math.random() * sides) + 1));
+      setIsRolling(false);
+    }, duration);
+  };
+
+  const isCoin = sides === 2;
+
+  const getDiceSize = () => {
+    if (isIntro) {
+      return Math.min(window.innerWidth * 0.8, 350);
+    }
+    const baseSize = Math.min(window.innerWidth * 0.8, 400);
+    if (diceCount === 1) return baseSize * 0.6;
+    if (diceCount === 2) return baseSize * 0.35;
+    if (diceCount === 3) return baseSize * 0.28;
+    if (diceCount === 4) return baseSize * 0.3;
+    return baseSize * 0.24;
+  };
+
+  const diceSize = getDiceSize();
+
+  const getPolygonShape = (s) => {
+    if (s === 2) return '🪙';
+    if (s === 3) return '▲';
+    if (s === 4) return '◆';
+    if (s === 5) return '⬠';
+    if (s === 6) return '⬡';
+    if (s === 7) return '⬡';
+    if (s === 8) return '◆';
+    if (s === 9) return '⬡';
+    if (s === 10) return '⬡';
+    return '●';
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-emerald-900 via-green-800 to-emerald-950 flex flex-col items-center px-4 py-6 overflow-hidden relative">
+      {/* Jungle Background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Misty atmosphere */}
+        <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/50 via-transparent to-emerald-900/30" />
+        
+        {/* Sun rays through canopy */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-yellow-300/10 rounded-full blur-3xl" />
+        <div className="absolute top-10 right-1/4 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl" />
+        
+        {/* Back layer trees/leaves */}
+        <svg className="absolute inset-0 w-full h-full opacity-20" preserveAspectRatio="xMidYMid slice">
+          {/* Large palm fronds in background */}
+          <path d="M-50 0 Q100 50 50 200 Q80 100 150 150 Q100 50 200 0" fill="#065f46" />
+          <path d="M350 -20 Q300 80 400 150 Q320 80 280 120 Q340 40 250 0" fill="#064e3b" />
+          <path d="M100 100 Q150 150 120 250 Q170 180 200 220 Q160 150 220 100" fill="#047857" />
+        </svg>
+        
+        {/* Hanging vines - left side */}
+        <svg className="absolute left-0 top-0 h-full w-32 opacity-60" viewBox="0 0 100 400" preserveAspectRatio="xMinYMin slice">
+          <path d="M20 0 Q25 50 15 100 Q5 150 20 200 Q35 250 15 300 Q0 350 20 400" stroke="#166534" strokeWidth="3" fill="none" />
+          <path d="M50 0 Q40 60 55 120 Q70 180 45 240 Q20 300 50 360" stroke="#15803d" strokeWidth="2" fill="none" />
+          <path d="M10 50 Q20 80 10 120" stroke="#166534" strokeWidth="4" fill="none" />
+          {/* Vine leaves */}
+          <ellipse cx="15" cy="100" rx="8" ry="5" fill="#22c55e" transform="rotate(-20 15 100)" />
+          <ellipse cx="20" cy="200" rx="10" ry="6" fill="#16a34a" transform="rotate(15 20 200)" />
+          <ellipse cx="45" cy="150" rx="7" ry="4" fill="#22c55e" transform="rotate(-30 45 150)" />
+        </svg>
+        
+        {/* Hanging vines - right side */}
+        <svg className="absolute right-0 top-0 h-full w-32 opacity-60" viewBox="0 0 100 400" preserveAspectRatio="xMaxYMin slice">
+          <path d="M80 0 Q75 70 85 140 Q95 210 80 280 Q65 350 85 400" stroke="#166534" strokeWidth="3" fill="none" />
+          <path d="M60 20 Q70 90 55 160 Q40 230 65 300" stroke="#15803d" strokeWidth="2" fill="none" />
+          {/* Vine leaves */}
+          <ellipse cx="85" cy="140" rx="9" ry="5" fill="#22c55e" transform="rotate(25 85 140)" />
+          <ellipse cx="75" cy="250" rx="8" ry="5" fill="#16a34a" transform="rotate(-20 75 250)" />
+        </svg>
+        
+        {/* Large tropical leaves at bottom */}
+        <svg className="absolute bottom-0 left-0 w-full h-48 opacity-70" viewBox="0 0 400 100" preserveAspectRatio="xMidYMax slice">
+          {/* Left palm frond */}
+          <path d="M-20 100 Q30 60 20 20 M20 20 Q25 40 10 60 M20 20 Q35 35 30 55 M20 20 Q40 25 45 45 M20 20 Q45 20 55 35" stroke="#15803d" strokeWidth="2" fill="none" />
+          {/* Center fern */}
+          <path d="M200 100 Q200 50 180 30 M180 30 Q190 45 175 60 M180 30 Q195 40 185 55 M200 100 Q200 50 220 30 M220 30 Q210 45 225 60 M220 30 Q205 40 215 55" stroke="#166534" strokeWidth="2" fill="none" />
+          {/* Right palm frond */}
+          <path d="M420 100 Q370 60 380 20 M380 20 Q375 40 390 60 M380 20 Q365 35 370 55 M380 20 Q360 25 355 45" stroke="#15803d" strokeWidth="2" fill="none" />
+          {/* Broad leaves */}
+          <ellipse cx="80" cy="85" rx="35" ry="20" fill="#166534" transform="rotate(-15 80 85)" />
+          <ellipse cx="320" cy="80" rx="30" ry="18" fill="#15803d" transform="rotate(20 320 80)" />
+          <ellipse cx="150" cy="90" rx="25" ry="15" fill="#22c55e" transform="rotate(-5 150 90)" />
+        </svg>
+        
+        {/* Fireflies / jungle sparkles */}
+        {[...Array(12)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-1 h-1 bg-yellow-300 rounded-full animate-pulse"
+            style={{
+              top: `${10 + (i * 7) % 80}%`,
+              left: `${5 + (i * 13) % 90}%`,
+              animationDelay: `${i * 0.3}s`,
+              opacity: 0.6,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Header with Logo, Monkey, and Settings Toggle */}
+      <header 
+        className={`relative z-10 w-full max-w-md flex items-center justify-between mb-4 transition-all duration-700 ${
+          isIntro ? 'opacity-0 translate-y-[-20px]' : 'opacity-100 translate-y-0'
+        }`}
+      >
+        <div className="w-16" />
+        
+        <div className="text-center relative">
+          {/* Hanging Monkey */}
+          <div className="absolute -top-2 -right-8 md:-right-12" style={{ transform: 'rotate(15deg)' }}>
+            <svg width="50" height="70" viewBox="0 0 50 70" className="drop-shadow-lg">
+              <path d="M25 0 L25 15" stroke="#8B4513" strokeWidth="4" strokeLinecap="round"/>
+              <ellipse cx="25" cy="3" rx="6" ry="4" fill="#DEB887"/>
+              <ellipse cx="25" cy="35" rx="14" ry="18" fill="#8B4513"/>
+              <ellipse cx="25" cy="38" rx="10" ry="12" fill="#DEB887"/>
+              <circle cx="25" cy="22" r="12" fill="#8B4513"/>
+              <ellipse cx="25" cy="24" rx="8" ry="7" fill="#DEB887"/>
+              <circle cx="21" cy="21" r="2.5" fill="white"/>
+              <circle cx="29" cy="21" r="2.5" fill="white"/>
+              <circle cx="21.5" cy="21.5" r="1.2" fill="#1a1a1a"/>
+              <circle cx="29.5" cy="21.5" r="1.2" fill="#1a1a1a"/>
+              <circle cx="21" cy="20.5" r="0.5" fill="white"/>
+              <circle cx="29" cy="20.5" r="0.5" fill="white"/>
+              <ellipse cx="25" cy="25" rx="2" ry="1.5" fill="#654321"/>
+              <path d="M22 28 Q25 31 28 28" stroke="#654321" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+              <circle cx="13" cy="20" r="5" fill="#8B4513"/>
+              <circle cx="13" cy="20" r="3" fill="#DEB887"/>
+              <circle cx="37" cy="20" r="5" fill="#8B4513"/>
+              <circle cx="37" cy="20" r="3" fill="#DEB887"/>
+              <path d="M12 30 Q5 45 10 55" stroke="#8B4513" strokeWidth="4" fill="none" strokeLinecap="round"/>
+              <ellipse cx="10" cy="56" rx="4" ry="3" fill="#DEB887"/>
+              <path d="M18 50 Q15 60 18 65" stroke="#8B4513" strokeWidth="4" fill="none" strokeLinecap="round"/>
+              <path d="M32 50 Q35 60 32 65" stroke="#8B4513" strokeWidth="4" fill="none" strokeLinecap="round"/>
+              <ellipse cx="18" cy="66" rx="5" ry="3" fill="#DEB887"/>
+              <ellipse cx="32" cy="66" rx="5" ry="3" fill="#DEB887"/>
+              <path d="M35 48 Q50 50 48 35 Q46 25 40 30" stroke="#8B4513" strokeWidth="3" fill="none" strokeLinecap="round"/>
+            </svg>
+          </div>
+          
+          <h1 
+            className="text-4xl md:text-5xl font-black tracking-tight"
+            style={{
+              fontFamily: "'Fredoka', 'Comic Sans MS', cursive",
+              background: 'linear-gradient(135deg, #fbbf24, #f97316, #ef4444, #ec4899)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+              transform: 'rotate(-2deg)',
+            }}
+          >
+            Random Robby
+          </h1>
+        </div>
+
+        {/* Settings Toggle Button */}
+        <button
+          onClick={() => setSettingsOpen(!settingsOpen)}
+          className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 ${
+            settingsOpen 
+              ? 'bg-emerald-600/50 shadow-lg shadow-emerald-500/20' 
+              : 'bg-emerald-800/50 hover:bg-emerald-700/50'
+          }`}
+          style={{ backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.1)' }}
+        >
+          <span className="text-xl font-black text-yellow-400">{diceCount}</span>
+          <span className="text-lg text-emerald-300">{getPolygonShape(sides)}</span>
+        </button>
+      </header>
+
+      {/* Collapsible Settings Panel */}
+      <div 
+        className={`relative z-20 w-full max-w-md overflow-hidden transition-all duration-500 ease-out ${
+          isIntro ? 'max-h-0 opacity-0' : (settingsOpen ? 'max-h-96 opacity-100 mb-4' : 'max-h-0 opacity-0')
+        }`}
+      >
+        <div className="bg-emerald-900/60 backdrop-blur-md rounded-3xl p-5 border border-emerald-600/30 shadow-2xl">
+          {/* Dice Count */}
+          <div className="mb-5">
+            <label className="flex justify-between items-center text-emerald-100/80 text-sm font-semibold mb-3 uppercase tracking-wider">
+              <span>{isCoin ? 'Coins' : 'Dice'}</span>
+              <span className="text-2xl font-black text-yellow-400">{diceCount}</span>
+            </label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  onClick={() => !isRolling && setDiceCount(n)}
+                  disabled={isRolling}
+                  className={`flex-1 py-3 rounded-xl font-bold text-lg transition-all duration-200 ${
+                    diceCount === n
+                      ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-gray-900 shadow-lg shadow-yellow-500/30 scale-105'
+                      : 'bg-emerald-700/50 text-emerald-100/70 hover:bg-emerald-600/50'
+                  } ${isRolling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Sides */}
+          <div>
+            <label className="flex justify-between items-center text-emerald-100/80 text-sm font-semibold mb-3 uppercase tracking-wider">
+              <span>Sides</span>
+              <span className="text-2xl font-black text-emerald-300">{sides === 2 ? '🪙' : sides}</span>
+            </label>
+            <div className="grid grid-cols-9 gap-1.5">
+              {[2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                <button
+                  key={n}
+                  onClick={() => !isRolling && setSides(n)}
+                  disabled={isRolling}
+                  className={`py-2.5 rounded-xl font-bold text-base transition-all duration-200 ${
+                    sides === n
+                      ? 'bg-gradient-to-br from-emerald-400 to-teal-500 text-gray-900 shadow-lg shadow-emerald-500/30 scale-105'
+                      : 'bg-emerald-700/50 text-emerald-100/70 hover:bg-emerald-600/50'
+                  } ${isRolling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {n === 2 ? '🪙' : n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Dice / Coins Display */}
+      <div 
+        className={`relative z-10 flex-1 flex flex-wrap justify-center items-center w-full transition-all duration-700 ${
+          isIntro ? '' : 'gap-6 md:gap-8'
+        }`}
+        style={{ maxWidth: '90vw' }}
+      >
+        {values.slice(0, diceCount).map((value, index) => (
+          <div
+            key={index}
+            className={`relative transition-all duration-700 ${isIntro ? '' : 'p-2'}`}
+            style={{
+              width: diceSize,
+              height: diceSize,
+              perspective: '1000px',
+            }}
+          >
+            {isCoin ? (
+              <MonkeyCoin value={value} isRolling={isRolling} hasRolled={hasRolled} index={index} size={diceSize} />
+            ) : (
+              <Cube3D value={value} sides={sides} isRolling={isRolling} hasRolled={hasRolled} index={index} size={diceSize} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Go Button */}
+      <div 
+        className={`relative z-10 mt-6 mb-4 transition-all duration-700 ${
+          isIntro ? 'opacity-0 translate-y-[20px]' : 'opacity-100 translate-y-0'
+        }`}
+      >
+        <button
+          onClick={() => roll(2000)}
+          disabled={isRolling || isIntro}
+          className={`px-16 py-5 rounded-full font-black text-2xl uppercase tracking-widest transition-all duration-300 ${
+            isRolling
+              ? 'bg-gray-600 text-gray-400 cursor-not-allowed scale-95'
+              : 'bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 text-gray-900 shadow-2xl shadow-amber-500/40 hover:shadow-amber-500/60 hover:scale-105 active:scale-95'
+          }`}
+          style={{
+            fontFamily: "'Fredoka', 'Comic Sans MS', cursive",
+          }}
+        >
+          {isRolling ? (
+            <span className="flex items-center gap-2">
+              <span className="animate-spin">{isCoin ? '🪙' : '🎲'}</span>
+              {isCoin ? 'Flipping...' : 'Rolling...'}
+            </span>
+          ) : (
+            isCoin ? 'Flip!' : 'Roll!'
+          )}
+        </button>
+      </div>
+
+      {/* Result total for multi-dice */}
+      {hasRolled && !isRolling && !isIntro && diceCount > 1 && !isCoin && (
+        <div 
+          className="relative z-10 text-center"
+          style={{ animation: 'fadeInUp 0.5s ease-out forwards' }}
+        >
+          <div className="text-emerald-200/60 text-sm uppercase tracking-widest mb-1">Total</div>
+          <div 
+            className="text-5xl font-black"
+            style={{
+              fontFamily: "'Fredoka', sans-serif",
+              background: 'linear-gradient(135deg, #fbbf24, #f97316)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            {values.slice(0, diceCount).reduce((a, b) => a + b, 0)}
+          </div>
+        </div>
+      )}
+
+      {/* Coin result summary */}
+      {hasRolled && !isRolling && !isIntro && isCoin && diceCount > 1 && (
+        <div 
+          className="relative z-10 text-center"
+          style={{ animation: 'fadeInUp 0.5s ease-out forwards' }}
+        >
+          <div className="flex gap-6 justify-center">
+            <div className="text-center">
+              <div className="text-3xl font-black text-yellow-400" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                {values.slice(0, diceCount).filter(v => v === 1).length}
+              </div>
+              <div className="text-emerald-200/60 text-sm uppercase tracking-wider">Heads</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-black text-emerald-300" style={{ fontFamily: "'Fredoka', sans-serif" }}>
+                {values.slice(0, diceCount).filter(v => v === 2).length}
+              </div>
+              <div className="text-emerald-200/60 text-sm uppercase tracking-wider">Tails</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keyframe styles */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap');
+        
+        @keyframes coinFlipVertical {
+          0% { transform: rotateX(0deg); }
+          100% { transform: rotateX(1800deg); }
+        }
+        
+        @keyframes coinSettle {
+          0% { transform: rotateX(30deg) scale(1.1); }
+          40% { transform: rotateX(-15deg) scale(0.95); }
+          70% { transform: rotateX(5deg) scale(1.02); }
+          100% { transform: rotateX(0deg) scale(1); }
+        }
+        
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// True 3D Cube component
+function Cube3D({ value, sides, isRolling, hasRolled, index, size }) {
+  const halfSize = size / 2;
+  
+  const pipPositions = {
+    1: [[50, 50]],
+    2: [[30, 30], [70, 70]],
+    3: [[30, 30], [50, 50], [70, 70]],
+    4: [[30, 30], [70, 30], [30, 70], [70, 70]],
+    5: [[30, 30], [70, 30], [50, 50], [30, 70], [70, 70]],
+    6: [[30, 30], [70, 30], [30, 50], [70, 50], [30, 70], [70, 70]],
+    7: [[30, 25], [70, 25], [30, 50], [50, 50], [70, 50], [30, 75], [70, 75]],
+    8: [[30, 25], [50, 25], [70, 25], [30, 50], [70, 50], [30, 75], [50, 75], [70, 75]],
+    9: [[30, 25], [50, 25], [70, 25], [30, 50], [50, 50], [70, 50], [30, 75], [50, 75], [70, 75]],
+    10: [[25, 20], [50, 20], [75, 20], [25, 40], [50, 40], [75, 40], [25, 60], [75, 60], [25, 80], [75, 80]],
+  };
+
+  const renderFace = (faceValue) => {
+    const positions = pipPositions[faceValue] || pipPositions[1];
+    const pipRadius = faceValue <= 6 ? 7 : (faceValue <= 8 ? 6 : 5);
+    
+    return (
+      <svg viewBox="0 0 100 100" className="w-full h-full p-2">
+        {positions.map(([cx, cy], i) => (
+          <circle
+            key={i}
+            cx={cx}
+            cy={cy}
+            r={pipRadius}
+            fill="#1f2937"
+          />
+        ))}
+      </svg>
+    );
+  };
+
+  const faceStyle = {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    background: 'linear-gradient(145deg, #ffffff, #e8e8e8)',
+    border: '3px solid rgba(0,0,0,0.1)',
+    borderRadius: size / 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backfaceVisibility: 'hidden',
+    boxShadow: 'inset 0 2px 10px rgba(255,255,255,0.8), inset 0 -2px 10px rgba(0,0,0,0.1)',
+  };
+
+  const faces = [
+    value,
+    ((value) % sides) + 1,
+    ((value + 1) % sides) + 1,
+    ((value + 2) % sides) + 1,
+    ((value + 3) % sides) + 1,
+    ((value + 4) % sides) + 1,
+  ];
+
+  return (
+    <div
+      className="w-full h-full relative"
+      style={{
+        perspective: size * 3,
+      }}
+    >
+      <div
+        className="w-full h-full relative"
+        style={{
+          transformStyle: 'preserve-3d',
+          animation: isRolling 
+            ? `cubeRoll 0.8s ease-in-out infinite`
+            : hasRolled 
+              ? `cubeSettle 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`
+              : 'none',
+          animationDelay: `${index * 120}ms`,
+        }}
+      >
+        <div style={{ ...faceStyle, transform: `translateZ(${halfSize}px)` }}>
+          {renderFace(faces[0])}
+        </div>
+        <div style={{ ...faceStyle, transform: `rotateY(180deg) translateZ(${halfSize}px)` }}>
+          {renderFace(faces[1])}
+        </div>
+        <div style={{ ...faceStyle, transform: `rotateY(90deg) translateZ(${halfSize}px)` }}>
+          {renderFace(faces[2])}
+        </div>
+        <div style={{ ...faceStyle, transform: `rotateY(-90deg) translateZ(${halfSize}px)` }}>
+          {renderFace(faces[3])}
+        </div>
+        <div style={{ ...faceStyle, transform: `rotateX(90deg) translateZ(${halfSize}px)` }}>
+          {renderFace(faces[4])}
+        </div>
+        <div style={{ ...faceStyle, transform: `rotateX(-90deg) translateZ(${halfSize}px)` }}>
+          {renderFace(faces[5])}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes cubeRoll {
+          0% { transform: rotateX(0deg) rotateY(0deg); }
+          25% { transform: rotateX(90deg) rotateY(90deg); }
+          50% { transform: rotateX(180deg) rotateY(180deg); }
+          75% { transform: rotateX(270deg) rotateY(270deg); }
+          100% { transform: rotateX(360deg) rotateY(360deg); }
+        }
+        
+        @keyframes cubeSettle {
+          0% { transform: rotateX(15deg) rotateY(15deg); }
+          30% { transform: rotateX(-8deg) rotateY(-8deg); }
+          60% { transform: rotateX(4deg) rotateY(4deg); }
+          100% { transform: rotateX(0deg) rotateY(0deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Monkey-themed Coin component
+function MonkeyCoin({ value, isRolling, hasRolled, index, size }) {
+  const isHeads = value === 1;
+
+  // Monkey face SVG for heads
+  const MonkeyHead = () => (
+    <svg viewBox="0 0 100 100" width={size * 0.6} height={size * 0.6}>
+      <circle cx="50" cy="50" r="40" fill="#8B4513"/>
+      <ellipse cx="50" cy="55" rx="28" ry="25" fill="#DEB887"/>
+      <circle cx="38" cy="45" r="8" fill="white"/>
+      <circle cx="62" cy="45" r="8" fill="white"/>
+      <circle cx="39" cy="46" r="4" fill="#1a1a1a"/>
+      <circle cx="63" cy="46" r="4" fill="#1a1a1a"/>
+      <circle cx="37" cy="44" r="1.5" fill="white"/>
+      <circle cx="61" cy="44" r="1.5" fill="white"/>
+      <ellipse cx="50" cy="58" rx="6" ry="5" fill="#654321"/>
+      <circle cx="47" cy="59" r="1.5" fill="#3d2314"/>
+      <circle cx="53" cy="59" r="1.5" fill="#3d2314"/>
+      <path d="M40 68 Q50 78 60 68" stroke="#654321" strokeWidth="3" fill="none" strokeLinecap="round"/>
+      <circle cx="12" cy="45" r="12" fill="#8B4513"/>
+      <circle cx="12" cy="45" r="7" fill="#DEB887"/>
+      <circle cx="88" cy="45" r="12" fill="#8B4513"/>
+      <circle cx="88" cy="45" r="7" fill="#DEB887"/>
+    </svg>
+  );
+
+  // Simple 2D monkey lower half with curly tail
+  const MonkeyButt = () => (
+    <svg viewBox="0 0 100 100" width={size * 0.6} height={size * 0.6}>
+      {/* Curly tail - prominent and playful */}
+      <path 
+        d="M70 35 
+           Q90 30 88 15 
+           Q85 0 70 5 
+           Q58 10 62 22
+           Q66 30 72 25"
+        stroke="#8B4513" 
+        strokeWidth="6" 
+        fill="none" 
+        strokeLinecap="round"
+      />
+      
+      {/* Body / lower torso */}
+      <ellipse cx="50" cy="50" rx="28" ry="22" fill="#8B4513"/>
+      
+      {/* Belly patch */}
+      <ellipse cx="50" cy="52" rx="18" ry="14" fill="#DEB887"/>
+      
+      {/* Left leg */}
+      <path d="M30 62 Q25 78 32 90" stroke="#8B4513" strokeWidth="12" fill="none" strokeLinecap="round"/>
+      {/* Left foot */}
+      <ellipse cx="34" cy="92" rx="10" ry="5" fill="#DEB887"/>
+      
+      {/* Right leg */}
+      <path d="M70 62 Q75 78 68 90" stroke="#8B4513" strokeWidth="12" fill="none" strokeLinecap="round"/>
+      {/* Right foot */}
+      <ellipse cx="66" cy="92" rx="10" ry="5" fill="#DEB887"/>
+      
+      {/* Butt definition - two round cheeks */}
+      <ellipse cx="38" cy="55" rx="12" ry="10" fill="#9B5523"/>
+      <ellipse cx="62" cy="55" rx="12" ry="10" fill="#9B5523"/>
+    </svg>
+  );
+
+  return (
+    <div
+      className="w-full h-full rounded-full flex items-center justify-center relative overflow-hidden"
+      style={{
+        background: isHeads
+          ? 'linear-gradient(145deg, #fbbf24, #d97706)'
+          : 'linear-gradient(145deg, #9ca3af, #6b7280)',
+        boxShadow: isRolling
+          ? '0 0 50px rgba(251, 191, 36, 0.7)'
+          : '0 15px 50px rgba(0,0,0,0.5), inset 0 3px 15px rgba(255,255,255,0.4)',
+        border: `${size / 20}px solid ${isHeads ? '#92400e' : '#4b5563'}`,
+        animation: isRolling 
+          ? `coinFlipVertical 1s linear infinite`
+          : hasRolled 
+            ? `coinSettle 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`
+            : 'none',
+        animationDelay: isRolling ? `${index * 150}ms` : `${index * 100}ms`,
+        transformStyle: 'preserve-3d',
+      }}
+    >
+      {/* Coin rim effect */}
+      <div 
+        className="absolute rounded-full border-2 opacity-30"
+        style={{ 
+          inset: size / 15,
+          borderColor: isHeads ? '#fef3c7' : '#e5e7eb' 
+        }}
+      />
+      
+      {/* Center content */}
+      <div className="text-center relative z-10 flex flex-col items-center justify-center">
+        {isHeads ? <MonkeyHead /> : <MonkeyButt />}
+        <div 
+          className={`font-bold uppercase tracking-wider ${
+            isHeads ? 'text-yellow-900' : 'text-gray-700'
+          }`}
+          style={{ 
+            fontFamily: "'Space Mono', monospace", 
+            fontSize: Math.max(size * 0.08, 10),
+            marginTop: size * 0.02,
+          }}
+        >
+          {isHeads ? 'Heads' : 'Tails'}
+        </div>
+      </div>
+    </div>
+  );
+}
