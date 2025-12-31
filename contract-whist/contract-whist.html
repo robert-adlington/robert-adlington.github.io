@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Contract Whist Scoreboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    // ============ LOCAL STORAGE HELPERS ============
+    const STORAGE_KEYS = {
+      ACCOUNT: 'whist_account',
+      FRIENDS: 'whist_friends',
+      GAMES: 'whist_games',
+    };
+
+    const storage = {
+      getAccount: () => {
+        try {
+          const data = localStorage.getItem(STORAGE_KEYS.ACCOUNT);
+          return data ? JSON.parse(data) : null;
+        } catch { return null; }
+      },
+      setAccount: (account) => {
+        localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(account));
+      },
+      clearAccount: () => {
+        localStorage.removeItem(STORAGE_KEYS.ACCOUNT);
+        localStorage.removeItem(STORAGE_KEYS.FRIENDS);
+        localStorage.removeItem(STORAGE_KEYS.GAMES);
+      },
+      getFriends: () => {
+        try {
+          const data = localStorage.getItem(STORAGE_KEYS.FRIENDS);
+          return data ? JSON.parse(data) : [];
+        } catch { return []; }
+      },
+      setFriends: (friends) => {
+        localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
+      },
+      getGames: () => {
+        try {
+          const data = localStorage.getItem(STORAGE_KEYS.GAMES);
+          return data ? JSON.parse(data) : [];
+        } catch { return []; }
+      },
+      saveGame: (game) => {
+        const games = storage.getGames();
+        games.push({ ...game, id: Date.now(), date: new Date().toISOString() });
+        localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
+      },
+      exportData: () => {
+        return JSON.stringify({
+          account: storage.getAccount(),
+          friends: storage.getFriends(),
+          games: storage.getGames(),
+        }, null, 2);
+      },
+      importData: (jsonString) => {
+        const data = JSON.parse(jsonString);
+        if (data.account) localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(data.account));
+        if (data.friends) localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(data.friends));
+        if (data.games) localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(data.games));
+      }
+    };
+
+    // ============ AUDIO HELPERS ============
+    let audioContext = null;
+
+    const getAudioContext = () => {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioContext;
+    };
+
+    const playFanfare = () => {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'triangle';
+          gain.gain.setValueAtTime(0.3, now + i * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.4);
+          osc.start(now + i * 0.15);
+          osc.stop(now + i * 0.15 + 0.4);
+        });
+      } catch (e) { console.log('Audio not available'); }
+    };
+
+    const playSadSound = () => {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const sadSounds = [
+          () => {
+            [293.66, 277.18, 261.63, 246.94].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.value = freq;
+              osc.type = 'sine';
+              gain.gain.setValueAtTime(0.25, now + i * 0.25);
+              gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.25 + 0.25);
+              osc.start(now + i * 0.25);
+              osc.stop(now + i * 0.25 + 0.3);
+            });
+          },
+          () => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.linearRampToValueAtTime(150, now + 0.5);
+            osc.frequency.linearRampToValueAtTime(100, now + 1);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 1);
+            osc.start(now);
+            osc.stop(now + 1);
+          },
+          () => {
+            [350, 300, 250].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.value = freq;
+              osc.type = 'square';
+              gain.gain.setValueAtTime(0.1, now + i * 0.2);
+              gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.2);
+              osc.start(now + i * 0.2);
+              osc.stop(now + i * 0.2 + 0.25);
+            });
+          }
+        ];
+        sadSounds[Math.floor(Math.random() * sadSounds.length)]();
+      } catch (e) { console.log('Audio not available'); }
+    };
+
+    // ============ MAIN APP ============
+    function WhistScoreboard() {
+      const [account, setAccount] = useState(null);
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [appView, setAppView] = useState('login');
+      
+      const [gameState, setGameState] = useState('setup');
+      const [players, setPlayers] = useState([]);
+      const [rounds, setRounds] = useState([]);
+      const [currentRound, setCurrentRound] = useState(0);
+      const [currentPhase, setCurrentPhase] = useState('bidding');
+      const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+      const [showStandings, setShowStandings] = useState(false);
+      const [history, setHistory] = useState([]);
+
+      useEffect(() => {
+        const savedAccount = storage.getAccount();
+        if (savedAccount) {
+          setAccount(savedAccount);
+          setIsLoggedIn(true);
+          setAppView('home');
+        }
+      }, []);
+
+      const handleLogin = (name, pin) => {
+        const savedAccount = storage.getAccount();
+        if (savedAccount && savedAccount.name === name && savedAccount.pin === pin) {
+          setAccount(savedAccount);
+          setIsLoggedIn(true);
+          setAppView('home');
+          return true;
+        }
+        return false;
+      };
+
+      const handleCreateAccount = (name, pin) => {
+        const newAccount = { name, pin, createdAt: new Date().toISOString() };
+        storage.setAccount(newAccount);
+        setAccount(newAccount);
+        setIsLoggedIn(true);
+        setAppView('home');
+      };
+
+      const handleLogout = () => {
+        setAccount(null);
+        setIsLoggedIn(false);
+        setAppView('login');
+      };
+
+      const totalRounds = useMemo(() => {
+        if (players.length === 0) return 10;
+        if (players.length > 5) return Math.floor(52 / players.length);
+        return 10;
+      }, [players.length]);
+
+      const getTricksForRound = (roundIndex) => totalRounds - roundIndex;
+      
+      const getDealerIndex = (roundIndex) => {
+        const finalRoundIndex = totalRounds - 1;
+        const roundsFromEnd = finalRoundIndex - roundIndex;
+        return (players.length - roundsFromEnd % players.length) % players.length;
+      };
+      
+      const getFirstBidderIndex = (roundIndex) => (getDealerIndex(roundIndex) + 1) % players.length;
+      
+      const getPlayerOrderFromFirst = (firstIndex) => {
+        const order = [];
+        for (let i = 0; i < players.length; i++) {
+          order.push((firstIndex + i) % players.length);
+        }
+        return order;
+      };
+
+      const initializeGame = (playerNames) => {
+        setPlayers(playerNames);
+        const numRounds = playerNames.length > 5 ? Math.floor(52 / playerNames.length) : 10;
+        const initialRounds = Array(numRounds).fill(null).map(() => ({
+          bids: {},
+          scores: {},
+          totals: {}
+        }));
+        setRounds(initialRounds);
+        setCurrentRound(0);
+        setCurrentPhase('bidding');
+        setCurrentPlayerIndex(0);
+        setGameState('playing');
+        setHistory([]);
+        setAppView('game');
+      };
+
+      const getRunningTotal = (playerIndex, upToRound) => {
+        let total = 0;
+        for (let i = 0; i <= upToRound; i++) {
+          if (rounds[i]?.totals[playerIndex] !== undefined) {
+            total = rounds[i].totals[playerIndex];
+          }
+        }
+        return total;
+      };
+
+      const calculateRoundScore = (bid, tricks) => {
+        if (bid === tricks) return 10 + bid;
+        return tricks;
+      };
+
+      const getStandings = (afterRound) => {
+        return players
+          .map((name, index) => ({
+            name,
+            index,
+            total: getRunningTotal(index, afterRound)
+          }))
+          .sort((a, b) => b.total - a.total);
+      };
+
+      const getCurrentBidsTotal = () => {
+        const roundData = rounds[currentRound] || { bids: {} };
+        return Object.values(roundData.bids).reduce((sum, bid) => sum + bid, 0);
+      };
+
+      const getDisabledBids = () => {
+        const tricks = getTricksForRound(currentRound);
+        const disabled = new Set();
+        for (let i = tricks + 1; i <= 10; i++) disabled.add(i);
+        if (currentPlayerIndex === players.length - 1) {
+          const totalBidsSoFar = getCurrentBidsTotal();
+          const forbiddenBid = tricks - totalBidsSoFar;
+          if (forbiddenBid >= 0 && forbiddenBid <= tricks) disabled.add(forbiddenBid);
+        }
+        return disabled;
+      };
+
+      const getTricksScoredSoFar = () => {
+        const roundData = rounds[currentRound] || { scores: {} };
+        return Object.values(roundData.scores).reduce((sum, score) => sum + score, 0);
+      };
+
+      const getDisabledScores = () => {
+        const tricks = getTricksForRound(currentRound);
+        const disabled = new Set();
+        for (let i = tricks + 1; i <= 10; i++) disabled.add(i);
+        const scoredSoFar = getTricksScoredSoFar();
+        const remainingTricks = tricks - scoredSoFar;
+        const playersLeft = players.length - currentPlayerIndex;
+        for (let i = remainingTricks + 1; i <= tricks; i++) disabled.add(i);
+        if (playersLeft === 1) {
+          for (let i = 0; i <= 10; i++) {
+            if (i !== remainingTricks) disabled.add(i);
+          }
+        }
+        return disabled;
+      };
+
+      const saveToHistory = () => {
+        setHistory(prev => [...prev, {
+          rounds: JSON.parse(JSON.stringify(rounds)),
+          currentRound,
+          currentPhase,
+          currentPlayerIndex,
+          showStandings
+        }]);
+      };
+
+      const handleUndo = () => {
+        if (history.length === 0) return;
+        const previousState = history[history.length - 1];
+        setRounds(previousState.rounds);
+        setCurrentRound(previousState.currentRound);
+        setCurrentPhase(previousState.currentPhase);
+        setCurrentPlayerIndex(previousState.currentPlayerIndex);
+        setShowStandings(previousState.showStandings);
+        setHistory(prev => prev.slice(0, -1));
+      };
+
+      const handleValueSelect = (value) => {
+        saveToHistory();
+        const biddingOrder = getPlayerOrderFromFirst(getFirstBidderIndex(currentRound));
+        const actualPlayerIndex = biddingOrder[currentPlayerIndex];
+        const newRounds = JSON.parse(JSON.stringify(rounds));
+        
+        if (currentPhase === 'bidding') {
+          newRounds[currentRound].bids[actualPlayerIndex] = value;
+          setRounds(newRounds);
+          if (currentPlayerIndex < players.length - 1) {
+            setCurrentPlayerIndex(currentPlayerIndex + 1);
+          } else {
+            setCurrentPhase('scoring');
+            setCurrentPlayerIndex(0);
+          }
+        } else {
+          const bid = newRounds[currentRound].bids[actualPlayerIndex];
+          const score = calculateRoundScore(bid, value);
+          const previousTotal = currentRound > 0 
+            ? newRounds[currentRound - 1]?.totals[actualPlayerIndex] || 0
+            : 0;
+          newRounds[currentRound].scores[actualPlayerIndex] = value;
+          newRounds[currentRound].totals[actualPlayerIndex] = previousTotal + score;
+          setRounds(newRounds);
+          if (bid === value) playFanfare();
+          else playSadSound();
+          if (currentPlayerIndex < players.length - 1) {
+            setCurrentPlayerIndex(currentPlayerIndex + 1);
+          } else {
+            setShowStandings(true);
+          }
+        }
+      };
+
+      const advanceToNextRound = () => {
+        saveToHistory();
+        setShowStandings(false);
+        if (currentRound < totalRounds - 1) {
+          setCurrentRound(currentRound + 1);
+          setCurrentPhase('bidding');
+          setCurrentPlayerIndex(0);
+        } else {
+          setGameState('finished');
+        }
+      };
+
+      const saveAndFinishGame = () => {
+        const standings = getStandings(totalRounds - 1);
+        const gameData = {
+          players,
+          rounds,
+          standings: standings.map(s => ({ name: s.name, total: s.total })),
+          winner: standings[0].name,
+        };
+        storage.saveGame(gameData);
+        resetGame();
+      };
+
+      const resetGame = () => {
+        setGameState('setup');
+        setPlayers([]);
+        setRounds([]);
+        setCurrentRound(0);
+        setCurrentPhase('bidding');
+        setCurrentPlayerIndex(0);
+        setShowStandings(false);
+        setHistory([]);
+        setAppView('home');
+      };
+
+      if (!isLoggedIn) {
+        return <LoginScreen onLogin={handleLogin} onCreateAccount={handleCreateAccount} />;
+      }
+
+      if (appView === 'home') {
+        return (
+          <HomeScreen 
+            account={account}
+            onStartGame={() => setAppView('game')}
+            onViewHistory={() => setAppView('history')}
+            onViewFriends={() => setAppView('friends')}
+            onViewStats={() => setAppView('stats')}
+            onLogout={handleLogout}
+          />
+        );
+      }
+
+      if (appView === 'friends') {
+        return <FriendsScreen onBack={() => setAppView('home')} />;
+      }
+
+      if (appView === 'history') {
+        return <HistoryScreen onBack={() => setAppView('home')} />;
+      }
+
+      if (appView === 'stats') {
+        return <StatsScreen onBack={() => setAppView('home')} />;
+      }
+
+      if (appView === 'game' && gameState === 'setup') {
+        return <PlayerSetup onStart={initializeGame} onBack={() => setAppView('home')} />;
+      }
+
+      if (gameState === 'finished') {
+        return (
+          <GameFinished 
+            players={players} 
+            standings={getStandings(totalRounds - 1)}
+            rounds={rounds}
+            onSaveAndFinish={saveAndFinishGame}
+          />
+        );
+      }
+
+      const biddingOrder = getPlayerOrderFromFirst(getFirstBidderIndex(currentRound));
+      const activePlayerIndex = biddingOrder[currentPlayerIndex];
+      const tricksThisRound = getTricksForRound(currentRound);
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.header}>
+            <h1 style={styles.title}>Contract Whist</h1>
+            <div style={styles.roundInfo}>
+              Round {currentRound + 1} of {totalRounds} • {tricksThisRound} tricks • Dealer: {players[getDealerIndex(currentRound)]}
+            </div>
+          </div>
+
+          <div style={styles.scoreboardContainer}>
+            <Scoreboard 
+              players={players}
+              rounds={rounds}
+              currentRound={currentRound}
+              totalRounds={totalRounds}
+              getTricksForRound={getTricksForRound}
+              getDealerIndex={getDealerIndex}
+              activePlayerIndex={activePlayerIndex}
+              currentPhase={currentPhase}
+            />
+          </div>
+
+          {showStandings ? (
+            <StandingsPopover 
+              standings={getStandings(currentRound)}
+              isLastRound={currentRound === totalRounds - 1}
+              onContinue={advanceToNextRound}
+              onUndo={handleUndo}
+              canUndo={history.length > 0}
+            />
+          ) : (
+            <BidScorePopover
+              phase={currentPhase}
+              playerName={players[activePlayerIndex]}
+              disabledValues={currentPhase === 'bidding' ? getDisabledBids() : getDisabledScores()}
+              onSelect={handleValueSelect}
+              tricksAvailable={tricksThisRound}
+              bidsSoFar={currentPhase === 'bidding' ? getCurrentBidsTotal() : null}
+              tricksScoredSoFar={currentPhase === 'scoring' ? getTricksScoredSoFar() : null}
+              onUndo={handleUndo}
+              canUndo={history.length > 0}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ============ LOGIN SCREEN ============
+    function LoginScreen({ onLogin, onCreateAccount }) {
+      const existingAccount = storage.getAccount();
+      const [mode, setMode] = useState(existingAccount ? 'login' : 'create');
+      const [name, setName] = useState('');
+      const [pin, setPin] = useState('');
+      const [error, setError] = useState('');
+
+      const handleSubmit = () => {
+        if (mode === 'create' && name.trim().length < 2) {
+          setError('Name must be at least 2 characters');
+          return;
+        }
+        if (!/^\d{4}$/.test(pin)) {
+          setError('PIN must be exactly 4 digits');
+          return;
+        }
+        
+        if (mode === 'login') {
+          if (!onLogin(existingAccount.name, pin)) {
+            setError('Incorrect PIN');
+          }
+        } else {
+          onCreateAccount(name.trim(), pin);
+        }
+      };
+
+      const handlePinChange = (value) => {
+        if (/^\d{0,4}$/.test(value)) {
+          setPin(value);
+          setError('');
+        }
+      };
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.loginCard}>
+            <h1 style={styles.setupTitle}>Contract Whist</h1>
+            
+            {existingAccount && mode === 'login' ? (
+              <>
+                <p style={styles.setupSubtitle}>Welcome back!</p>
+                <p style={styles.welcomeName}>{existingAccount.name}</p>
+              </>
+            ) : (
+              <p style={styles.setupSubtitle}>
+                {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
+              </p>
+            )}
+
+            {error && <div style={styles.errorMessage}>{error}</div>}
+
+            {(!existingAccount || mode === 'create') && (
+              <input
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => { setName(e.target.value); setError(''); }}
+                style={styles.nameInput}
+              />
+            )}
+
+            <div style={styles.pinSection}>
+              <span style={styles.label}>Enter your 4-digit PIN:</span>
+              <div style={styles.pinInputContainer}>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  placeholder="••••"
+                  value={pin}
+                  onChange={(e) => handlePinChange(e.target.value)}
+                  style={styles.pinInput}
+                />
+              </div>
+            </div>
+
+            <button
+              style={{
+                ...styles.startButton,
+                ...((existingAccount && mode === 'login' || name.trim()) && pin.length === 4 ? {} : styles.startButtonDisabled)
+              }}
+              onClick={handleSubmit}
+              disabled={!(existingAccount && mode === 'login' || name.trim()) || pin.length !== 4}
+            >
+              {mode === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
+
+            {existingAccount && mode === 'login' ? (
+              <button style={styles.linkButton} onClick={() => setMode('create')}>
+                Create a different account
+              </button>
+            ) : (
+              existingAccount && (
+                <button style={styles.linkButton} onClick={() => { setMode('login'); setName(''); }}>
+                  Sign in to existing account
+                </button>
+              )
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ============ HOME SCREEN ============
+    function HomeScreen({ account, onStartGame, onViewHistory, onViewFriends, onViewStats, onLogout }) {
+      return (
+        <div style={styles.container}>
+          <div style={styles.homeCard}>
+            <h1 style={styles.setupTitle}>Contract Whist</h1>
+            <p style={styles.welcomeText}>Hello, {account.name}!</p>
+
+            <div style={styles.menuButtons}>
+              <button style={styles.menuButton} onClick={onStartGame}>
+                🃏 New Game
+              </button>
+              <button style={styles.menuButton} onClick={onViewFriends}>
+                👥 Friends
+              </button>
+              <button style={styles.menuButton} onClick={onViewHistory}>
+                📜 Game History
+              </button>
+              <button style={styles.menuButton} onClick={onViewStats}>
+                📊 Statistics
+              </button>
+            </div>
+
+            <button style={styles.logoutButton} onClick={onLogout}>
+              Sign Out
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ FRIENDS SCREEN ============
+    function FriendsScreen({ onBack }) {
+      const [friends, setFriends] = useState(storage.getFriends());
+      const [newName, setNewName] = useState('');
+
+      const addFriend = () => {
+        if (newName.trim() && !friends.includes(newName.trim())) {
+          const updated = [...friends, newName.trim()];
+          setFriends(updated);
+          storage.setFriends(updated);
+          setNewName('');
+        }
+      };
+
+      const removeFriend = (name) => {
+        const updated = friends.filter(f => f !== name);
+        setFriends(updated);
+        storage.setFriends(updated);
+      };
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.screenCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>Friends</h2>
+            </div>
+
+            <div style={styles.addFriendSection}>
+              <input
+                type="text"
+                placeholder="Add a friend's name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                style={styles.friendInput}
+                onKeyPress={(e) => e.key === 'Enter' && addFriend()}
+              />
+              <button style={styles.addButton} onClick={addFriend}>Add</button>
+            </div>
+
+            <div style={styles.friendsList}>
+              {friends.length === 0 ? (
+                <p style={styles.emptyMessage}>No friends added yet. Add people you play with regularly!</p>
+              ) : (
+                friends.map((friend, index) => (
+                  <div key={index} style={styles.friendRow}>
+                    <span style={styles.friendName}>{friend}</span>
+                    <button style={styles.removeButton} onClick={() => removeFriend(friend)}>✕</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ HISTORY SCREEN ============
+    function HistoryScreen({ onBack }) {
+      const games = storage.getGames();
+
+      const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', { 
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      };
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.screenCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>Game History</h2>
+            </div>
+
+            <div style={styles.historyList}>
+              {games.length === 0 ? (
+                <p style={styles.emptyMessage}>No games played yet. Start a new game!</p>
+              ) : (
+                [...games].reverse().map((game, index) => (
+                  <div key={game.id || index} style={styles.historyCard}>
+                    <div style={styles.historyDate}>{formatDate(game.date)}</div>
+                    <div style={styles.historyWinner}>🏆 {game.winner}</div>
+                    <div style={styles.historyPlayers}>
+                      {game.standings.map((p, i) => (
+                        <span key={i} style={styles.historyPlayer}>
+                          {i + 1}. {p.name} ({p.total})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ STATS SCREEN ============
+    function StatsScreen({ onBack }) {
+      const games = storage.getGames();
+      const playerStats = {};
+      
+      games.forEach(game => {
+        game.players.forEach((playerName, playerIndex) => {
+          if (!playerStats[playerName]) {
+            playerStats[playerName] = {
+              gamesPlayed: 0,
+              wins: 0,
+              totalRounds: 0,
+              contractsMade: 0,
+              totalPoints: 0,
+            };
+          }
+          
+          const stats = playerStats[playerName];
+          stats.gamesPlayed++;
+          
+          if (game.winner === playerName) stats.wins++;
+          
+          const finalStanding = game.standings.find(s => s.name === playerName);
+          if (finalStanding) stats.totalPoints += finalStanding.total;
+          
+          game.rounds.forEach(round => {
+            if (round.bids[playerIndex] !== undefined && round.scores[playerIndex] !== undefined) {
+              stats.totalRounds++;
+              if (round.bids[playerIndex] === round.scores[playerIndex]) {
+                stats.contractsMade++;
+              }
+            }
+          });
+        });
+      });
+
+      const sortedPlayers = Object.entries(playerStats)
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.gamesPlayed - a.gamesPlayed);
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.screenCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>Statistics</h2>
+            </div>
+
+            <div style={styles.overallStats}>
+              <div style={styles.statBox}>
+                <div style={styles.statNumber}>{games.length}</div>
+                <div style={styles.statLabel}>Games Played</div>
+              </div>
+            </div>
+
+            <h3 style={styles.subSectionTitle}>Player Statistics</h3>
+            
+            <div style={styles.statsList}>
+              {sortedPlayers.length === 0 ? (
+                <p style={styles.emptyMessage}>No statistics yet. Play some games!</p>
+              ) : (
+                sortedPlayers.map((player, index) => (
+                  <div key={index} style={styles.playerStatCard}>
+                    <div style={styles.playerStatName}>{player.name}</div>
+                    <div style={styles.playerStatGrid}>
+                      <div style={styles.miniStat}>
+                        <span style={styles.miniStatValue}>{player.gamesPlayed}</span>
+                        <span style={styles.miniStatLabel}>Games</span>
+                      </div>
+                      <div style={styles.miniStat}>
+                        <span style={styles.miniStatValue}>{player.wins}</span>
+                        <span style={styles.miniStatLabel}>Wins</span>
+                      </div>
+                      <div style={styles.miniStat}>
+                        <span style={styles.miniStatValue}>
+                          {player.totalRounds > 0 ? Math.round((player.contractsMade / player.totalRounds) * 100) : 0}%
+                        </span>
+                        <span style={styles.miniStatLabel}>Contract %</span>
+                      </div>
+                      <div style={styles.miniStat}>
+                        <span style={styles.miniStatValue}>
+                          {player.gamesPlayed > 0 ? Math.round(player.totalPoints / player.gamesPlayed) : 0}
+                        </span>
+                        <span style={styles.miniStatLabel}>Avg Score</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ PLAYER SETUP ============
+    function PlayerSetup({ onStart, onBack }) {
+      const [names, setNames] = useState(['', '', '', '', '', '']);
+      const [playerCount, setPlayerCount] = useState(4);
+      const friends = storage.getFriends();
+
+      const handleNameChange = (index, value) => {
+        const newNames = [...names];
+        newNames[index] = value;
+        setNames(newNames);
+      };
+
+      const addFriendToNextSlot = (friend) => {
+        const currentNames = names.slice(0, playerCount);
+        const emptyIndex = currentNames.findIndex(n => n.trim() === '');
+        
+        if (emptyIndex !== -1 && !currentNames.includes(friend)) {
+          const newNames = [...names];
+          newNames[emptyIndex] = friend;
+          setNames(newNames);
+        }
+      };
+
+      const isPlayerSelected = (friend) => {
+        return names.slice(0, playerCount).includes(friend);
+      };
+
+      const canStart = names.slice(0, playerCount).every(name => name.trim() !== '');
+
+      const handleStart = () => {
+        if (canStart) {
+          onStart(names.slice(0, playerCount).map(n => n.trim()));
+        }
+      };
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.setupCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>New Game</h2>
+            </div>
+
+            <p style={styles.setupSubtitle}>
+              Start with whoever deals the final round, then continue clockwise
+            </p>
+            <p style={styles.setupHint}>(First player entered deals the final round)</p>
+
+            {friends.length > 0 && (
+              <div style={styles.quickSelectSection}>
+                <span style={styles.label}>Tap to add from friends:</span>
+                <div style={styles.friendChips}>
+                  {friends.map((friend, i) => (
+                    <button
+                      key={i}
+                      style={{
+                        ...styles.friendChip,
+                        ...(isPlayerSelected(friend) ? styles.friendChipSelected : {})
+                      }}
+                      onClick={() => addFriendToNextSlot(friend)}
+                      disabled={isPlayerSelected(friend)}
+                    >
+                      {friend}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={styles.playerCountSection}>
+              <span style={styles.label}>Number of players:</span>
+              <div style={styles.playerCountButtons}>
+                {[3, 4, 5, 6].map(num => (
+                  <button
+                    key={num}
+                    style={{
+                      ...styles.countButton,
+                      ...(playerCount === num ? styles.countButtonActive : {})
+                    }}
+                    onClick={() => setPlayerCount(num)}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={styles.nameInputs}>
+              {Array(playerCount).fill(null).map((_, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  placeholder={`Player ${index + 1}${index === 0 ? ' (deals final round)' : ''}`}
+                  value={names[index]}
+                  onChange={(e) => handleNameChange(index, e.target.value)}
+                  style={styles.nameInput}
+                />
+              ))}
+            </div>
+
+            <button
+              style={{
+                ...styles.startButton,
+                ...(canStart ? {} : styles.startButtonDisabled)
+              }}
+              onClick={handleStart}
+              disabled={!canStart}
+            >
+              Start Game
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ SCOREBOARD ============
+    function Scoreboard({ players, rounds, currentRound, totalRounds, getTricksForRound, getDealerIndex, activePlayerIndex, currentPhase }) {
+      return (
+        <div style={styles.scoreboard}>
+          <div style={styles.scoreboardRow}>
+            <div style={styles.roundCell}>
+              <div style={styles.roundHeader}>Round</div>
+            </div>
+            {players.map((name, index) => (
+              <div 
+                key={index} 
+                style={{
+                  ...styles.playerHeader,
+                  ...(index === activePlayerIndex ? styles.activePlayerHeader : {})
+                }}
+              >
+                <div style={styles.playerName}>{name}</div>
+                <div style={styles.subHeaders}>
+                  <span style={styles.subHeader}>Bid</span>
+                  <span style={styles.subHeader}>Got</span>
+                  <span style={styles.subHeader}>Tot</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {Array(totalRounds).fill(null).map((_, roundIndex) => {
+            const tricks = getTricksForRound(roundIndex);
+            const dealerIndex = getDealerIndex(roundIndex);
+            const roundData = rounds[roundIndex] || { bids: {}, scores: {}, totals: {} };
+            const isCurrentRound = roundIndex === currentRound;
+
+            return (
+              <div 
+                key={roundIndex} 
+                style={{
+                  ...styles.scoreboardRow,
+                  ...(isCurrentRound ? styles.currentRoundRow : {}),
+                  ...(roundIndex > currentRound ? styles.futureRoundRow : {})
+                }}
+              >
+                <div style={styles.roundCell}>
+                  <div style={styles.tricksNumber}>{tricks}</div>
+                  <div style={styles.dealerName}>{players[dealerIndex]}</div>
+                </div>
+                {players.map((_, playerIndex) => {
+                  const bid = roundData.bids[playerIndex];
+                  const score = roundData.scores[playerIndex];
+                  const total = roundData.totals[playerIndex];
+                  const isActiveCell = isCurrentRound && playerIndex === activePlayerIndex;
+                  const madeContract = bid !== undefined && score !== undefined && bid === score;
+
+                  return (
+                    <div 
+                      key={playerIndex} 
+                      style={{
+                        ...styles.playerCell,
+                        ...(isActiveCell ? styles.activeCell : {})
+                      }}
+                    >
+                      <span style={styles.cellValue}>{bid !== undefined ? bid : ''}</span>
+                      <span style={styles.cellValueWrapper}>
+                        {score !== undefined && (
+                          <span style={madeContract ? styles.madeContractScore : styles.missedContractScore}>
+                            {score}
+                          </span>
+                        )}
+                      </span>
+                      <span style={{...styles.cellValue, ...styles.totalValue}}>{total !== undefined ? total : ''}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ============ BID/SCORE POPOVER ============
+    function BidScorePopover({ phase, playerName, disabledValues, onSelect, tricksAvailable, bidsSoFar, tricksScoredSoFar, onUndo, canUndo }) {
+      return (
+        <div style={styles.popover}>
+          <div style={styles.popoverTitle}>
+            {phase === 'bidding' ? `${playerName}'s Bid` : `${playerName}'s Tricks`}
+          </div>
+          
+          {phase === 'bidding' && (
+            <div style={styles.biddingInfo}>
+              <span style={styles.biddingInfoText}>Tricks: <strong>{tricksAvailable}</strong></span>
+              <span style={styles.biddingInfoDivider}>•</span>
+              <span style={styles.biddingInfoText}>Bid so far: <strong>{bidsSoFar}</strong></span>
+            </div>
+          )}
+          
+          {phase === 'scoring' && (
+            <div style={styles.biddingInfo}>
+              <span style={styles.biddingInfoText}>Tricks: <strong>{tricksAvailable}</strong></span>
+              <span style={styles.biddingInfoDivider}>•</span>
+              <span style={styles.biddingInfoText}>Scored: <strong>{tricksScoredSoFar}</strong></span>
+              <span style={styles.biddingInfoDivider}>•</span>
+              <span style={styles.biddingInfoText}>Left: <strong>{tricksAvailable - tricksScoredSoFar}</strong></span>
+            </div>
+          )}
+          
+          <div style={styles.numberGridWithUndo}>
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
+              const isDisabled = disabledValues.has(num);
+              return (
+                <button
+                  key={num}
+                  style={{
+                    ...styles.numberButton,
+                    ...(isDisabled ? styles.numberButtonDisabled : {})
+                  }}
+                  onClick={() => !isDisabled && onSelect(num)}
+                  disabled={isDisabled}
+                >
+                  {num}
+                </button>
+              );
+            })}
+            <button 
+              style={{
+                ...styles.undoButtonInGrid,
+                ...(canUndo ? {} : styles.undoButtonDisabled)
+              }}
+              onClick={onUndo}
+              disabled={!canUndo}
+            >
+              ↩ Undo
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ STANDINGS POPOVER ============
+    function StandingsPopover({ standings, isLastRound, onContinue, onUndo, canUndo }) {
+      return (
+        <div style={styles.popover}>
+          <div style={styles.popoverTitle}>
+            {isLastRound ? '🏆 Final Results!' : 'Standings After This Round'}
+          </div>
+          <div style={styles.standingsList}>
+            {standings.map((player, index) => (
+              <div key={player.index} style={styles.standingRow}>
+                <span style={styles.standingPosition}>
+                  {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                </span>
+                <span style={styles.standingName}>{player.name}</span>
+                <span style={styles.standingScore}>{player.total}</span>
+              </div>
+            ))}
+          </div>
+          <div style={styles.standingsButtonRow}>
+            <button 
+              style={{
+                ...styles.undoButtonStandings,
+                ...(canUndo ? {} : styles.undoButtonDisabled)
+              }}
+              onClick={onUndo}
+              disabled={!canUndo}
+            >
+              ↩ Undo
+            </button>
+            <button style={styles.continueButtonWithUndo} onClick={onContinue}>
+              {isLastRound ? 'Finish Game' : 'Next Round'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ GAME FINISHED ============
+    function GameFinished({ players, standings, rounds, onSaveAndFinish }) {
+      const stats = players.map((name, index) => {
+        let contractsMade = 0;
+        let totalRounds = 0;
+        rounds.forEach(round => {
+          if (round.bids[index] !== undefined && round.scores[index] !== undefined) {
+            totalRounds++;
+            if (round.bids[index] === round.scores[index]) contractsMade++;
+          }
+        });
+        return {
+          name,
+          contractsMade,
+          totalRounds,
+          successRate: totalRounds > 0 ? Math.round((contractsMade / totalRounds) * 100) : 0,
+        };
+      });
+
+      const totalContracts = stats.reduce((sum, s) => sum + s.contractsMade, 0);
+      const totalPossible = stats.reduce((sum, s) => sum + s.totalRounds, 0);
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.finishedCard}>
+            <h1 style={styles.finishedTitle}>🏆 Game Complete!</h1>
+            
+            <div style={styles.finalStandings}>
+              <h2 style={styles.sectionTitle}>Final Standings</h2>
+              {standings.map((player, index) => (
+                <div key={player.index} style={styles.finalStandingRow}>
+                  <span style={styles.finalPosition}>
+                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                  </span>
+                  <span style={styles.finalName}>{player.name}</span>
+                  <span style={styles.finalScore}>{player.total} pts</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.statsSection}>
+              <h2 style={styles.sectionTitle}>Statistics</h2>
+              <div style={styles.groupStat}>
+                Group contract success: {totalContracts}/{totalPossible} ({Math.round((totalContracts/totalPossible)*100)}%)
+              </div>
+              {stats.map((stat, index) => (
+                <div key={index} style={styles.playerStat}>
+                  <strong>{stat.name}:</strong> {stat.contractsMade}/{stat.totalRounds} contracts ({stat.successRate}%)
+                </div>
+              ))}
+            </div>
+
+            <button style={styles.newGameButton} onClick={onSaveAndFinish}>
+              Save & Return Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ STYLES ============
+    const styles = {
+      container: {
+        minHeight: '100vh',
+        backgroundColor: '#1a472a',
+        padding: '16px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      },
+      header: { textAlign: 'center', marginBottom: '16px' },
+      title: { color: '#fff', fontSize: '28px', margin: '0 0 8px 0' },
+      roundInfo: { color: '#a8d5a2', fontSize: '18px' },
+      scoreboardContainer: { overflowX: 'auto', marginBottom: '16px', paddingBottom: '280px' },
+      scoreboard: { backgroundColor: '#fff', borderRadius: '12px', overflow: 'hidden', minWidth: 'fit-content' },
+      scoreboardRow: { display: 'flex', borderBottom: '1px solid #ddd' },
+      currentRoundRow: { backgroundColor: '#fffde7' },
+      futureRoundRow: { backgroundColor: '#f5f5f5', opacity: 0.6 },
+      roundCell: { width: '80px', minWidth: '80px', padding: '8px', backgroundColor: '#2e7d32', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+      roundHeader: { fontWeight: 'bold', fontSize: '14px' },
+      tricksNumber: { fontSize: '24px', fontWeight: 'bold' },
+      dealerName: { fontSize: '12px', opacity: 0.9 },
+      playerHeader: { flex: 1, minWidth: '120px', padding: '8px', backgroundColor: '#388e3c', color: '#fff', textAlign: 'center' },
+      activePlayerHeader: { backgroundColor: '#ff9800' },
+      playerName: { fontWeight: 'bold', fontSize: '16px', marginBottom: '4px' },
+      subHeaders: { display: 'flex', justifyContent: 'space-around' },
+      subHeader: { fontSize: '11px', opacity: 0.9 },
+      playerCell: { flex: 1, minWidth: '120px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '12px 8px' },
+      activeCell: { backgroundColor: '#fff3e0', boxShadow: 'inset 0 0 0 3px #ff9800' },
+      cellValue: { fontSize: '18px', width: '33%', textAlign: 'center' },
+      cellValueWrapper: { width: '33%', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center' },
+      madeContractScore: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', border: '3px solid #ffd700', backgroundColor: '#fff8e1', fontWeight: 'bold', fontSize: '18px', boxShadow: '0 0 8px rgba(255, 215, 0, 0.6), inset 0 0 4px rgba(255, 215, 0, 0.3)' },
+      missedContractScore: { fontSize: '18px' },
+      totalValue: { fontWeight: 'bold' },
+      popover: { position: 'fixed', bottom: '0', left: '0', right: '0', backgroundColor: '#fff', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '16px 24px 24px', boxShadow: '0 -4px 20px rgba(0,0,0,0.2)' },
+      popoverTitle: { fontSize: '22px', fontWeight: 'bold', textAlign: 'center', marginBottom: '8px', color: '#333' },
+      biddingInfo: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '16px', padding: '10px 16px', backgroundColor: '#e3f2fd', borderRadius: '8px', flexWrap: 'wrap', gap: '4px' },
+      biddingInfoText: { fontSize: '18px', color: '#1565c0' },
+      biddingInfoDivider: { margin: '0 12px', color: '#90caf9', fontSize: '18px' },
+      numberGridWithUndo: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', maxWidth: '400px', margin: '0 auto' },
+      numberButton: { height: '64px', fontSize: '28px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      numberButtonDisabled: { backgroundColor: '#ccc', color: '#888', cursor: 'not-allowed' },
+      undoButtonInGrid: { height: '64px', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      undoButtonDisabled: { backgroundColor: '#e0e0e0', color: '#9e9e9e', cursor: 'not-allowed' },
+      standingsList: { marginBottom: '20px' },
+      standingRow: { display: 'flex', alignItems: 'center', padding: '12px 16px', fontSize: '20px', borderBottom: '1px solid #eee' },
+      standingPosition: { width: '40px', fontSize: '24px' },
+      standingName: { flex: 1, fontWeight: '500' },
+      standingScore: { fontWeight: 'bold', color: '#2e7d32' },
+      standingsButtonRow: { display: 'flex', gap: '12px' },
+      undoButtonStandings: { flex: '0 0 auto', padding: '18px 24px', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      continueButtonWithUndo: { flex: 1, padding: '18px', fontSize: '20px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      loginCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '32px 24px', maxWidth: '500px', margin: '0 auto' },
+      welcomeName: { fontSize: '28px', fontWeight: 'bold', color: '#2e7d32', textAlign: 'center', marginBottom: '24px' },
+      errorMessage: { backgroundColor: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '8px', marginBottom: '16px', textAlign: 'center' },
+      pinSection: { marginBottom: '24px' },
+      pinInputContainer: { display: 'flex', justifyContent: 'center' },
+      pinInput: { width: '150px', padding: '16px', fontSize: '32px', textAlign: 'center', letterSpacing: '8px', border: '2px solid #ddd', borderRadius: '12px', outline: 'none' },
+      linkButton: { display: 'block', width: '100%', marginTop: '16px', padding: '12px', fontSize: '16px', color: '#2e7d32', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' },
+      homeCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '32px 24px', maxWidth: '500px', margin: '0 auto' },
+      welcomeText: { fontSize: '20px', color: '#666', textAlign: 'center', marginBottom: '32px' },
+      menuButtons: { display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' },
+      menuButton: { padding: '20px', fontSize: '20px', fontWeight: 'bold', border: '2px solid #2e7d32', borderRadius: '12px', backgroundColor: '#fff', color: '#2e7d32', cursor: 'pointer', touchAction: 'manipulation' },
+      logoutButton: { width: '100%', padding: '16px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer' },
+      screenCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '24px', maxWidth: '600px', margin: '0 auto', maxHeight: 'calc(100vh - 64px)', overflow: 'auto' },
+      screenHeader: { display: 'flex', alignItems: 'center', marginBottom: '24px', gap: '16px' },
+      backButton: { padding: '12px 16px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '8px', backgroundColor: '#f5f5f5', color: '#333', cursor: 'pointer' },
+      screenTitle: { fontSize: '24px', color: '#2e7d32', margin: 0 },
+      addFriendSection: { display: 'flex', gap: '12px', marginBottom: '24px' },
+      friendInput: { flex: 1, padding: '14px', fontSize: '18px', border: '2px solid #ddd', borderRadius: '12px', outline: 'none' },
+      addButton: { padding: '14px 24px', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer' },
+      friendsList: { display: 'flex', flexDirection: 'column', gap: '8px' },
+      friendRow: { display: 'flex', alignItems: 'center', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' },
+      friendName: { flex: 1, fontSize: '18px' },
+      removeButton: { width: '40px', height: '40px', fontSize: '18px', border: 'none', borderRadius: '8px', backgroundColor: '#ef5350', color: '#fff', cursor: 'pointer' },
+      emptyMessage: { color: '#999', textAlign: 'center', padding: '32px', fontSize: '16px' },
+      historyList: { display: 'flex', flexDirection: 'column', gap: '12px' },
+      historyCard: { padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '12px' },
+      historyDate: { fontSize: '14px', color: '#999', marginBottom: '8px' },
+      historyWinner: { fontSize: '20px', fontWeight: 'bold', color: '#2e7d32', marginBottom: '8px' },
+      historyPlayers: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+      historyPlayer: { fontSize: '14px', color: '#666', backgroundColor: '#fff', padding: '4px 8px', borderRadius: '4px' },
+      overallStats: { display: 'flex', justifyContent: 'center', marginBottom: '24px' },
+      statBox: { padding: '20px 40px', backgroundColor: '#e8f5e9', borderRadius: '12px', textAlign: 'center' },
+      statNumber: { fontSize: '36px', fontWeight: 'bold', color: '#2e7d32' },
+      statLabel: { fontSize: '14px', color: '#666' },
+      subSectionTitle: { fontSize: '18px', color: '#333', marginBottom: '16px' },
+      statsList: { display: 'flex', flexDirection: 'column', gap: '12px' },
+      playerStatCard: { padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '12px' },
+      playerStatName: { fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: '#333' },
+      playerStatGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' },
+      miniStat: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
+      miniStatValue: { fontSize: '20px', fontWeight: 'bold', color: '#2e7d32' },
+      miniStatLabel: { fontSize: '11px', color: '#999' },
+      setupCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '24px', maxWidth: '500px', margin: '0 auto' },
+      setupTitle: { fontSize: '32px', color: '#2e7d32', textAlign: 'center', margin: '0 0 8px 0' },
+      setupSubtitle: { color: '#666', textAlign: 'center', fontSize: '16px', marginBottom: '4px' },
+      setupHint: { color: '#999', textAlign: 'center', fontSize: '14px', fontStyle: 'italic', marginBottom: '24px' },
+      quickSelectSection: { marginBottom: '24px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '12px' },
+      friendChips: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' },
+      friendChip: { padding: '10px 16px', fontSize: '16px', border: '2px solid #2e7d32', borderRadius: '20px', backgroundColor: '#fff', color: '#2e7d32', cursor: 'pointer' },
+      friendChipSelected: { backgroundColor: '#2e7d32', color: '#fff' },
+      playerCountSection: { marginBottom: '24px' },
+      label: { fontSize: '16px', color: '#333', display: 'block', marginBottom: '12px' },
+      playerCountButtons: { display: 'flex', gap: '12px' },
+      countButton: { flex: 1, height: '56px', fontSize: '24px', fontWeight: 'bold', border: '2px solid #2e7d32', borderRadius: '12px', backgroundColor: '#fff', color: '#2e7d32', cursor: 'pointer', touchAction: 'manipulation' },
+      countButtonActive: { backgroundColor: '#2e7d32', color: '#fff' },
+      nameInputs: { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' },
+      nameInput: { padding: '16px', fontSize: '18px', border: '2px solid #ddd', borderRadius: '12px', outline: 'none' },
+      startButton: { width: '100%', padding: '18px', fontSize: '22px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      startButtonDisabled: { backgroundColor: '#ccc', cursor: 'not-allowed' },
+      finishedCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '32px 24px', maxWidth: '500px', margin: '0 auto' },
+      finishedTitle: { fontSize: '28px', color: '#2e7d32', textAlign: 'center', margin: '0 0 24px 0' },
+      finalStandings: { marginBottom: '32px' },
+      sectionTitle: { fontSize: '20px', color: '#333', margin: '0 0 16px 0' },
+      finalStandingRow: { display: 'flex', alignItems: 'center', padding: '16px', fontSize: '20px', backgroundColor: '#f5f5f5', borderRadius: '8px', marginBottom: '8px' },
+      finalPosition: { width: '48px', fontSize: '28px' },
+      finalName: { flex: 1, fontWeight: '500' },
+      finalScore: { fontWeight: 'bold', color: '#2e7d32', fontSize: '22px' },
+      statsSection: { marginBottom: '24px' },
+      groupStat: { fontSize: '16px', color: '#666', marginBottom: '12px', padding: '12px', backgroundColor: '#e8f5e9', borderRadius: '8px' },
+      playerStat: { fontSize: '14px', color: '#555', padding: '8px 0', borderBottom: '1px solid #eee' },
+      newGameButton: { width: '100%', padding: '18px', fontSize: '20px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+    };
+
+    // Render the app
+    ReactDOM.render(<WhistScoreboard />, document.getElementById('root'));
+  </script>
+</body>
+</html>
