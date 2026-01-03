@@ -12,26 +12,37 @@ This API provides backend services for the Contract Whist game, including user a
 
 ## Database Setup
 
-### 1. Create the Database
+### 1. Configure Database Connection
 
-Run the SQL schema file to create the necessary tables:
+**IMPORTANT:** Never commit `config.php` to the repository!
+
+Create your local configuration file:
 
 ```bash
-mysql -u root -p < schema.sql
+cd adlington/api
+cp config.example.php config.php
+```
+
+Edit `config.php` and update with your actual database credentials:
+
+```php
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'your_existing_database_name');
+define('DB_USER', 'your_db_user');
+define('DB_PASS', 'your_secure_password');
+```
+
+### 2. Create Database Tables
+
+The schema.sql file will add tables to your existing database. Review it first, then run:
+
+```bash
+mysql -u your_db_user -p your_database_name < schema.sql
 ```
 
 Or import via phpMyAdmin or your preferred MySQL client.
 
-### 2. Configure Database Connection
-
-Edit `config.php` and update the database credentials:
-
-```php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'adlington_games');
-define('DB_USER', 'your_db_user');
-define('DB_PASS', 'your_secure_password');
-```
+**Note:** The schema uses `CREATE TABLE IF NOT EXISTS`, so it won't overwrite existing tables.
 
 ### 3. Update CORS Settings
 
@@ -51,6 +62,8 @@ define('ALLOWED_ORIGINS', [
 2. Set `DEBUG_MODE` to `false` in `config.php`
 3. Ensure database credentials are secure
 4. Enable HTTPS for secure cookie transmission
+5. **NEVER** commit `config.php` to version control (already in `.gitignore`)
+6. Restrict file permissions: `chmod 600 config.php`
 
 ## API Endpoints
 
@@ -163,15 +176,18 @@ DELETE /api/games.php?id=123
 
 ```
 adlington/api/
-├── README.md           # This file
-├── schema.sql          # Database schema
-├── config.php          # Configuration (DB, CORS, etc.)
-├── database.php        # Database connection handler
-├── auth.php            # Authentication class
-├── auth-api.php        # Authentication API endpoints
-├── games.php           # Games API endpoints
-└── utils.php           # Utility functions
+├── README.md              # This file
+├── schema.sql             # Database schema
+├── config.example.php     # Configuration template (committed to repo)
+├── config.php             # Your local config (NOT in repo, create from example)
+├── database.php           # Database connection handler
+├── auth.php               # Authentication class
+├── auth-api.php           # Authentication API endpoints
+├── games.php              # Games API endpoints
+└── utils.php              # Utility functions
 ```
+
+**Note:** `config.php` is excluded from version control via `.gitignore` to protect your database credentials.
 
 ## Session Management
 

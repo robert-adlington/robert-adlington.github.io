@@ -2,13 +2,14 @@
 -- Adlington.fr Database Schema
 -- Contract Whist Game Database
 -- ============================================
-
--- Create database (if needed)
-CREATE DATABASE IF NOT EXISTS adlington_games
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-
-USE adlington_games;
+--
+-- This schema adds tables to your existing database.
+-- Run this against your existing database:
+--   mysql -u user -p your_database_name < schema.sql
+--
+-- The tables will be created with IF NOT EXISTS to avoid
+-- overwriting any existing data.
+-- ============================================
 
 -- ============================================
 -- Users Table
