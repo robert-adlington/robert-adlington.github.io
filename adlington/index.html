@@ -681,16 +681,36 @@
                 body: JSON.stringify({ username, password }),
             });
             currentUser = result.data.user;
-            updateUI();
+
+            // Check for return URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const returnUrl = urlParams.get('return');
+
+            if (returnUrl) {
+                // Redirect to the page they came from
+                window.location.href = returnUrl;
+            } else {
+                updateUI();
+            }
         }
-        
+
         async function register(username, email, password) {
             const result = await apiRequest('/auth-api.php?action=register', {
                 method: 'POST',
                 body: JSON.stringify({ username, email, password }),
             });
             currentUser = result.data.user;
-            updateUI();
+
+            // Check for return URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const returnUrl = urlParams.get('return');
+
+            if (returnUrl) {
+                // Redirect to the page they came from
+                window.location.href = returnUrl;
+            } else {
+                updateUI();
+            }
         }
         
         async function logout() {

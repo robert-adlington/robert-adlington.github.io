@@ -316,8 +316,9 @@
     function WhistScoreboard() {
       const [account, setAccount] = useState(null);
       const [isLoggedIn, setIsLoggedIn] = useState(false);
-      const [appView, setAppView] = useState('login');
-      
+      const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+      const [appView, setAppView] = useState('home');
+
       const [gameState, setGameState] = useState('setup');
       const [players, setPlayers] = useState([]);
       const [rounds, setRounds] = useState([]);
@@ -338,52 +339,18 @@
               setAccount(response.user);
               storage.setAccount(response.user);
               setIsLoggedIn(true);
-              setAppView('home');
+              setIsCheckingAuth(false);
+            } else {
+              // No active session - redirect to login page
+              window.location.href = '/adlington/index.html?return=' + encodeURIComponent(window.location.pathname);
             }
           } catch (error) {
-            // No active session, check localStorage for cached account
-            const savedAccount = storage.getAccount();
-            if (savedAccount) {
-              // We have a cached account but no active session
-              // User will need to log in again
-              console.log('Cached account found, but session expired');
-            }
+            // Authentication failed - redirect to login page
+            window.location.href = '/adlington/index.html?return=' + encodeURIComponent(window.location.pathname);
           }
         };
         checkSession();
       }, []);
-
-      const handleLogin = async (identifier, password) => {
-        try {
-          const response = await api.auth.login(identifier, password);
-          if (response && response.user) {
-            setAccount(response.user);
-            storage.setAccount(response.user);
-            setIsLoggedIn(true);
-            setAppView('home');
-            return { success: true };
-          }
-          return { success: false, error: 'Login failed' };
-        } catch (error) {
-          return { success: false, error: error.message || 'Login failed' };
-        }
-      };
-
-      const handleCreateAccount = async (username, email, password) => {
-        try {
-          const response = await api.auth.register(username, email, password);
-          if (response && response.user) {
-            setAccount(response.user);
-            storage.setAccount(response.user);
-            setIsLoggedIn(true);
-            setAppView('home');
-            return { success: true };
-          }
-          return { success: false, error: 'Registration failed' };
-        } catch (error) {
-          return { success: false, error: error.message || 'Registration failed' };
-        }
-      };
 
       const handleLogout = async () => {
         try {
@@ -392,21 +359,9 @@
           console.error('Logout error:', error);
         }
 
-        // Clear all state
+        // Clear all state and redirect to home page
         storage.clearAccount();
-        setAccount(null);
-        setIsLoggedIn(false);
-        setAppView('login');
-
-        // Reset game state to avoid issues
-        setGameState('setup');
-        setPlayers([]);
-        setRounds([]);
-        setCurrentRound(0);
-        setCurrentPhase('bidding');
-        setCurrentPlayerIndex(0);
-        setShowStandings(false);
-        setHistory([]);
+        window.location.href = '/adlington/index.html';
       };
 
       const totalRounds = useMemo(() => {
@@ -615,8 +570,21 @@
         setAppView('home');
       };
 
-      if (!isLoggedIn) {
-        return <LoginScreen onLogin={handleLogin} onCreateAccount={handleCreateAccount} />;
+      // Show loading state while checking authentication
+      if (isCheckingAuth) {
+        return (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)',
+            color: '#fff',
+            fontSize: '1.5rem'
+          }}>
+            Loading...
+          </div>
+        );
       }
 
       if (appView === 'home') {
@@ -724,161 +692,6 @@
               activeCellPosition={activeCellPosition}
             />
           )}
-        </div>
-      );
-    }
-
-    // ============ LOGIN SCREEN ============
-    function LoginScreen({ onLogin, onCreateAccount }) {
-      const existingAccount = storage.getAccount();
-      const [mode, setMode] = useState(existingAccount ? 'login' : 'create');
-      const [username, setUsername] = useState('');
-      const [email, setEmail] = useState('');
-      const [password, setPassword] = useState('');
-      const [error, setError] = useState('');
-      const [isLoading, setIsLoading] = useState(false);
-
-      const handleSubmit = async () => {
-        setError('');
-        setIsLoading(true);
-
-        try {
-          if (mode === 'create') {
-            // Validation for registration
-            if (username.trim().length < 3) {
-              setError('Username must be at least 3 characters');
-              setIsLoading(false);
-              return;
-            }
-            if (!email.trim() || !email.includes('@')) {
-              setError('Please enter a valid email address');
-              setIsLoading(false);
-              return;
-            }
-            if (password.length < 8) {
-              setError('Password must be at least 8 characters');
-              setIsLoading(false);
-              return;
-            }
-
-            const result = await onCreateAccount(username.trim(), email.trim(), password);
-            if (!result.success) {
-              setError(result.error);
-            }
-          } else {
-            // Login validation
-            const identifier = username.trim() || email.trim();
-            if (!identifier) {
-              setError('Please enter your username or email');
-              setIsLoading(false);
-              return;
-            }
-            if (!password) {
-              setError('Please enter your password');
-              setIsLoading(false);
-              return;
-            }
-
-            const result = await onLogin(identifier, password);
-            if (!result.success) {
-              setError(result.error);
-            }
-          }
-        } catch (err) {
-          setError('An error occurred. Please try again.');
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-      const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && !isLoading) {
-          handleSubmit();
-        }
-      };
-
-      return (
-        <div style={styles.container}>
-          <div style={styles.loginCard}>
-            <h1 style={styles.setupTitle}>Contract Whist</h1>
-
-            {existingAccount && mode === 'login' ? (
-              <>
-                <p style={styles.setupSubtitle}>Welcome back!</p>
-                <p style={styles.welcomeName}>{existingAccount.username || existingAccount.name}</p>
-              </>
-            ) : (
-              <p style={styles.setupSubtitle}>
-                {mode === 'login' ? 'Sign in to your account' : 'Create a new account'}
-              </p>
-            )}
-
-            {error && <div style={styles.errorMessage}>{error}</div>}
-
-            {mode === 'create' && (
-              <input
-                type="text"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => { setUsername(e.target.value); setError(''); }}
-                onKeyPress={handleKeyPress}
-                style={styles.nameInput}
-                disabled={isLoading}
-              />
-            )}
-
-            <input
-              type={mode === 'create' ? 'email' : 'text'}
-              placeholder={mode === 'create' ? 'Email' : 'Username or Email'}
-              value={mode === 'create' ? email : username}
-              onChange={(e) => {
-                if (mode === 'create') {
-                  setEmail(e.target.value);
-                } else {
-                  setUsername(e.target.value);
-                }
-                setError('');
-              }}
-              onKeyPress={handleKeyPress}
-              style={styles.nameInput}
-              disabled={isLoading}
-            />
-
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(''); }}
-              onKeyPress={handleKeyPress}
-              style={styles.nameInput}
-              disabled={isLoading}
-            />
-
-            <button
-              style={{
-                ...styles.startButton,
-                ...(isLoading ? styles.startButtonDisabled : {})
-              }}
-              onClick={handleSubmit}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
-            </button>
-
-            <button
-              style={styles.linkButton}
-              onClick={() => {
-                setMode(mode === 'login' ? 'create' : 'login');
-                setError('');
-                setUsername('');
-                setEmail('');
-                setPassword('');
-              }}
-              disabled={isLoading}
-            >
-              {mode === 'login' ? 'Create a new account' : 'Already have an account? Sign in'}
-            </button>
-          </div>
         </div>
       );
     }
