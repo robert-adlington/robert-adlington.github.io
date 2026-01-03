@@ -23,14 +23,115 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
-    // ============ LOCAL STORAGE HELPERS ============
+    // ============ API CONFIGURATION ============
+    const API_BASE_URL = '/adlington/api';
+
+    // API helper for making authenticated requests
+    const api = {
+      getSessionToken: () => {
+        // Session token is stored in httpOnly cookie, managed by server
+        return null; // Cookies are sent automatically
+      },
+
+      request: async (endpoint, options = {}) => {
+        const url = `${API_BASE_URL}${endpoint}`;
+        const defaultOptions = {
+          credentials: 'include', // Include cookies for authentication
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+        };
+
+        const response = await fetch(url, { ...defaultOptions, ...options });
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.message || 'API request failed');
+        }
+
+        return data.data;
+      },
+
+      // Authentication endpoints
+      auth: {
+        register: async (username, email, password) => {
+          return await api.request('/auth-api.php?action=register', {
+            method: 'POST',
+            body: JSON.stringify({ username, email, password }),
+          });
+        },
+
+        login: async (identifier, password) => {
+          return await api.request('/auth-api.php?action=login', {
+            method: 'POST',
+            body: JSON.stringify({ username: identifier, password }),
+          });
+        },
+
+        logout: async () => {
+          return await api.request('/auth-api.php?action=logout', {
+            method: 'POST',
+          });
+        },
+
+        getCurrentUser: async () => {
+          try {
+            return await api.request('/auth-api.php?action=me', {
+              method: 'GET',
+            });
+          } catch (error) {
+            return null;
+          }
+        },
+      },
+
+      // Games endpoints
+      games: {
+        list: async (limit = 20, offset = 0) => {
+          return await api.request(`/games.php?limit=${limit}&offset=${offset}`, {
+            method: 'GET',
+          });
+        },
+
+        get: async (id) => {
+          return await api.request(`/games.php?id=${id}`, {
+            method: 'GET',
+          });
+        },
+
+        create: async (gameData) => {
+          return await api.request('/games.php', {
+            method: 'POST',
+            body: JSON.stringify(gameData),
+          });
+        },
+
+        update: async (id, gameData) => {
+          return await api.request(`/games.php?id=${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(gameData),
+          });
+        },
+
+        delete: async (id) => {
+          return await api.request(`/games.php?id=${id}`, {
+            method: 'DELETE',
+          });
+        },
+      },
+    };
+
+    // ============ LOCAL STORAGE HELPERS (Legacy + Cache) ============
     const STORAGE_KEYS = {
       ACCOUNT: 'whist_account',
       FRIENDS: 'whist_friends',
       GAMES: 'whist_games',
+      SESSION_TOKEN: 'whist_session_token',
     };
 
     const storage = {
+      // Account management (now uses API)
       getAccount: () => {
         try {
           const data = localStorage.getItem(STORAGE_KEYS.ACCOUNT);
@@ -44,7 +145,10 @@
         localStorage.removeItem(STORAGE_KEYS.ACCOUNT);
         localStorage.removeItem(STORAGE_KEYS.FRIENDS);
         localStorage.removeItem(STORAGE_KEYS.GAMES);
+        localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
       },
+
+      // Friends (kept local for now)
       getFriends: () => {
         try {
           const data = localStorage.getItem(STORAGE_KEYS.FRIENDS);
@@ -54,29 +158,61 @@
       setFriends: (friends) => {
         localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
       },
-      getGames: () => {
+
+      // Games - now uses API
+      getGames: async () => {
+        try {
+          const response = await api.games.list(100, 0);
+          return response.games || [];
+        } catch (error) {
+          console.error('Failed to fetch games:', error);
+          // Fallback to localStorage if API fails
+          try {
+            const data = localStorage.getItem(STORAGE_KEYS.GAMES);
+            return data ? JSON.parse(data) : [];
+          } catch { return []; }
+        }
+      },
+
+      saveGame: async (game) => {
+        try {
+          // Prepare game data for API
+          const gameData = {
+            game_name: `Game ${new Date().toLocaleDateString()}`,
+            players: game.players,
+            scores: game.rounds,
+            current_round: game.rounds.length,
+            is_complete: true,
+          };
+
+          await api.games.create(gameData);
+        } catch (error) {
+          console.error('Failed to save game to API:', error);
+          // Fallback to localStorage
+          const games = await storage.getLocalGames();
+          games.push({ ...game, id: Date.now(), date: new Date().toISOString() });
+          localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
+        }
+      },
+
+      getLocalGames: () => {
         try {
           const data = localStorage.getItem(STORAGE_KEYS.GAMES);
           return data ? JSON.parse(data) : [];
         } catch { return []; }
       },
-      saveGame: (game) => {
-        const games = storage.getGames();
-        games.push({ ...game, id: Date.now(), date: new Date().toISOString() });
-        localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
-      },
+
       exportData: () => {
         return JSON.stringify({
           account: storage.getAccount(),
           friends: storage.getFriends(),
-          games: storage.getGames(),
         }, null, 2);
       },
+
       importData: (jsonString) => {
         const data = JSON.parse(jsonString);
         if (data.account) localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(data.account));
         if (data.friends) localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(data.friends));
-        if (data.games) localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(data.games));
       }
     };
 
@@ -180,34 +316,68 @@
       const [activeCellPosition, setActiveCellPosition] = useState(null);
 
       useEffect(() => {
-        const savedAccount = storage.getAccount();
-        if (savedAccount) {
-          setAccount(savedAccount);
-          setIsLoggedIn(true);
-          setAppView('home');
-        }
+        // Check for existing session on mount
+        const checkSession = async () => {
+          try {
+            const response = await api.auth.getCurrentUser();
+            if (response && response.user) {
+              setAccount(response.user);
+              storage.setAccount(response.user);
+              setIsLoggedIn(true);
+              setAppView('home');
+            }
+          } catch (error) {
+            // No active session, check localStorage for cached account
+            const savedAccount = storage.getAccount();
+            if (savedAccount) {
+              // We have a cached account but no active session
+              // User will need to log in again
+              console.log('Cached account found, but session expired');
+            }
+          }
+        };
+        checkSession();
       }, []);
 
-      const handleLogin = (name, pin) => {
-        const savedAccount = storage.getAccount();
-        if (savedAccount && savedAccount.name === name && savedAccount.pin === pin) {
-          setAccount(savedAccount);
-          setIsLoggedIn(true);
-          setAppView('home');
-          return true;
+      const handleLogin = async (identifier, password) => {
+        try {
+          const response = await api.auth.login(identifier, password);
+          if (response && response.user) {
+            setAccount(response.user);
+            storage.setAccount(response.user);
+            setIsLoggedIn(true);
+            setAppView('home');
+            return { success: true };
+          }
+          return { success: false, error: 'Login failed' };
+        } catch (error) {
+          return { success: false, error: error.message || 'Login failed' };
         }
-        return false;
       };
 
-      const handleCreateAccount = (name, pin) => {
-        const newAccount = { name, pin, createdAt: new Date().toISOString() };
-        storage.setAccount(newAccount);
-        setAccount(newAccount);
-        setIsLoggedIn(true);
-        setAppView('home');
+      const handleCreateAccount = async (username, email, password) => {
+        try {
+          const response = await api.auth.register(username, email, password);
+          if (response && response.user) {
+            setAccount(response.user);
+            storage.setAccount(response.user);
+            setIsLoggedIn(true);
+            setAppView('home');
+            return { success: true };
+          }
+          return { success: false, error: 'Registration failed' };
+        } catch (error) {
+          return { success: false, error: error.message || 'Registration failed' };
+        }
       };
 
-      const handleLogout = () => {
+      const handleLogout = async () => {
+        try {
+          await api.auth.logout();
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+        storage.clearAccount();
         setAccount(null);
         setIsLoggedIn(false);
         setAppView('login');
@@ -395,7 +565,7 @@
         }
       };
 
-      const saveAndFinishGame = () => {
+      const saveAndFinishGame = async () => {
         const standings = getStandings(totalRounds - 1);
         const gameData = {
           players,
@@ -403,7 +573,7 @@
           standings: standings.map(s => ({ name: s.name, total: s.total })),
           winner: standings[0].name,
         };
-        storage.saveGame(gameData);
+        await storage.saveGame(gameData);
         resetGame();
       };
 
@@ -536,33 +706,68 @@
     function LoginScreen({ onLogin, onCreateAccount }) {
       const existingAccount = storage.getAccount();
       const [mode, setMode] = useState(existingAccount ? 'login' : 'create');
-      const [name, setName] = useState('');
-      const [pin, setPin] = useState('');
+      const [username, setUsername] = useState('');
+      const [email, setEmail] = useState('');
+      const [password, setPassword] = useState('');
       const [error, setError] = useState('');
+      const [isLoading, setIsLoading] = useState(false);
 
-      const handleSubmit = () => {
-        if (mode === 'create' && name.trim().length < 2) {
-          setError('Name must be at least 2 characters');
-          return;
-        }
-        if (!/^\d{4}$/.test(pin)) {
-          setError('PIN must be exactly 4 digits');
-          return;
-        }
-        
-        if (mode === 'login') {
-          if (!onLogin(existingAccount.name, pin)) {
-            setError('Incorrect PIN');
+      const handleSubmit = async () => {
+        setError('');
+        setIsLoading(true);
+
+        try {
+          if (mode === 'create') {
+            // Validation for registration
+            if (username.trim().length < 3) {
+              setError('Username must be at least 3 characters');
+              setIsLoading(false);
+              return;
+            }
+            if (!email.trim() || !email.includes('@')) {
+              setError('Please enter a valid email address');
+              setIsLoading(false);
+              return;
+            }
+            if (password.length < 8) {
+              setError('Password must be at least 8 characters');
+              setIsLoading(false);
+              return;
+            }
+
+            const result = await onCreateAccount(username.trim(), email.trim(), password);
+            if (!result.success) {
+              setError(result.error);
+            }
+          } else {
+            // Login validation
+            const identifier = username.trim() || email.trim();
+            if (!identifier) {
+              setError('Please enter your username or email');
+              setIsLoading(false);
+              return;
+            }
+            if (!password) {
+              setError('Please enter your password');
+              setIsLoading(false);
+              return;
+            }
+
+            const result = await onLogin(identifier, password);
+            if (!result.success) {
+              setError(result.error);
+            }
           }
-        } else {
-          onCreateAccount(name.trim(), pin);
+        } catch (err) {
+          setError('An error occurred. Please try again.');
+        } finally {
+          setIsLoading(false);
         }
       };
 
-      const handlePinChange = (value) => {
-        if (/^\d{0,4}$/.test(value)) {
-          setPin(value);
-          setError('');
+      const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && !isLoading) {
+          handleSubmit();
         }
       };
 
@@ -570,11 +775,11 @@
         <div style={styles.container}>
           <div style={styles.loginCard}>
             <h1 style={styles.setupTitle}>Contract Whist</h1>
-            
+
             {existingAccount && mode === 'login' ? (
               <>
                 <p style={styles.setupSubtitle}>Welcome back!</p>
-                <p style={styles.welcomeName}>{existingAccount.name}</p>
+                <p style={styles.welcomeName}>{existingAccount.username || existingAccount.name}</p>
               </>
             ) : (
               <p style={styles.setupSubtitle}>
@@ -584,54 +789,69 @@
 
             {error && <div style={styles.errorMessage}>{error}</div>}
 
-            {(!existingAccount || mode === 'create') && (
+            {mode === 'create' && (
               <input
                 type="text"
-                placeholder="Your name"
-                value={name}
-                onChange={(e) => { setName(e.target.value); setError(''); }}
+                placeholder="Username"
+                value={username}
+                onChange={(e) => { setUsername(e.target.value); setError(''); }}
+                onKeyPress={handleKeyPress}
                 style={styles.nameInput}
+                disabled={isLoading}
               />
             )}
 
-            <div style={styles.pinSection}>
-              <span style={styles.label}>Enter your 4-digit PIN:</span>
-              <div style={styles.pinInputContainer}>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={4}
-                  placeholder="••••"
-                  value={pin}
-                  onChange={(e) => handlePinChange(e.target.value)}
-                  style={styles.pinInput}
-                />
-              </div>
-            </div>
+            <input
+              type={mode === 'create' ? 'email' : 'text'}
+              placeholder={mode === 'create' ? 'Email' : 'Username or Email'}
+              value={mode === 'create' ? email : username}
+              onChange={(e) => {
+                if (mode === 'create') {
+                  setEmail(e.target.value);
+                } else {
+                  setUsername(e.target.value);
+                }
+                setError('');
+              }}
+              onKeyPress={handleKeyPress}
+              style={styles.nameInput}
+              disabled={isLoading}
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              onKeyPress={handleKeyPress}
+              style={styles.nameInput}
+              disabled={isLoading}
+            />
 
             <button
               style={{
                 ...styles.startButton,
-                ...((existingAccount && mode === 'login' || name.trim()) && pin.length === 4 ? {} : styles.startButtonDisabled)
+                ...(isLoading ? styles.startButtonDisabled : {})
               }}
               onClick={handleSubmit}
-              disabled={!(existingAccount && mode === 'login' || name.trim()) || pin.length !== 4}
+              disabled={isLoading}
             >
-              {mode === 'login' ? 'Sign In' : 'Create Account'}
+              {isLoading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
             </button>
 
-            {existingAccount && mode === 'login' ? (
-              <button style={styles.linkButton} onClick={() => setMode('create')}>
-                Create a different account
-              </button>
-            ) : (
-              existingAccount && (
-                <button style={styles.linkButton} onClick={() => { setMode('login'); setName(''); }}>
-                  Sign in to existing account
-                </button>
-              )
-            )}
+            <button
+              style={styles.linkButton}
+              onClick={() => {
+                setMode(mode === 'login' ? 'create' : 'login');
+                setError('');
+                setUsername('');
+                setEmail('');
+                setPassword('');
+              }}
+              disabled={isLoading}
+            >
+              {mode === 'login' ? 'Create a new account' : 'Already have an account? Sign in'}
+            </button>
           </div>
         </div>
       );
@@ -643,7 +863,7 @@
         <div style={styles.container}>
           <div style={styles.homeCard}>
             <h1 style={styles.setupTitle}>Contract Whist</h1>
-            <p style={styles.welcomeText}>Hello, {account.name}!</p>
+            <p style={styles.welcomeText}>Hello, {account.username || account.name}!</p>
 
             <div style={styles.menuButtons}>
               <button style={styles.menuButton} onClick={onStartGame}>
@@ -727,13 +947,25 @@
 
     // ============ HISTORY SCREEN ============
     function HistoryScreen({ onBack }) {
-      const games = storage.getGames();
+      const [games, setGames] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        const loadGames = async () => {
+          setIsLoading(true);
+          const fetchedGames = await storage.getGames();
+          setGames(fetchedGames);
+          setIsLoading(false);
+        };
+        loadGames();
+      }, []);
 
       const formatDate = (dateString) => {
+        if (!dateString) return 'Unknown date';
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-GB', { 
-          day: 'numeric', 
-          month: 'short', 
+        return date.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
           year: 'numeric',
           hour: '2-digit',
           minute: '2-digit'
@@ -749,15 +981,17 @@
             </div>
 
             <div style={styles.historyList}>
-              {games.length === 0 ? (
+              {isLoading ? (
+                <p style={styles.emptyMessage}>Loading games...</p>
+              ) : games.length === 0 ? (
                 <p style={styles.emptyMessage}>No games played yet. Start a new game!</p>
               ) : (
                 [...games].reverse().map((game, index) => (
                   <div key={game.id || index} style={styles.historyCard}>
-                    <div style={styles.historyDate}>{formatDate(game.date)}</div>
+                    <div style={styles.historyDate}>{formatDate(game.date || game.played_at)}</div>
                     <div style={styles.historyWinner}>🏆 {game.winner}</div>
                     <div style={styles.historyPlayers}>
-                      {game.standings.map((p, i) => (
+                      {(game.standings || []).map((p, i) => (
                         <span key={i} style={styles.historyPlayer}>
                           {i + 1}. {p.name} ({p.total})
                         </span>
@@ -774,9 +1008,21 @@
 
     // ============ STATS SCREEN ============
     function StatsScreen({ onBack }) {
-      const games = storage.getGames();
+      const [games, setGames] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        const loadGames = async () => {
+          setIsLoading(true);
+          const fetchedGames = await storage.getGames();
+          setGames(fetchedGames);
+          setIsLoading(false);
+        };
+        loadGames();
+      }, []);
+
       const playerStats = {};
-      
+
       games.forEach(game => {
         game.players.forEach((playerName, playerIndex) => {
           if (!playerStats[playerName]) {
@@ -788,17 +1034,17 @@
               totalPoints: 0,
             };
           }
-          
+
           const stats = playerStats[playerName];
           stats.gamesPlayed++;
-          
+
           if (game.winner === playerName) stats.wins++;
-          
-          const finalStanding = game.standings.find(s => s.name === playerName);
+
+          const finalStanding = (game.standings || []).find(s => s.name === playerName);
           if (finalStanding) stats.totalPoints += finalStanding.total;
-          
-          game.rounds.forEach(round => {
-            if (round.bids[playerIndex] !== undefined && round.scores[playerIndex] !== undefined) {
+
+          (game.rounds || []).forEach(round => {
+            if (round.bids && round.scores && round.bids[playerIndex] !== undefined && round.scores[playerIndex] !== undefined) {
               stats.totalRounds++;
               if (round.bids[playerIndex] === round.scores[playerIndex]) {
                 stats.contractsMade++;
@@ -820,48 +1066,54 @@
               <h2 style={styles.screenTitle}>Statistics</h2>
             </div>
 
-            <div style={styles.overallStats}>
-              <div style={styles.statBox}>
-                <div style={styles.statNumber}>{games.length}</div>
-                <div style={styles.statLabel}>Games Played</div>
-              </div>
-            </div>
-
-            <h3 style={styles.subSectionTitle}>Player Statistics</h3>
-            
-            <div style={styles.statsList}>
-              {sortedPlayers.length === 0 ? (
-                <p style={styles.emptyMessage}>No statistics yet. Play some games!</p>
-              ) : (
-                sortedPlayers.map((player, index) => (
-                  <div key={index} style={styles.playerStatCard}>
-                    <div style={styles.playerStatName}>{player.name}</div>
-                    <div style={styles.playerStatGrid}>
-                      <div style={styles.miniStat}>
-                        <span style={styles.miniStatValue}>{player.gamesPlayed}</span>
-                        <span style={styles.miniStatLabel}>Games</span>
-                      </div>
-                      <div style={styles.miniStat}>
-                        <span style={styles.miniStatValue}>{player.wins}</span>
-                        <span style={styles.miniStatLabel}>Wins</span>
-                      </div>
-                      <div style={styles.miniStat}>
-                        <span style={styles.miniStatValue}>
-                          {player.totalRounds > 0 ? Math.round((player.contractsMade / player.totalRounds) * 100) : 0}%
-                        </span>
-                        <span style={styles.miniStatLabel}>Contract %</span>
-                      </div>
-                      <div style={styles.miniStat}>
-                        <span style={styles.miniStatValue}>
-                          {player.gamesPlayed > 0 ? Math.round(player.totalPoints / player.gamesPlayed) : 0}
-                        </span>
-                        <span style={styles.miniStatLabel}>Avg Score</span>
-                      </div>
-                    </div>
+            {isLoading ? (
+              <p style={styles.emptyMessage}>Loading statistics...</p>
+            ) : (
+              <>
+                <div style={styles.overallStats}>
+                  <div style={styles.statBox}>
+                    <div style={styles.statNumber}>{games.length}</div>
+                    <div style={styles.statLabel}>Games Played</div>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+
+                <h3 style={styles.subSectionTitle}>Player Statistics</h3>
+
+                <div style={styles.statsList}>
+                  {sortedPlayers.length === 0 ? (
+                    <p style={styles.emptyMessage}>No statistics yet. Play some games!</p>
+                  ) : (
+                    sortedPlayers.map((player, index) => (
+                      <div key={index} style={styles.playerStatCard}>
+                        <div style={styles.playerStatName}>{player.name}</div>
+                        <div style={styles.playerStatGrid}>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>{player.gamesPlayed}</span>
+                            <span style={styles.miniStatLabel}>Games</span>
+                          </div>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>{player.wins}</span>
+                            <span style={styles.miniStatLabel}>Wins</span>
+                          </div>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>
+                              {player.totalRounds > 0 ? Math.round((player.contractsMade / player.totalRounds) * 100) : 0}%
+                            </span>
+                            <span style={styles.miniStatLabel}>Contract %</span>
+                          </div>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>
+                              {player.gamesPlayed > 0 ? Math.round(player.totalPoints / player.gamesPlayed) : 0}
+                            </span>
+                            <span style={styles.miniStatLabel}>Avg Score</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
