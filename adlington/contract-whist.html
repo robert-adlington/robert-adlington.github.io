@@ -391,10 +391,22 @@
         } catch (error) {
           console.error('Logout error:', error);
         }
+
+        // Clear all state
         storage.clearAccount();
         setAccount(null);
         setIsLoggedIn(false);
         setAppView('login');
+
+        // Reset game state to avoid issues
+        setGameState('setup');
+        setPlayers([]);
+        setRounds([]);
+        setCurrentRound(0);
+        setCurrentPhase('bidding');
+        setCurrentPlayerIndex(0);
+        setShowStandings(false);
+        setHistory([]);
       };
 
       const totalRounds = useMemo(() => {
