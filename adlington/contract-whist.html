@@ -342,11 +342,11 @@
               setIsCheckingAuth(false);
             } else {
               // No active session - redirect to login page
-              window.location.href = '/adlington/index.html?return=' + encodeURIComponent(window.location.pathname);
+              window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
             }
           } catch (error) {
             // Authentication failed - redirect to login page
-            window.location.href = '/adlington/index.html?return=' + encodeURIComponent(window.location.pathname);
+            window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
           }
         };
         checkSession();
@@ -361,7 +361,7 @@
 
         // Clear all state and redirect to home page
         storage.clearAccount();
-        window.location.href = '/adlington/index.html';
+        window.location.href = '/index.html';
       };
 
       const totalRounds = useMemo(() => {
