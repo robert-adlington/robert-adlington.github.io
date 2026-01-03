@@ -19,10 +19,13 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        server-dir: /public_html/
+        local-dir: ./adlington/          # Deploy contents of adlington folder
+        server-dir: /public_html/        # To web root
         # Exclude sensitive files
         exclude: |
           **/.git*
           **/.git*/**
           **/node_modules/**
-          **/adlington/api/config.php
+          **/api/config.php
+          **/api/debug.php
+          **/api/test.php
