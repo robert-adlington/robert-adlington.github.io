@@ -220,7 +220,8 @@ class Auth {
 
         // Generate reset token
         $token = generateToken(32);
-        $expiresAt = date('Y-m-d H:i:s', time() + RESET_TOKEN_EXPIRY);
+        $tokenExpiry = defined('RESET_TOKEN_EXPIRY') ? RESET_TOKEN_EXPIRY : 3600; // Default: 1 hour
+        $expiresAt = date('Y-m-d H:i:s', time() + $tokenExpiry);
 
         // Delete any existing tokens for this user
         $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE user_id = ?");
