@@ -556,11 +556,11 @@
             <a href="https://adlington.fr/contract-whist.html" target="_blank" class="project-card card">
                 <div class="project-icon">🃏</div>
                 <div>
-                    <h3 class="card-title">Contract Whist</h3>
+                    <h3 class="card-title">Contract Whist <span style="color: #888; font-size: 0.85em; font-weight: 400;">(Requires Sign In)</span></h3>
                     <p class="card-excerpt">Score tracker for Contract Whist card game</p>
                 </div>
             </a>
-            
+
             <a href="https://adlington.fr/random-robby.html" target="_blank" class="project-card card">
                 <div class="project-icon">🎲</div>
                 <div>
@@ -568,8 +568,7 @@
                     <p class="card-excerpt">Random selection tool</p>
                 </div>
             </a>
-            
-            <div id="projects-info"></div>
+
         </section>
     </main>
 
@@ -606,6 +605,10 @@
                 <div class="form-group">
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required minlength="8">
+                </div>
+                <div class="form-group" id="remember-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <input type="checkbox" id="remember-me" name="remember" checked style="width: auto; margin: 0;">
+                    <label for="remember-me" style="margin: 0; font-size: 0.9rem; cursor: pointer;">Remember me for 30 days</label>
                 </div>
                 <button type="submit" class="btn btn-primary form-submit" id="submit-btn">Sign In</button>
             </form>
@@ -645,7 +648,6 @@
         const submitBtn = document.getElementById('submit-btn');
         const toggleText = document.getElementById('toggle-text');
         const toggleMode = document.getElementById('toggle-mode');
-        const projectsInfo = document.getElementById('projects-info');
         
         // API Helper
         async function apiRequest(endpoint, options = {}) {
@@ -723,39 +725,25 @@
         // UI Functions
         function updateUI() {
             authLoading.style.display = 'none';
-            
+
             if (currentUser) {
                 loginBtn.style.display = 'none';
                 userMenu.style.display = 'block';
                 userAvatar.textContent = currentUser.username[0].toUpperCase();
                 userName.textContent = currentUser.username;
                 userEmail.textContent = currentUser.email;
-                
+
                 // Admin button
                 if (currentUser.is_admin) {
                     adminToggle.classList.add('visible');
                 } else {
                     adminToggle.classList.remove('visible');
                 }
-                
-                // Projects info
-                projectsInfo.innerHTML = `
-                    <div class="info-box info-box-logged-in">
-                        <strong>✓ Logged in as ${currentUser.username}</strong>
-                        Your game scores will be saved automatically when using Contract Whist.
-                    </div>
-                `;
             } else {
                 loginBtn.style.display = 'block';
                 userMenu.style.display = 'none';
                 adminToggle.classList.remove('visible');
                 adminMenu.classList.remove('open');
-                
-                projectsInfo.innerHTML = `
-                    <div class="info-box info-box-logged-out">
-                        <a onclick="openModal()">Sign in</a> to save your Contract Whist game scores.
-                    </div>
-                `;
             }
         }
         
@@ -771,11 +759,14 @@
         
         function setAuthMode(mode) {
             authMode = mode;
+            const rememberGroup = document.getElementById('remember-group');
+
             if (mode === 'login') {
                 modalTitle.textContent = 'Welcome Back';
-                // Login: show email only
+                // Login: show email only and remember me checkbox
                 usernameGroup.style.display = 'none';
                 emailGroup.style.display = 'block';
+                rememberGroup.style.display = 'flex';
                 document.getElementById('username').required = false;
                 document.getElementById('email').required = true;
                 submitBtn.textContent = 'Sign In';
@@ -783,9 +774,10 @@
                 toggleMode.textContent = 'Sign up';
             } else {
                 modalTitle.textContent = 'Create Account';
-                // Register: show both username and email
+                // Register: show both username and email, hide remember me
                 usernameGroup.style.display = 'block';
                 emailGroup.style.display = 'block';
+                rememberGroup.style.display = 'none';
                 document.getElementById('username').required = true;
                 document.getElementById('email').required = true;
                 submitBtn.textContent = 'Create Account';
