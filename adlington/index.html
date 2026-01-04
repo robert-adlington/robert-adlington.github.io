@@ -553,13 +553,13 @@
         <section>
             <h2 class="column-header">🛠️ Projects</h2>
             
-            <a href="https://adlington.fr/contract-whist.html" target="_blank" class="project-card card">
+            <div id="contract-whist-card" class="project-card card" style="cursor: pointer;">
                 <div class="project-icon">🃏</div>
                 <div>
                     <h3 class="card-title">Contract Whist <span style="color: #888; font-size: 0.85em; font-weight: 400;">(Requires Sign In)</span></h3>
                     <p class="card-excerpt">Score tracker for Contract Whist card game</p>
                 </div>
-            </a>
+            </div>
 
             <a href="https://adlington.fr/random-robby.html" target="_blank" class="project-card card">
                 <div class="project-icon">🎲</div>
@@ -848,6 +848,15 @@
         
         // Event Listeners
         loginBtn.addEventListener('click', openModal);
+
+        // Contract Whist card click handler
+        document.getElementById('contract-whist-card').addEventListener('click', () => {
+            if (currentUser) {
+                window.location.href = '/contract-whist.html';
+            } else {
+                openModal();
+            }
+        });
         modalClose.addEventListener('click', closeModal);
         authModal.addEventListener('click', (e) => {
             if (e.target === authModal) closeModal();
