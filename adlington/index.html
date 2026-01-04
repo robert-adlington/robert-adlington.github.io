@@ -604,7 +604,10 @@
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required minlength="8">
+                    <div style="position: relative;">
+                        <input type="password" id="password" name="password" required minlength="8" style="padding-right: 3rem;">
+                        <button type="button" class="password-toggle" data-target="password" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: #d4af37; cursor: pointer; padding: 0.25rem 0.5rem; font-size: 0.85rem;">Show</button>
+                    </div>
                     <a id="forgot-password-link" style="display: block; margin-top: 0.5rem; font-size: 0.85rem; color: #d4af37; text-decoration: none; cursor: pointer;">Forgot password?</a>
                 </div>
                 <div class="form-group" id="remember-group" style="display: flex; align-items: center; gap: 0.5rem;">
@@ -645,11 +648,17 @@
                 </p>
                 <div class="form-group">
                     <label for="new-password">New Password</label>
-                    <input type="password" id="new-password" name="password" required minlength="8">
+                    <div style="position: relative;">
+                        <input type="password" id="new-password" name="password" required minlength="8" style="padding-right: 3rem;">
+                        <button type="button" class="password-toggle" data-target="new-password" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: #d4af37; cursor: pointer; padding: 0.25rem 0.5rem; font-size: 0.85rem;">Show</button>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="confirm-password">Confirm Password</label>
-                    <input type="password" id="confirm-password" name="confirm" required minlength="8">
+                    <div style="position: relative;">
+                        <input type="password" id="confirm-password" name="confirm" required minlength="8" style="padding-right: 3rem;">
+                        <button type="button" class="password-toggle" data-target="confirm-password" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: #d4af37; cursor: pointer; padding: 0.25rem 0.5rem; font-size: 0.85rem;">Show</button>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary form-submit" id="reset-password-btn">Reset Password</button>
             </form>
@@ -1090,6 +1099,22 @@
                 });
             }
         }
+
+        // Password visibility toggle
+        document.querySelectorAll('.password-toggle').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetId = button.getAttribute('data-target');
+                const input = document.getElementById(targetId);
+
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    button.textContent = 'Hide';
+                } else {
+                    input.type = 'password';
+                    button.textContent = 'Show';
+                }
+            });
+        });
 
         // Initialize
         checkAuth();
