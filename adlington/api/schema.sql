@@ -40,6 +40,20 @@ CREATE TABLE IF NOT EXISTS sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- Password Reset Tokens Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  token VARCHAR(64) PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP NULL DEFAULT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user_id (user_id),
+  INDEX idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- Contract Whist Games Table
 -- ============================================
 CREATE TABLE IF NOT EXISTS whist_games (
@@ -76,3 +90,9 @@ VALUES (
 -- Run this periodically via cron job
 -- ============================================
 -- DELETE FROM sessions WHERE expires_at < NOW();
+
+-- ============================================
+-- Clean up expired password reset tokens (maintenance query)
+-- Run this periodically via cron job
+-- ============================================
+-- DELETE FROM password_reset_tokens WHERE expires_at < NOW();

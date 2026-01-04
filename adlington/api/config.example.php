@@ -28,3 +28,25 @@ define('ALLOWED_ORIGINS', [
 
 // Debug Mode (set to false in production)
 define('DEBUG_MODE', false);
+
+// Site Configuration
+define('SITE_URL', 'https://yourdomain.com'); // Your site URL (no trailing slash)
+define('SITE_NAME', 'Adlington.fr');
+
+// Email Configuration (for password resets)
+// Using PHP mail() function (default)
+define('EMAIL_METHOD', 'mail'); // 'mail' or 'smtp'
+
+// SMTP Configuration (only needed if EMAIL_METHOD is 'smtp')
+define('SMTP_HOST', 'smtp.example.com');
+define('SMTP_PORT', 587); // Usually 587 for TLS, 465 for SSL
+define('SMTP_ENCRYPTION', 'tls'); // 'tls' or 'ssl'
+define('SMTP_USERNAME', 'your_email@example.com');
+define('SMTP_PASSWORD', 'your_email_password');
+
+// Email Settings
+define('EMAIL_FROM_ADDRESS', 'noreply@yourdomain.com');
+define('EMAIL_FROM_NAME', 'Adlington.fr');
+
+// Password Reset Configuration
+define('RESET_TOKEN_EXPIRY', 60 * 60); // 1 hour in seconds

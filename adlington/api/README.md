@@ -55,7 +55,49 @@ define('ALLOWED_ORIGINS', [
 ]);
 ```
 
-### 4. Security Settings
+### 4. Configure Email for Password Resets
+
+The password reset feature requires email configuration. Edit `config.php`:
+
+```php
+// Site Configuration
+define('SITE_URL', 'https://yourdomain.com'); // Your site URL (no trailing slash)
+define('SITE_NAME', 'Adlington.fr');
+
+// Email Configuration
+define('EMAIL_METHOD', 'mail'); // 'mail' or 'smtp'
+define('EMAIL_FROM_ADDRESS', 'noreply@yourdomain.com');
+define('EMAIL_FROM_NAME', 'Adlington.fr');
+
+// Password reset token expiry (default: 1 hour)
+define('RESET_TOKEN_EXPIRY', 60 * 60);
+```
+
+**Email Options:**
+
+1. **Using PHP `mail()` function (default):**
+   - Set `EMAIL_METHOD` to `'mail'`
+   - Requires your server to have `sendmail` or similar configured
+   - Works out-of-the-box on most shared hosting
+
+2. **Using SMTP (optional):**
+   - Set `EMAIL_METHOD` to `'smtp'`
+   - Configure SMTP settings in `config.php`:
+   ```php
+   define('SMTP_HOST', 'smtp.example.com');
+   define('SMTP_PORT', 587); // Usually 587 for TLS
+   define('SMTP_ENCRYPTION', 'tls'); // 'tls' or 'ssl'
+   define('SMTP_USERNAME', 'your_email@example.com');
+   define('SMTP_PASSWORD', 'your_email_password');
+   ```
+   - **Note:** SMTP implementation requires PHPMailer library (not included)
+
+**Testing Email:**
+- After configuration, test by requesting a password reset
+- Check your email spam folder if emails don't arrive
+- Verify `SITE_URL` is correct (used in reset links)
+
+### 5. Security Settings
 
 **IMPORTANT:** Before going to production:
 1. Change the default admin password (default: `changeme123`)
@@ -101,6 +143,50 @@ POST /api/auth-api.php?action=logout
 ```
 GET /api/auth-api.php?action=me
 ```
+
+#### Request Password Reset
+```
+POST /api/auth-api.php?action=request-reset
+Content-Type: application/json
+
+{
+  "email": "john@example.com"
+}
+```
+
+**Response:** Always returns success (doesn't reveal if email exists for security).
+
+**Note:** Sends an email with a password reset link valid for 1 hour.
+
+#### Verify Reset Token
+```
+POST /api/auth-api.php?action=verify-token
+Content-Type: application/json
+
+{
+  "token": "abc123..."
+}
+```
+
+**Response:**
+```json
+{
+  "valid": true
+}
+```
+
+#### Reset Password
+```
+POST /api/auth-api.php?action=reset-password
+Content-Type: application/json
+
+{
+  "token": "abc123...",
+  "password": "new_secure_password"
+}
+```
+
+**Note:** Invalidates all existing sessions after password reset.
 
 ### Games Management
 
@@ -160,6 +246,13 @@ DELETE /api/games.php?id=123
 - `user_id` - Foreign key to users table
 - `created_at` - Session creation time
 - `expires_at` - Session expiration time
+
+### Password_Reset_Tokens Table
+- `token` - Reset token (64 character random string)
+- `user_id` - Foreign key to users table
+- `created_at` - Token creation time
+- `expires_at` - Token expiration time (default: 1 hour)
+- `used_at` - Timestamp when token was used (NULL if unused)
 
 ### Whist_Games Table
 - `id` - Auto-increment primary key

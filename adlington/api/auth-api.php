@@ -1,11 +1,14 @@
 <?php
 /**
  * Authentication API Endpoint
- * 
- * POST /api/auth.php?action=register  - Register new user
- * POST /api/auth.php?action=login     - Login
- * POST /api/auth.php?action=logout    - Logout
- * GET  /api/auth.php?action=me        - Get current user
+ *
+ * POST /api/auth.php?action=register        - Register new user
+ * POST /api/auth.php?action=login           - Login
+ * POST /api/auth.php?action=logout          - Logout
+ * GET  /api/auth.php?action=me              - Get current user
+ * POST /api/auth.php?action=request-reset   - Request password reset
+ * POST /api/auth.php?action=verify-token    - Verify reset token
+ * POST /api/auth.php?action=reset-password  - Reset password with token
  */
 
 require_once __DIR__ . '/auth.php';
@@ -31,9 +34,21 @@ try {
         case 'me':
             handleMe();
             break;
-            
+
+        case 'request-reset':
+            handleRequestReset();
+            break;
+
+        case 'verify-token':
+            handleVerifyToken();
+            break;
+
+        case 'reset-password':
+            handleResetPassword();
+            break;
+
         default:
-            error('Invalid action. Use: register, login, logout, or me', 400);
+            error('Invalid action. Use: register, login, logout, me, request-reset, verify-token, or reset-password', 400);
     }
 } catch (Exception $e) {
     error($e->getMessage(), 400);
@@ -170,4 +185,73 @@ function setSessionCookie(string $token): void {
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
+}
+
+/**
+ * Handle password reset request
+ */
+function handleRequestReset(): void {
+    if (getMethod() !== 'POST') {
+        error('Method not allowed', 405);
+    }
+
+    $data = getJsonBody();
+
+    if (empty($data['email'])) {
+        error('Email is required', 400);
+    }
+
+    if (!validateEmail($data['email'])) {
+        error('Invalid email format', 400);
+    }
+
+    $result = Auth::requestPasswordReset(sanitize($data['email']));
+
+    // Always return success (don't reveal if email exists)
+    success(['message' => 'If this email exists, a password reset link has been sent.']);
+}
+
+/**
+ * Handle verify reset token
+ */
+function handleVerifyToken(): void {
+    if (getMethod() !== 'POST') {
+        error('Method not allowed', 405);
+    }
+
+    $data = getJsonBody();
+
+    if (empty($data['token'])) {
+        error('Token is required', 400);
+    }
+
+    $isValid = Auth::verifyResetToken($data['token']);
+
+    success(['valid' => $isValid]);
+}
+
+/**
+ * Handle password reset
+ */
+function handleResetPassword(): void {
+    if (getMethod() !== 'POST') {
+        error('Method not allowed', 405);
+    }
+
+    $data = getJsonBody();
+
+    $errors = validateRequired($data, ['token', 'password']);
+
+    // Validate password
+    if (isset($data['password']) && strlen($data['password']) < 8) {
+        $errors['password'] = 'Password must be at least 8 characters';
+    }
+
+    if (!empty($errors)) {
+        error('Validation failed', 400, $errors);
+    }
+
+    $result = Auth::resetPassword($data['token'], $data['password']);
+
+    success(['message' => 'Password has been reset successfully. You can now log in.']);
 }
