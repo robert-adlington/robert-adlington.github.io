@@ -19,6 +19,8 @@ jobs:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
+        port: 21  # Standard FTP port (use 22 for SFTP)
+        protocol: ftp  # Use 'ftps' for FTP with TLS, 'ftps-legacy' for implicit TLS
         local-dir: ./adlington/          # Deploy contents of adlington folder
         server-dir: /public_html/        # To web root
         # Exclude sensitive files
@@ -29,3 +31,4 @@ jobs:
           **/api/config.php
           **/api/debug.php
           **/api/test.php
+        log-level: verbose  # Get detailed error messages
