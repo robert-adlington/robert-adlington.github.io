@@ -870,13 +870,17 @@
         async function fetchBlogPosts() {
             const container = document.getElementById('blog-content');
             try {
-                const response = await fetch('https://blog.adlington.fr/wp-json/wp/v2/posts?per_page=5&_embed');
+                // Add cache-busting parameter to prevent browser caching
+                const cacheBuster = Date.now();
+                const response = await fetch(`https://blog.adlington.fr/wp-json/wp/v2/posts?per_page=5&_embed&_=${cacheBuster}`, {
+                    cache: 'no-cache'
+                });
                 if (!response.ok) throw new Error('Failed to fetch');
                 const posts = await response.json();
-                
+
                 container.innerHTML = posts.map(post => {
-                    const date = new Date(post.date).toLocaleDateString('en-GB', { 
-                        day: 'numeric', month: 'short', year: 'numeric' 
+                    const date = new Date(post.date).toLocaleDateString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric'
                     });
                     const excerpt = post.excerpt.rendered.replace(/<[^>]+>/g, '').slice(0, 150) + '...';
                     return `
