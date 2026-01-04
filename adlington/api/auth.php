@@ -296,8 +296,16 @@ class Auth {
      * Send password reset email
      */
     private static function sendPasswordResetEmail(string $email, string $username, string $token): bool {
+        // Check if email configuration is set up
+        if (!defined('SITE_URL') || !defined('EMAIL_FROM_ADDRESS')) {
+            // Log error but don't fail the request
+            error_log('Email configuration not set up. Cannot send password reset email.');
+            return false;
+        }
+
         $resetUrl = SITE_URL . '/index.html?reset=' . $token;
-        $siteName = SITE_NAME;
+        $siteName = defined('SITE_NAME') ? SITE_NAME : 'Adlington.fr';
+        $fromName = defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : $siteName;
 
         $subject = "Password Reset Request - {$siteName}";
 
@@ -318,17 +326,22 @@ If you didn't request this, please ignore this email. Your password will not be 
 ";
 
         $headers = [
-            'From: ' . EMAIL_FROM_NAME . ' <' . EMAIL_FROM_ADDRESS . '>',
+            'From: ' . $fromName . ' <' . EMAIL_FROM_ADDRESS . '>',
             'Reply-To: ' . EMAIL_FROM_ADDRESS,
             'X-Mailer: PHP/' . phpversion(),
             'MIME-Version: 1.0',
             'Content-Type: text/plain; charset=UTF-8'
         ];
 
-        if (defined('EMAIL_METHOD') && EMAIL_METHOD === 'smtp') {
-            return self::sendViaSMTP($email, $subject, $message);
-        } else {
-            return mail($email, $subject, $message, implode("\r\n", $headers));
+        try {
+            if (defined('EMAIL_METHOD') && EMAIL_METHOD === 'smtp') {
+                return self::sendViaSMTP($email, $subject, $message);
+            } else {
+                return @mail($email, $subject, $message, implode("\r\n", $headers));
+            }
+        } catch (Exception $e) {
+            error_log('Failed to send password reset email: ' . $e->getMessage());
+            return false;
         }
     }
 
