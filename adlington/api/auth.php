@@ -203,11 +203,160 @@ class Auth {
     }
     
     /**
+     * Request password reset - generates token and sends email
+     */
+    public static function requestPasswordReset(string $email): bool {
+        $pdo = db();
+
+        // Find user by email
+        $stmt = $pdo->prepare("SELECT id, username, email FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+
+        // Don't reveal if email exists or not (security)
+        if (!$user) {
+            return true;
+        }
+
+        // Generate reset token
+        $token = generateToken(32);
+        $expiresAt = date('Y-m-d H:i:s', time() + RESET_TOKEN_EXPIRY);
+
+        // Delete any existing tokens for this user
+        $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE user_id = ?");
+        $stmt->execute([$user['id']]);
+
+        // Insert new token
+        $stmt = $pdo->prepare("
+            INSERT INTO password_reset_tokens (token, user_id, expires_at)
+            VALUES (?, ?, ?)
+        ");
+        $stmt->execute([$token, $user['id'], $expiresAt]);
+
+        // Send reset email
+        self::sendPasswordResetEmail($user['email'], $user['username'], $token);
+
+        return true;
+    }
+
+    /**
+     * Verify if a reset token is valid
+     */
+    public static function verifyResetToken(string $token): bool {
+        $pdo = db();
+
+        $stmt = $pdo->prepare("
+            SELECT token FROM password_reset_tokens
+            WHERE token = ? AND expires_at > NOW() AND used_at IS NULL
+        ");
+        $stmt->execute([$token]);
+
+        return $stmt->fetch() !== false;
+    }
+
+    /**
+     * Reset password using token
+     */
+    public static function resetPassword(string $token, string $newPassword): bool {
+        $pdo = db();
+
+        // Verify token is valid
+        $stmt = $pdo->prepare("
+            SELECT user_id FROM password_reset_tokens
+            WHERE token = ? AND expires_at > NOW() AND used_at IS NULL
+        ");
+        $stmt->execute([$token]);
+        $result = $stmt->fetch();
+
+        if (!$result) {
+            throw new Exception("Invalid or expired reset token");
+        }
+
+        $userId = $result['user_id'];
+
+        // Hash new password
+        $passwordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+
+        // Update user password
+        $stmt = $pdo->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        $stmt->execute([$passwordHash, $userId]);
+
+        // Mark token as used
+        $stmt = $pdo->prepare("UPDATE password_reset_tokens SET used_at = NOW() WHERE token = ?");
+        $stmt->execute([$token]);
+
+        // Invalidate all sessions for this user (force re-login)
+        $stmt = $pdo->prepare("DELETE FROM sessions WHERE user_id = ?");
+        $stmt->execute([$userId]);
+
+        return true;
+    }
+
+    /**
+     * Send password reset email
+     */
+    private static function sendPasswordResetEmail(string $email, string $username, string $token): bool {
+        $resetUrl = SITE_URL . '/index.html?reset=' . $token;
+        $siteName = SITE_NAME;
+
+        $subject = "Password Reset Request - {$siteName}";
+
+        $message = "
+Hello {$username},
+
+You recently requested to reset your password for your {$siteName} account.
+
+Click the link below to reset your password:
+{$resetUrl}
+
+This link will expire in 1 hour.
+
+If you didn't request this, please ignore this email. Your password will not be changed.
+
+---
+{$siteName}
+";
+
+        $headers = [
+            'From: ' . EMAIL_FROM_NAME . ' <' . EMAIL_FROM_ADDRESS . '>',
+            'Reply-To: ' . EMAIL_FROM_ADDRESS,
+            'X-Mailer: PHP/' . phpversion(),
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8'
+        ];
+
+        if (defined('EMAIL_METHOD') && EMAIL_METHOD === 'smtp') {
+            return self::sendViaSMTP($email, $subject, $message);
+        } else {
+            return mail($email, $subject, $message, implode("\r\n", $headers));
+        }
+    }
+
+    /**
+     * Send email via SMTP (basic implementation)
+     */
+    private static function sendViaSMTP(string $to, string $subject, string $message): bool {
+        // For SMTP, you'd typically use PHPMailer or similar library
+        // This is a placeholder - implement if SMTP is needed
+        throw new Exception("SMTP sending not implemented. Please use EMAIL_METHOD='mail' or implement SMTP with PHPMailer.");
+    }
+
+    /**
      * Clean up expired sessions (call periodically)
      */
     public static function cleanupExpiredSessions(): int {
         $pdo = db();
         $stmt = $pdo->prepare("DELETE FROM sessions WHERE expires_at < NOW()");
+        $stmt->execute();
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Clean up expired password reset tokens (call periodically)
+     */
+    public static function cleanupExpiredResetTokens(): int {
+        $pdo = db();
+        $stmt = $pdo->prepare("DELETE FROM password_reset_tokens WHERE expires_at < NOW()");
         $stmt->execute();
         return $stmt->rowCount();
     }
