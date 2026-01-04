@@ -899,12 +899,27 @@
             const container = document.getElementById('wiki-content');
             try {
                 const response = await fetch(
-                    'https://wiki.adlington.fr/api.php?action=query&list=recentchanges&rcprop=title|timestamp|user|comment&rclimit=8&format=json&origin=*'
+                    'https://wiki.adlington.fr/api.php?action=query&list=recentchanges&rcprop=title|timestamp|user|comment&rclimit=50&format=json&origin=*'
                 );
                 if (!response.ok) throw new Error('Failed to fetch');
                 const data = await response.json();
-                const changes = data.query?.recentchanges || [];
-                
+                const allChanges = data.query?.recentchanges || [];
+
+                // Filter out file uploads and keep only one entry per page (most recent)
+                const seenTitles = new Set();
+                const changes = allChanges
+                    .filter(change => {
+                        // Exclude file uploads
+                        if (change.title.startsWith('File:')) return false;
+
+                        // Keep only first occurrence of each page (most recent edit)
+                        if (seenTitles.has(change.title)) return false;
+
+                        seenTitles.add(change.title);
+                        return true;
+                    })
+                    .slice(0, 8); // Limit to 8 entries after filtering
+
                 container.innerHTML = changes.map(change => {
                     const date = new Date(change.timestamp);
                     const formatted = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
@@ -912,7 +927,7 @@
                     return `
                         <article class="card">
                             <h3 class="card-title">
-                                <a href="https://wiki.adlington.fr/index.php/${encodeURIComponent(change.title)}" 
+                                <a href="https://wiki.adlington.fr/index.php/${encodeURIComponent(change.title)}"
                                    target="_blank" rel="noopener noreferrer">${change.title}</a>
                             </h3>
                             <div class="card-meta">${change.user} • ${formatted}</div>
