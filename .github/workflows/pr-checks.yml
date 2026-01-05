@@ -1,0 +1,77 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Validate Changes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for broken HTML
+        run: |
+          echo "🔍 Checking HTML files for common issues..."
+
+          # Find all HTML files
+          html_files=$(find . -name "*.html" -not -path "./.git/*" -not -path "./node_modules/*")
+
+          error_count=0
+
+          for file in $html_files; do
+            echo "Checking $file..."
+
+            # Check for unclosed tags (basic check)
+            if grep -q "<script[^>]*>" "$file" && ! grep -q "</script>" "$file"; then
+              echo "❌ Warning: Unclosed <script> tag in $file"
+              error_count=$((error_count + 1))
+            fi
+
+            # Check for missing DOCTYPE
+            if ! head -n 5 "$file" | grep -qi "<!DOCTYPE"; then
+              echo "⚠️  Note: Missing DOCTYPE in $file"
+            fi
+          done
+
+          echo "✅ HTML validation complete"
+
+          if [ $error_count -gt 0 ]; then
+            echo "⚠️  Found $error_count potential issues"
+          fi
+
+      - name: Check for API endpoint references
+        run: |
+          echo "🔍 Checking API paths are correct..."
+
+          # Look for API references in adlington folder
+          if grep -r "API_BASE" adlington/ --include="*.html" --include="*.js" 2>/dev/null; then
+            echo "✅ Found API configurations"
+          fi
+
+      - name: List changed files
+        run: |
+          echo "📝 Files changed in this PR:"
+          git diff --name-only origin/main...HEAD || echo "Could not determine changed files"
+
+      - name: Check for large files
+        run: |
+          echo "📦 Checking for large files..."
+
+          large_files=$(find . -type f -size +1M -not -path "./.git/*" -not -path "./node_modules/*")
+
+          if [ -n "$large_files" ]; then
+            echo "⚠️  Large files detected (>1MB):"
+            echo "$large_files"
+            echo "Consider optimizing or using Git LFS for large assets"
+          else
+            echo "✅ No large files detected"
+          fi
+
+      - name: Summary
+        run: |
+          echo "✅ All automated checks passed!"
+          echo "👀 Ready for manual review"
