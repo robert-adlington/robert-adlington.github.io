@@ -134,6 +134,50 @@
           });
         },
       },
+
+      // Friends endpoints
+      friends: {
+        list: async () => {
+          return await api.request('/friends.php', {
+            method: 'GET',
+          });
+        },
+
+        add: async (data) => {
+          // data can be { player_id: number } or { name: string }
+          return await api.request('/friends.php', {
+            method: 'POST',
+            body: JSON.stringify(data),
+          });
+        },
+
+        remove: async (playerId) => {
+          return await api.request(`/friends.php?player_id=${playerId}`, {
+            method: 'DELETE',
+          });
+        },
+      },
+
+      // Players endpoints
+      players: {
+        check: async (name) => {
+          return await api.request(`/players.php?check=${encodeURIComponent(name)}`, {
+            method: 'GET',
+          });
+        },
+
+        get: async (id) => {
+          return await api.request(`/players.php?id=${id}`, {
+            method: 'GET',
+          });
+        },
+
+        search: async (query) => {
+          return await api.request(`/players.php?search=${encodeURIComponent(query)}`, {
+            method: 'GET',
+          });
+        },
+      },
     };
 
     // ============ LOCAL STORAGE HELPERS (Legacy + Cache) ============
@@ -162,15 +206,47 @@
         localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
       },
 
-      // Friends (kept local for now)
-      getFriends: () => {
+      // Friends - now uses API with localStorage fallback
+      getFriends: async () => {
+        try {
+          const response = await api.friends.list();
+          const friends = response.friends || [];
+          // Cache in localStorage
+          localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
+          return friends;
+        } catch (error) {
+          console.error('Failed to fetch friends from API:', error);
+          // Fallback to localStorage
+          try {
+            const data = localStorage.getItem(STORAGE_KEYS.FRIENDS);
+            return data ? JSON.parse(data) : [];
+          } catch { return []; }
+        }
+      },
+
+      // Legacy sync method for getting cached friends
+      getFriendsSync: () => {
         try {
           const data = localStorage.getItem(STORAGE_KEYS.FRIENDS);
           return data ? JSON.parse(data) : [];
         } catch { return []; }
       },
+
       setFriends: (friends) => {
         localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
+      },
+
+      addFriend: async (data) => {
+        // data can be { player_id: number } or { name: string }
+        return await api.friends.add(data);
+      },
+
+      removeFriend: async (playerId) => {
+        return await api.friends.remove(playerId);
+      },
+
+      checkPlayer: async (name) => {
+        return await api.players.check(name);
       },
 
       // Games - now uses API
@@ -790,22 +866,92 @@
 
     // ============ FRIENDS SCREEN ============
     function FriendsScreen({ onBack }) {
-      const [friends, setFriends] = useState(storage.getFriends());
+      const [friends, setFriends] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
       const [newName, setNewName] = useState('');
+      const [isAdding, setIsAdding] = useState(false);
+      const [confirmPlayer, setConfirmPlayer] = useState(null); // For existing player confirmation
 
-      const addFriend = () => {
-        if (newName.trim() && !friends.includes(newName.trim())) {
-          const updated = [...friends, newName.trim()];
-          setFriends(updated);
-          storage.setFriends(updated);
-          setNewName('');
+      // Load friends on mount
+      useEffect(() => {
+        const loadFriends = async () => {
+          setIsLoading(true);
+          const friendsList = await storage.getFriends();
+          setFriends(friendsList);
+          setIsLoading(false);
+        };
+        loadFriends();
+      }, []);
+
+      const addFriend = async () => {
+        const name = newName.trim();
+        if (!name || isAdding) return;
+
+        // Check if already in friends list
+        if (friends.some(f => f.name.toLowerCase() === name.toLowerCase())) {
+          alert('This player is already in your friends list');
+          return;
+        }
+
+        setIsAdding(true);
+
+        try {
+          // First check if player exists
+          const checkResult = await storage.checkPlayer(name);
+
+          if (checkResult.exists) {
+            // Player exists - show confirmation dialog
+            setConfirmPlayer(checkResult.player);
+          } else {
+            // Player doesn't exist - create new one and add as friend
+            const result = await storage.addFriend({ name });
+            setFriends([...friends, result.friend]);
+            setNewName('');
+          }
+        } catch (error) {
+          // Check if it's a 409 conflict (player exists)
+          if (error.message.includes('already exists')) {
+            alert('A player with this name already exists. Please choose a different name or add the existing player.');
+          } else {
+            console.error('Failed to add friend:', error);
+            alert('Failed to add friend. Please try again.');
+          }
+        } finally {
+          setIsAdding(false);
         }
       };
 
-      const removeFriend = (name) => {
-        const updated = friends.filter(f => f !== name);
-        setFriends(updated);
-        storage.setFriends(updated);
+      const confirmAddExistingPlayer = async () => {
+        if (!confirmPlayer) return;
+
+        setIsAdding(true);
+        try {
+          const result = await storage.addFriend({ player_id: confirmPlayer.id });
+          setFriends([...friends, result.friend]);
+          setNewName('');
+          setConfirmPlayer(null);
+        } catch (error) {
+          console.error('Failed to add existing player:', error);
+          alert('Failed to add friend. Please try again.');
+        } finally {
+          setIsAdding(false);
+        }
+      };
+
+      const removeFriend = async (friend) => {
+        try {
+          await storage.removeFriend(friend.id);
+          setFriends(friends.filter(f => f.id !== friend.id));
+        } catch (error) {
+          console.error('Failed to remove friend:', error);
+          alert('Failed to remove friend. Please try again.');
+        }
+      };
+
+      const formatDate = (dateString) => {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
       };
 
       return (
@@ -824,17 +970,66 @@
                 onChange={(e) => setNewName(e.target.value)}
                 style={styles.friendInput}
                 onKeyPress={(e) => e.key === 'Enter' && addFriend()}
+                disabled={isAdding}
               />
-              <button style={styles.addButton} onClick={addFriend}>Add</button>
+              <button style={styles.addButton} onClick={addFriend} disabled={isAdding}>
+                {isAdding ? '...' : 'Add'}
+              </button>
             </div>
 
+            {/* Confirmation dialog for existing player */}
+            {confirmPlayer && (
+              <div style={styles.confirmDialog}>
+                <p style={styles.confirmText}>
+                  A player named "<strong>{confirmPlayer.name}</strong>" already exists.
+                </p>
+                <p style={styles.confirmDetails}>
+                  Games played: {confirmPlayer.total_games || 0}
+                  {confirmPlayer.last_game_date && (
+                    <><br />Last game: {formatDate(confirmPlayer.last_game_date)}</>
+                  )}
+                  {confirmPlayer.last_game_location && (
+                    <><br />({confirmPlayer.last_game_location})</>
+                  )}
+                </p>
+                <p style={styles.confirmQuestion}>Is this your friend?</p>
+                <div style={styles.confirmButtons}>
+                  <button
+                    style={styles.confirmYesButton}
+                    onClick={confirmAddExistingPlayer}
+                    disabled={isAdding}
+                  >
+                    Yes, add them
+                  </button>
+                  <button
+                    style={styles.confirmNoButton}
+                    onClick={() => {
+                      setConfirmPlayer(null);
+                      setNewName(confirmPlayer.name + ' ');
+                    }}
+                  >
+                    No, use different name
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={styles.friendsList}>
-              {friends.length === 0 ? (
+              {isLoading ? (
+                <p style={styles.emptyMessage}>Loading friends...</p>
+              ) : friends.length === 0 ? (
                 <p style={styles.emptyMessage}>No friends added yet. Add people you play with regularly!</p>
               ) : (
-                friends.map((friend, index) => (
-                  <div key={index} style={styles.friendRow}>
-                    <span style={styles.friendName}>{friend}</span>
+                friends.map((friend) => (
+                  <div key={friend.id} style={styles.friendRow}>
+                    <div style={styles.friendInfo}>
+                      <span style={styles.friendName}>{friend.name}</span>
+                      {friend.statistics && (
+                        <span style={styles.friendStats}>
+                          {friend.statistics.total_games} games, {friend.statistics.games_won} wins
+                        </span>
+                      )}
+                    </div>
                     <button style={styles.removeButton} onClick={() => removeFriend(friend)}>✕</button>
                   </div>
                 ))
@@ -1023,7 +1218,19 @@
     function PlayerSetup({ onStart, onBack }) {
       const [names, setNames] = useState(['', '', '', '', '', '']);
       const [playerCount, setPlayerCount] = useState(4);
-      const friends = storage.getFriends();
+      const [friends, setFriends] = useState([]);
+      const [isLoadingFriends, setIsLoadingFriends] = useState(true);
+
+      // Load friends on mount
+      useEffect(() => {
+        const loadFriends = async () => {
+          setIsLoadingFriends(true);
+          const friendsList = await storage.getFriends();
+          setFriends(friendsList);
+          setIsLoadingFriends(false);
+        };
+        loadFriends();
+      }, []);
 
       const handleNameChange = (index, value) => {
         const newNames = [...names];
@@ -1034,16 +1241,20 @@
       const addFriendToNextSlot = (friend) => {
         const currentNames = names.slice(0, playerCount);
         const emptyIndex = currentNames.findIndex(n => n.trim() === '');
-        
-        if (emptyIndex !== -1 && !currentNames.includes(friend)) {
+
+        // friend is now an object with {id, name}
+        const friendName = friend.name;
+
+        if (emptyIndex !== -1 && !currentNames.includes(friendName)) {
           const newNames = [...names];
-          newNames[emptyIndex] = friend;
+          newNames[emptyIndex] = friendName;
           setNames(newNames);
         }
       };
 
       const isPlayerSelected = (friend) => {
-        return names.slice(0, playerCount).includes(friend);
+        // friend is now an object with {id, name}
+        return names.slice(0, playerCount).includes(friend.name);
       };
 
       const canStart = names.slice(0, playerCount).every(name => name.trim() !== '');
@@ -1067,13 +1278,13 @@
             </p>
             <p style={styles.setupHint}>(First player entered deals the final round)</p>
 
-            {friends.length > 0 && (
+            {!isLoadingFriends && friends.length > 0 && (
               <div style={styles.quickSelectSection}>
                 <span style={styles.label}>Tap to add from friends:</span>
                 <div style={styles.friendChips}>
-                  {friends.map((friend, i) => (
+                  {friends.map((friend) => (
                     <button
-                      key={i}
+                      key={friend.id}
                       style={{
                         ...styles.friendChip,
                         ...(isPlayerSelected(friend) ? styles.friendChipSelected : {})
@@ -1081,7 +1292,7 @@
                       onClick={() => addFriendToNextSlot(friend)}
                       disabled={isPlayerSelected(friend)}
                     >
-                      {friend}
+                      {friend.name}
                     </button>
                   ))}
                 </div>
@@ -2471,8 +2682,17 @@
       addButton: { padding: '14px 24px', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer' },
       friendsList: { display: 'flex', flexDirection: 'column', gap: '8px' },
       friendRow: { display: 'flex', alignItems: 'center', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' },
-      friendName: { flex: 1, fontSize: '18px' },
+      friendInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' },
+      friendName: { fontSize: '18px', fontWeight: '500' },
+      friendStats: { fontSize: '14px', color: '#666' },
       removeButton: { width: '40px', height: '40px', fontSize: '18px', border: 'none', borderRadius: '8px', backgroundColor: '#ef5350', color: '#fff', cursor: 'pointer' },
+      confirmDialog: { backgroundColor: '#fff3e0', padding: '16px', borderRadius: '12px', marginBottom: '16px', border: '2px solid #ff9800' },
+      confirmText: { fontSize: '16px', color: '#333', marginBottom: '8px' },
+      confirmDetails: { fontSize: '14px', color: '#666', marginBottom: '12px', lineHeight: '1.5' },
+      confirmQuestion: { fontSize: '16px', fontWeight: 'bold', color: '#333', marginBottom: '12px' },
+      confirmButtons: { display: 'flex', gap: '12px' },
+      confirmYesButton: { flex: 1, padding: '12px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '8px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer' },
+      confirmNoButton: { flex: 1, padding: '12px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '8px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer' },
       emptyMessage: { color: '#999', textAlign: 'center', padding: '32px', fontSize: '16px' },
       historyList: { display: 'flex', flexDirection: 'column', gap: '12px' },
       historyCard: { padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '12px' },

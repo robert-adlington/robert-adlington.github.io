@@ -131,10 +131,39 @@ function getMethod(): string {
  */
 function route(array $routes): void {
     $method = getMethod();
-    
+
     if (isset($routes[$method])) {
         $routes[$method]();
     } else {
         error('Method not allowed', 405);
     }
+}
+
+/**
+ * Get client IP address
+ * Handles proxies and load balancers
+ */
+function getClientIp(): ?string {
+    $headers = [
+        'HTTP_CF_CONNECTING_IP',     // Cloudflare
+        'HTTP_X_FORWARDED_FOR',      // Standard proxy header
+        'HTTP_X_REAL_IP',            // Nginx proxy
+        'HTTP_CLIENT_IP',            // Other proxies
+        'REMOTE_ADDR'                // Direct connection
+    ];
+
+    foreach ($headers as $header) {
+        if (!empty($_SERVER[$header])) {
+            // X-Forwarded-For can contain multiple IPs, get the first one
+            $ip = explode(',', $_SERVER[$header])[0];
+            $ip = trim($ip);
+
+            // Validate IP format
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+    }
+
+    return null;
 }
