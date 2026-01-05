@@ -3,12 +3,12 @@
 -- Contract Whist Game Database
 -- ============================================
 --
--- This schema adds tables to your existing database.
--- Run this against your existing database:
+-- This schema supports both fresh installs and migrations.
+-- Safe to run multiple times (idempotent).
+--
+-- Run against your database:
 --   mysql -u user -p your_database_name < schema.sql
 --
--- The tables will be created with IF NOT EXISTS to avoid
--- overwriting any existing data.
 -- ============================================
 
 -- ============================================
@@ -111,6 +111,30 @@ CREATE TABLE IF NOT EXISTS whist_games (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
+-- MIGRATION: Add ip_address column to existing whist_games table
+-- This procedure safely adds the column if it doesn't exist
+-- ============================================
+DROP PROCEDURE IF EXISTS add_ip_address_column;
+DELIMITER //
+CREATE PROCEDURE add_ip_address_column()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'whist_games'
+    AND COLUMN_NAME = 'ip_address'
+  ) THEN
+    ALTER TABLE whist_games
+    ADD COLUMN ip_address VARCHAR(45) NULL
+    COMMENT 'IP address for location tracking'
+    AFTER is_complete;
+  END IF;
+END //
+DELIMITER ;
+CALL add_ip_address_column();
+DROP PROCEDURE IF EXISTS add_ip_address_column;
+
+-- ============================================
 -- Game Players Table
 -- ============================================
 -- Links games to player records for proper statistics tracking.
@@ -145,6 +169,64 @@ VALUES (
 ) ON DUPLICATE KEY UPDATE username = username;
 
 -- ============================================
+-- MIGRATION: Populate players from existing games
+-- ============================================
+-- This creates player records from existing game data.
+-- Safe to run multiple times (uses INSERT IGNORE).
+-- ============================================
+DROP PROCEDURE IF EXISTS migrate_players_from_games;
+DELIMITER //
+CREATE PROCEDURE migrate_players_from_games()
+BEGIN
+  -- Check if there are any games without corresponding player records
+  IF EXISTS (SELECT 1 FROM whist_games LIMIT 1) THEN
+    INSERT IGNORE INTO players (name, created_by_user_id)
+    SELECT DISTINCT j.player_name, g.user_id
+    FROM whist_games g,
+    JSON_TABLE(g.players, '$[*]' COLUMNS (player_name VARCHAR(100) PATH '$')) j
+    WHERE j.player_name IS NOT NULL
+    AND j.player_name != ''
+    AND NOT EXISTS (SELECT 1 FROM players p WHERE p.name = j.player_name);
+  END IF;
+END //
+DELIMITER ;
+CALL migrate_players_from_games();
+DROP PROCEDURE IF EXISTS migrate_players_from_games;
+
+-- ============================================
+-- MIGRATION: Link existing game players to player records
+-- ============================================
+-- Creates game_players records for existing games.
+-- Safe to run multiple times (uses INSERT IGNORE).
+-- ============================================
+DROP PROCEDURE IF EXISTS migrate_game_players;
+DELIMITER //
+CREATE PROCEDURE migrate_game_players()
+BEGIN
+  -- Link games to players where not already linked
+  INSERT IGNORE INTO game_players (game_id, player_id, position, final_score, won)
+  SELECT
+      g.id as game_id,
+      p.id as player_id,
+      j.pos - 1 as position,  -- JSON_TABLE ORDINALITY is 1-based, we want 0-based
+      NULL as final_score,
+      FALSE as won
+  FROM whist_games g,
+  JSON_TABLE(g.players, '$[*]' COLUMNS (
+      pos FOR ORDINALITY,
+      player_name VARCHAR(100) PATH '$'
+  )) j
+  JOIN players p ON p.name = j.player_name
+  WHERE NOT EXISTS (
+    SELECT 1 FROM game_players gp
+    WHERE gp.game_id = g.id AND gp.player_id = p.id
+  );
+END //
+DELIMITER ;
+CALL migrate_game_players();
+DROP PROCEDURE IF EXISTS migrate_game_players;
+
+-- ============================================
 -- Clean up expired sessions (maintenance query)
 -- Run this periodically via cron job
 -- ============================================
@@ -155,38 +237,3 @@ VALUES (
 -- Run this periodically via cron job
 -- ============================================
 -- DELETE FROM password_reset_tokens WHERE expires_at < NOW();
-
--- ============================================
--- MIGRATION: Add ip_address column to existing whist_games table
--- Run this if you have an existing database without the ip_address column
--- ============================================
--- ALTER TABLE whist_games ADD COLUMN ip_address VARCHAR(45) NULL COMMENT 'IP address for location tracking' AFTER is_complete;
-
--- ============================================
--- MIGRATION: Populate players from existing games
--- This creates player records from existing game data
--- Run after creating the new tables on an existing database
--- ============================================
--- INSERT IGNORE INTO players (name, created_by_user_id)
--- SELECT DISTINCT j.player_name, g.user_id
--- FROM whist_games g,
--- JSON_TABLE(g.players, '$[*]' COLUMNS (player_name VARCHAR(100) PATH '$')) j
--- WHERE j.player_name IS NOT NULL AND j.player_name != '';
-
--- ============================================
--- MIGRATION: Link existing game players to player records
--- Run after populating the players table
--- ============================================
--- INSERT IGNORE INTO game_players (game_id, player_id, position, final_score, won)
--- SELECT
---     g.id as game_id,
---     p.id as player_id,
---     j.pos as position,
---     NULL as final_score,
---     FALSE as won
--- FROM whist_games g,
--- JSON_TABLE(g.players, '$[*]' COLUMNS (
---     pos FOR ORDINALITY,
---     player_name VARCHAR(100) PATH '$'
--- )) j
--- JOIN players p ON p.name = j.player_name;
