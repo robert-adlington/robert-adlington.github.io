@@ -231,6 +231,22 @@
     };
 
     // ============ AUDIO HELPERS ============
+
+    // Sound file configuration - add your sound files here!
+    // Files should be placed in the sounds/good and sounds/bad directories
+    const SOUND_CONFIG = {
+      good: [
+        // Add filenames for contract success sounds, e.g.:
+        // 'sounds/good/fanfare.mp3',
+        // 'sounds/good/celebration.wav',
+      ],
+      bad: [
+        // Add filenames for contract failure sounds, e.g.:
+        // 'sounds/bad/sad-trombone.mp3',
+        // 'sounds/bad/fail.wav',
+      ]
+    };
+
     let audioContext = null;
 
     const getAudioContext = () => {
@@ -240,7 +256,23 @@
       return audioContext;
     };
 
-    const playFanfare = () => {
+    // Play a random sound file from the given array
+    const playRandomSound = (soundFiles) => {
+      if (!soundFiles || soundFiles.length === 0) return false;
+      try {
+        const randomFile = soundFiles[Math.floor(Math.random() * soundFiles.length)];
+        const audio = new Audio(randomFile);
+        audio.volume = 0.7;
+        audio.play().catch(e => console.log('Could not play sound:', e));
+        return true;
+      } catch (e) {
+        console.log('Error playing sound file:', e);
+        return false;
+      }
+    };
+
+    // Synthesized fanfare (fallback)
+    const playSynthFanfare = () => {
       try {
         const ctx = getAudioContext();
         const now = ctx.currentTime;
@@ -260,7 +292,8 @@
       } catch (e) { console.log('Audio not available'); }
     };
 
-    const playSadSound = () => {
+    // Synthesized sad sounds (fallback)
+    const playSynthSadSound = () => {
       try {
         const ctx = getAudioContext();
         const now = ctx.currentTime;
@@ -310,6 +343,19 @@
         ];
         sadSounds[Math.floor(Math.random() * sadSounds.length)]();
       } catch (e) { console.log('Audio not available'); }
+    };
+
+    // Main sound functions - try custom sounds first, fall back to synth
+    const playFanfare = () => {
+      if (!playRandomSound(SOUND_CONFIG.good)) {
+        playSynthFanfare();
+      }
+    };
+
+    const playSadSound = () => {
+      if (!playRandomSound(SOUND_CONFIG.bad)) {
+        playSynthSadSound();
+      }
     };
 
     // ============ MAIN APP ============
