@@ -231,37 +231,6 @@
     };
 
     // ============ AUDIO HELPERS ============
-
-    // Sound file configuration - add your sound files here!
-    // Files should be placed in the sounds/good and sounds/bad directories
-    const SOUND_CONFIG = {
-      good: [
-          'sounds/good/180.wav',
-          'sounds/good/Tada.wav',
-          'sounds/good/thanks.wav'
-      ],
-      bad: [
-        'sounds/bad/charlie_brown_NhHpuu4.mp3',
-        'sounds/bad/chipmunk_laugh.mp3',
-        'sounds/bad/crazy_laugh2.wav',
-        'sounds/bad/crowd_laugh.wav',
-        'sounds/bad/crowd_laugh2.wav',
-        'sounds/bad/fail1.mp3',
-        'sounds/bad/fail2.mp3',
-        'sounds/bad/fail3.mp3',
-        'sounds/bad/man_laugh.wav',
-        'sounds/bad/minion_laughing.wav',
-        'sounds/bad/naughtynaughty.wav',
-        'sounds/bad/risitas_laugh.mp3',
-        'sounds/bad/scooby_laugh.mp3',
-        'sounds/bad/seinfeld-laugh-track.wav',
-        'sounds/bad/seinfeld.wav',
-        'sounds/bad/that-pathetic.wav',
-        'sounds/bad/this-is-going-great.mp3',
-        'sounds/bad/u_chose_poor.wav'
-      ]
-    };
-
     let audioContext = null;
 
     const getAudioContext = () => {
@@ -271,23 +240,7 @@
       return audioContext;
     };
 
-    // Play a random sound file from the given array
-    const playRandomSound = (soundFiles) => {
-      if (!soundFiles || soundFiles.length === 0) return false;
-      try {
-        const randomFile = soundFiles[Math.floor(Math.random() * soundFiles.length)];
-        const audio = new Audio(randomFile);
-        audio.volume = 0.7;
-        audio.play().catch(e => console.log('Could not play sound:', e));
-        return true;
-      } catch (e) {
-        console.log('Error playing sound file:', e);
-        return false;
-      }
-    };
-
-    // Synthesized fanfare (fallback)
-    const playSynthFanfare = () => {
+    const playFanfare = () => {
       try {
         const ctx = getAudioContext();
         const now = ctx.currentTime;
@@ -307,8 +260,7 @@
       } catch (e) { console.log('Audio not available'); }
     };
 
-    // Synthesized sad sounds (fallback)
-    const playSynthSadSound = () => {
+    const playSadSound = () => {
       try {
         const ctx = getAudioContext();
         const now = ctx.currentTime;
@@ -358,19 +310,6 @@
         ];
         sadSounds[Math.floor(Math.random() * sadSounds.length)]();
       } catch (e) { console.log('Audio not available'); }
-    };
-
-    // Main sound functions - try custom sounds first, fall back to synth
-    const playFanfare = () => {
-      if (!playRandomSound(SOUND_CONFIG.good)) {
-        playSynthFanfare();
-      }
-    };
-
-    const playSadSound = () => {
-      if (!playRandomSound(SOUND_CONFIG.bad)) {
-        playSynthSadSound();
-      }
     };
 
     // ============ MAIN APP ============
