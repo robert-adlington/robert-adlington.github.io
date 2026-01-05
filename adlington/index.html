@@ -170,15 +170,41 @@
             .main { padding: 1.5rem; }
         }
         
+        .column-header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid rgba(212, 175, 55, 0.4);
+        }
+
         .column-header {
             font-size: 1.5rem;
             font-weight: 600;
             letter-spacing: 0.05em;
-            margin-bottom: 1.5rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 2px solid rgba(212, 175, 55, 0.4);
             color: #d4af37;
             text-transform: uppercase;
+            margin: 0;
+        }
+
+        .header-visit-btn {
+            padding: 0.4rem 1rem;
+            background: rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.3);
+            border-radius: 6px;
+            color: #d4af37;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .header-visit-btn:hover {
+            background: rgba(212, 175, 55, 0.2);
+            border-color: #d4af37;
+            transform: translateY(-1px);
         }
         
         /* Cards */
@@ -249,26 +275,7 @@
         
         .project-card .card-title { margin-bottom: 0.25rem; }
         .project-card .card-excerpt { margin: 0; }
-        
-        /* Site Link */
-        .site-link {
-            display: inline-block;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            color: #d4af37;
-            text-decoration: none;
-            margin-top: 1rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid rgba(212, 175, 55, 0.4);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-        
-        .site-link:hover {
-            background: rgba(212, 175, 55, 0.15);
-            border-color: #d4af37;
-        }
-        
+
         /* Info Boxes */
         .info-box {
             margin-top: 1.5rem;
@@ -523,30 +530,30 @@
     <main class="main">
         <!-- Blog Column -->
         <section>
-            <h2 class="column-header">🥃 Slow Like Whisky</h2>
+            <div class="column-header-container">
+                <h2 class="column-header">🥃 Slow Like Whisky</h2>
+                <a href="https://blog.adlington.fr/" target="_blank" rel="noopener noreferrer" class="header-visit-btn">Visit</a>
+            </div>
             <div id="blog-content">
                 <div class="loading">
                     <div class="spinner"></div>
                     <span>Pouring the latest posts...</span>
                 </div>
             </div>
-            <a href="https://blog.adlington.fr/" target="_blank" rel="noopener noreferrer" class="site-link">
-                Visit the blog →
-            </a>
         </section>
 
         <!-- Wiki Column -->
         <section>
-            <h2 class="column-header">📚 Slow Like Wiki</h2>
+            <div class="column-header-container">
+                <h2 class="column-header">📚 Slow Like Wiki</h2>
+                <a href="https://wiki.adlington.fr/index.php/Main_Page" target="_blank" rel="noopener noreferrer" class="header-visit-btn">Visit</a>
+            </div>
             <div id="wiki-content">
                 <div class="loading">
                     <div class="spinner"></div>
                     <span>Loading recent changes...</span>
                 </div>
             </div>
-            <a href="https://wiki.adlington.fr/index.php/Main_Page" target="_blank" rel="noopener noreferrer" class="site-link">
-                Visit the wiki →
-            </a>
         </section>
 
         <!-- Projects Column -->
