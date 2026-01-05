@@ -188,6 +188,104 @@ Content-Type: application/json
 
 **Note:** Invalidates all existing sessions after password reset.
 
+### Players Management
+
+Players are unique by name and shared across user accounts. Statistics are tracked per player across all games.
+
+#### Check if Player Exists
+```
+GET /api/players.php?check=PlayerName
+```
+
+**Response (if exists):**
+```json
+{
+  "exists": true,
+  "player": {
+    "id": 123,
+    "name": "PlayerName",
+    "total_games": 15,
+    "last_game_location": "Location recorded",
+    "last_game_date": "2024-01-03 14:30:00"
+  }
+}
+```
+
+#### Get Player with Statistics
+```
+GET /api/players.php?id=123
+```
+
+#### Search Players
+```
+GET /api/players.php?search=query&limit=20&offset=0
+```
+
+#### Create Player
+```
+POST /api/players.php
+Content-Type: application/json
+
+{
+  "name": "NewPlayerName"
+}
+```
+
+### Friends Management
+
+Friends are the user's favorite players, displayed when creating a new game.
+
+#### List User's Friends
+```
+GET /api/friends.php
+```
+
+**Response:**
+```json
+{
+  "friends": [
+    {
+      "id": 1,
+      "name": "Alice",
+      "statistics": {
+        "total_games": 15,
+        "games_won": 5
+      }
+    }
+  ],
+  "total": 1
+}
+```
+
+#### Add Friend
+
+Create new player and add as friend:
+```
+POST /api/friends.php
+Content-Type: application/json
+
+{
+  "name": "NewFriendName"
+}
+```
+
+Or add existing player as friend:
+```
+POST /api/friends.php
+Content-Type: application/json
+
+{
+  "player_id": 123
+}
+```
+
+#### Remove Friend
+```
+DELETE /api/friends.php?player_id=123
+```
+
+**Note:** Removing a friend does NOT delete the player record or their statistics.
+
 ### Games Management
 
 #### List User's Games
@@ -201,6 +299,22 @@ GET /api/games.php?id=123
 ```
 
 #### Create New Game
+
+Using player IDs (preferred):
+```
+POST /api/games.php
+Content-Type: application/json
+
+{
+  "game_name": "Game 2024-01-03",
+  "player_ids": [1, 2, 3, 4],
+  "scores": [...],
+  "current_round": 10,
+  "is_complete": true
+}
+```
+
+Using player names (legacy support, creates players if needed):
 ```
 POST /api/games.php
 Content-Type: application/json
@@ -254,16 +368,39 @@ DELETE /api/games.php?id=123
 - `expires_at` - Token expiration time (default: 1 hour)
 - `used_at` - Timestamp when token was used (NULL if unused)
 
+### Players Table
+- `id` - Auto-increment primary key
+- `name` - Unique player name identifier
+- `created_by_user_id` - User who first created this player
+- `created_at` - Player creation timestamp
+
+### User_Friends Table
+- `id` - Auto-increment primary key
+- `user_id` - Foreign key to users table
+- `player_id` - Foreign key to players table
+- `created_at` - When the friend was added
+- Unique constraint on (user_id, player_id)
+
 ### Whist_Games Table
 - `id` - Auto-increment primary key
 - `user_id` - Foreign key to users table
 - `game_name` - Game description/name
-- `players` - JSON array of player names
+- `players` - JSON array of player names (legacy support)
 - `scores` - JSON array of round scores
 - `current_round` - Current round number
 - `is_complete` - Game completion status
+- `ip_address` - Client IP address for location tracking
 - `played_at` - Game creation timestamp
 - `updated_at` - Last update timestamp
+
+### Game_Players Table
+- `id` - Auto-increment primary key
+- `game_id` - Foreign key to whist_games table
+- `player_id` - Foreign key to players table
+- `position` - Player position in game (0-indexed)
+- `final_score` - Final score when game is complete
+- `won` - Whether this player won the game
+- Unique constraints on (game_id, position) and (game_id, player_id)
 
 ## File Structure
 
@@ -277,6 +414,8 @@ adlington/api/
 ├── auth.php               # Authentication class
 ├── auth-api.php           # Authentication API endpoints
 ├── games.php              # Games API endpoints
+├── players.php            # Players API endpoints
+├── friends.php            # Friends/favorites API endpoints
 └── utils.php              # Utility functions
 ```
 
