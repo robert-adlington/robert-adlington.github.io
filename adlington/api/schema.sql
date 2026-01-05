@@ -44,15 +44,35 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- ============================================
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   token VARCHAR(64) PRIMARY KEY,
-  user_id INT NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   expires_at TIMESTAMP NOT NULL,
   used_at TIMESTAMP NULL DEFAULT NULL,
   INDEX idx_user_id (user_id),
   INDEX idx_expires_at (expires_at),
-  CONSTRAINT fk_password_reset_user
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Fix existing password_reset_tokens table if it has wrong column type
+DROP PROCEDURE IF EXISTS fix_password_reset_tokens;
+DELIMITER //
+CREATE PROCEDURE fix_password_reset_tokens()
+BEGIN
+  DECLARE col_type VARCHAR(64);
+
+  SELECT COLUMN_TYPE INTO col_type
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+  AND TABLE_NAME = 'password_reset_tokens'
+  AND COLUMN_NAME = 'user_id';
+
+  IF col_type = 'int' THEN
+    ALTER TABLE password_reset_tokens MODIFY COLUMN user_id INT UNSIGNED NOT NULL;
+  END IF;
+END //
+DELIMITER ;
+CALL fix_password_reset_tokens();
+DROP PROCEDURE IF EXISTS fix_password_reset_tokens;
 
 -- ============================================
 -- Players Table
