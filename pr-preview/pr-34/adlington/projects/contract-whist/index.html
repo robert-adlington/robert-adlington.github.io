@@ -1,0 +1,2750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Contract Whist Scoreboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    // ============ API CONFIGURATION ============
+    const API_BASE_URL = '/projects/contract-whist/api';
+
+    // API helper for making authenticated requests
+    const api = {
+      getSessionToken: () => {
+        // Session token is stored in httpOnly cookie, managed by server
+        return null; // Cookies are sent automatically
+      },
+
+      request: async (endpoint, options = {}) => {
+        const url = `${API_BASE_URL}${endpoint}`;
+        const defaultOptions = {
+          credentials: 'include', // Include cookies for authentication
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          },
+        };
+
+        try {
+          const response = await fetch(url, { ...defaultOptions, ...options });
+
+          // Check if response is actually JSON
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('API returned non-JSON response:', text);
+            throw new Error(`API error: Server returned ${response.status} - ${text.substring(0, 200)}`);
+          }
+
+          const data = await response.json();
+
+          if (!data.success) {
+            throw new Error(data.message || 'API request failed');
+          }
+
+          return data.data;
+        } catch (error) {
+          console.error('API request failed:', url, error);
+          throw error;
+        }
+      },
+
+      // Authentication endpoints
+      auth: {
+        register: async (username, email, password) => {
+          return await api.request('/auth-api.php?action=register', {
+            method: 'POST',
+            body: JSON.stringify({ username, email, password }),
+          });
+        },
+
+        login: async (identifier, password) => {
+          return await api.request('/auth-api.php?action=login', {
+            method: 'POST',
+            body: JSON.stringify({ username: identifier, password }),
+          });
+        },
+
+        logout: async () => {
+          return await api.request('/auth-api.php?action=logout', {
+            method: 'POST',
+          });
+        },
+
+        getCurrentUser: async () => {
+          try {
+            return await api.request('/auth-api.php?action=me', {
+              method: 'GET',
+            });
+          } catch (error) {
+            return null;
+          }
+        },
+      },
+
+      // Games endpoints
+      games: {
+        list: async (limit = 20, offset = 0) => {
+          return await api.request(`/games.php?limit=${limit}&offset=${offset}`, {
+            method: 'GET',
+          });
+        },
+
+        get: async (id) => {
+          return await api.request(`/games.php?id=${id}`, {
+            method: 'GET',
+          });
+        },
+
+        create: async (gameData) => {
+          return await api.request('/games.php', {
+            method: 'POST',
+            body: JSON.stringify(gameData),
+          });
+        },
+
+        update: async (id, gameData) => {
+          return await api.request(`/games.php?id=${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(gameData),
+          });
+        },
+
+        delete: async (id) => {
+          return await api.request(`/games.php?id=${id}`, {
+            method: 'DELETE',
+          });
+        },
+      },
+
+      // Friends endpoints
+      friends: {
+        list: async () => {
+          return await api.request('/friends.php', {
+            method: 'GET',
+          });
+        },
+
+        add: async (data) => {
+          // data can be { player_id: number } or { name: string }
+          return await api.request('/friends.php', {
+            method: 'POST',
+            body: JSON.stringify(data),
+          });
+        },
+
+        remove: async (playerId) => {
+          return await api.request(`/friends.php?player_id=${playerId}`, {
+            method: 'DELETE',
+          });
+        },
+      },
+
+      // Players endpoints
+      players: {
+        check: async (name) => {
+          return await api.request(`/players.php?check=${encodeURIComponent(name)}`, {
+            method: 'GET',
+          });
+        },
+
+        get: async (id) => {
+          return await api.request(`/players.php?id=${id}`, {
+            method: 'GET',
+          });
+        },
+
+        search: async (query) => {
+          return await api.request(`/players.php?search=${encodeURIComponent(query)}`, {
+            method: 'GET',
+          });
+        },
+      },
+    };
+
+    // ============ LOCAL STORAGE HELPERS (Legacy + Cache) ============
+    const STORAGE_KEYS = {
+      ACCOUNT: 'whist_account',
+      FRIENDS: 'whist_friends',
+      GAMES: 'whist_games',
+      SESSION_TOKEN: 'whist_session_token',
+    };
+
+    const storage = {
+      // Account management (now uses API)
+      getAccount: () => {
+        try {
+          const data = localStorage.getItem(STORAGE_KEYS.ACCOUNT);
+          return data ? JSON.parse(data) : null;
+        } catch { return null; }
+      },
+      setAccount: (account) => {
+        localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(account));
+      },
+      clearAccount: () => {
+        localStorage.removeItem(STORAGE_KEYS.ACCOUNT);
+        localStorage.removeItem(STORAGE_KEYS.FRIENDS);
+        localStorage.removeItem(STORAGE_KEYS.GAMES);
+        localStorage.removeItem(STORAGE_KEYS.SESSION_TOKEN);
+      },
+
+      // Friends - now uses API with localStorage fallback
+      getFriends: async () => {
+        try {
+          const response = await api.friends.list();
+          const friends = response.friends || [];
+          // Cache in localStorage
+          localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
+          return friends;
+        } catch (error) {
+          console.error('Failed to fetch friends from API:', error);
+          // Fallback to localStorage
+          try {
+            const data = localStorage.getItem(STORAGE_KEYS.FRIENDS);
+            return data ? JSON.parse(data) : [];
+          } catch { return []; }
+        }
+      },
+
+      // Legacy sync method for getting cached friends
+      getFriendsSync: () => {
+        try {
+          const data = localStorage.getItem(STORAGE_KEYS.FRIENDS);
+          return data ? JSON.parse(data) : [];
+        } catch { return []; }
+      },
+
+      setFriends: (friends) => {
+        localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
+      },
+
+      addFriend: async (data) => {
+        // data can be { player_id: number } or { name: string }
+        return await api.friends.add(data);
+      },
+
+      removeFriend: async (playerId) => {
+        return await api.friends.remove(playerId);
+      },
+
+      checkPlayer: async (name) => {
+        return await api.players.check(name);
+      },
+
+      // Games - now uses API
+      getGames: async () => {
+        try {
+          const response = await api.games.list(100, 0);
+          return response.games || [];
+        } catch (error) {
+          console.error('Failed to fetch games:', error);
+          // Fallback to localStorage if API fails
+          try {
+            const data = localStorage.getItem(STORAGE_KEYS.GAMES);
+            return data ? JSON.parse(data) : [];
+          } catch { return []; }
+        }
+      },
+
+      saveGame: async (game) => {
+        try {
+          // Prepare game data for API
+          const gameData = {
+            game_name: `Game ${new Date().toLocaleDateString()}`,
+            players: game.players,
+            scores: game.rounds,
+            current_round: game.rounds.length,
+            is_complete: true,
+          };
+
+          await api.games.create(gameData);
+        } catch (error) {
+          console.error('Failed to save game to API:', error);
+          // Fallback to localStorage
+          const games = await storage.getLocalGames();
+          games.push({ ...game, id: Date.now(), date: new Date().toISOString() });
+          localStorage.setItem(STORAGE_KEYS.GAMES, JSON.stringify(games));
+        }
+      },
+
+      getLocalGames: () => {
+        try {
+          const data = localStorage.getItem(STORAGE_KEYS.GAMES);
+          return data ? JSON.parse(data) : [];
+        } catch { return []; }
+      },
+
+      exportData: () => {
+        return JSON.stringify({
+          account: storage.getAccount(),
+          friends: storage.getFriends(),
+        }, null, 2);
+      },
+
+      importData: (jsonString) => {
+        const data = JSON.parse(jsonString);
+        if (data.account) localStorage.setItem(STORAGE_KEYS.ACCOUNT, JSON.stringify(data.account));
+        if (data.friends) localStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(data.friends));
+      }
+    };
+
+    // ============ AUDIO HELPERS ============
+
+    // Sound file configuration - add your sound files here!
+    // Files should be placed in the sounds/good and sounds/bad directories
+    const SOUND_CONFIG = {
+      good: [
+          'sounds/good/180.wav',
+          'sounds/good/Tada.wav',
+          'sounds/good/thanks.wav'
+      ],
+      bad: [
+        'sounds/bad/charlie_brown_NhHpuu4.mp3',
+        'sounds/bad/chipmunk_laugh.mp3',
+        'sounds/bad/crazy_laugh2.wav',
+        'sounds/bad/crowd_laugh.wav',
+        'sounds/bad/crowd_laugh2.wav',
+        'sounds/bad/fail1.mp3',
+        'sounds/bad/fail2.mp3',
+        'sounds/bad/fail3.mp3',
+        'sounds/bad/man_laugh.wav',
+        'sounds/bad/minion_laughing.wav',
+        'sounds/bad/naughtynaughty.wav',
+        'sounds/bad/risitas_laugh.mp3',
+        'sounds/bad/scooby_laugh.mp3',
+        'sounds/bad/seinfeld-laugh-track.wav',
+        'sounds/bad/seinfeld.wav',
+        'sounds/bad/that-pathetic.wav',
+        'sounds/bad/this-is-going-great.mp3',
+        'sounds/bad/u_chose_poor.wav'
+      ]
+    };
+
+    let audioContext = null;
+
+    const getAudioContext = () => {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      return audioContext;
+    };
+
+    // Play a random sound file from the given array
+    const playRandomSound = (soundFiles) => {
+      if (!soundFiles || soundFiles.length === 0) return false;
+      try {
+        const randomFile = soundFiles[Math.floor(Math.random() * soundFiles.length)];
+        const audio = new Audio(randomFile);
+        audio.volume = 0.7;
+        audio.play().catch(e => console.log('Could not play sound:', e));
+        return true;
+      } catch (e) {
+        console.log('Error playing sound file:', e);
+        return false;
+      }
+    };
+
+    // Synthesized fanfare (fallback)
+    const playSynthFanfare = () => {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          osc.type = 'triangle';
+          gain.gain.setValueAtTime(0.3, now + i * 0.15);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.4);
+          osc.start(now + i * 0.15);
+          osc.stop(now + i * 0.15 + 0.4);
+        });
+      } catch (e) { console.log('Audio not available'); }
+    };
+
+    // Synthesized sad sounds (fallback)
+    const playSynthSadSound = () => {
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const sadSounds = [
+          () => {
+            [293.66, 277.18, 261.63, 246.94].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.value = freq;
+              osc.type = 'sine';
+              gain.gain.setValueAtTime(0.25, now + i * 0.25);
+              gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.25 + 0.25);
+              osc.start(now + i * 0.25);
+              osc.stop(now + i * 0.25 + 0.3);
+            });
+          },
+          () => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.linearRampToValueAtTime(150, now + 0.5);
+            osc.frequency.linearRampToValueAtTime(100, now + 1);
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 1);
+            osc.start(now);
+            osc.stop(now + 1);
+          },
+          () => {
+            [350, 300, 250].forEach((freq, i) => {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.frequency.value = freq;
+              osc.type = 'square';
+              gain.gain.setValueAtTime(0.1, now + i * 0.2);
+              gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.2 + 0.2);
+              osc.start(now + i * 0.2);
+              osc.stop(now + i * 0.2 + 0.25);
+            });
+          }
+        ];
+        sadSounds[Math.floor(Math.random() * sadSounds.length)]();
+      } catch (e) { console.log('Audio not available'); }
+    };
+
+    // Main sound functions - try custom sounds first, fall back to synth
+    const playFanfare = () => {
+      if (!playRandomSound(SOUND_CONFIG.good)) {
+        playSynthFanfare();
+      }
+    };
+
+    const playSadSound = () => {
+      if (!playRandomSound(SOUND_CONFIG.bad)) {
+        playSynthSadSound();
+      }
+    };
+
+    // ============ MAIN APP ============
+    function WhistScoreboard() {
+      const [account, setAccount] = useState(null);
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+      const [appView, setAppView] = useState('home');
+
+      const [gameState, setGameState] = useState('setup');
+      const [players, setPlayers] = useState([]);
+      const [rounds, setRounds] = useState([]);
+      const [currentRound, setCurrentRound] = useState(0);
+      const [currentPhase, setCurrentPhase] = useState('bidding');
+      const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+      const [showStandings, setShowStandings] = useState(false);
+      const [showBidSummary, setShowBidSummary] = useState(false);
+      const [history, setHistory] = useState([]);
+      const [activeCellPosition, setActiveCellPosition] = useState(null);
+
+      useEffect(() => {
+        // Check for existing session on mount
+        const checkSession = async () => {
+          try {
+            const response = await api.auth.getCurrentUser();
+            if (response && response.user) {
+              setAccount(response.user);
+              storage.setAccount(response.user);
+              setIsLoggedIn(true);
+              setIsCheckingAuth(false);
+            } else {
+              // No active session - redirect to login page
+              window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
+            }
+          } catch (error) {
+            // Authentication failed - redirect to login page
+            window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
+          }
+        };
+        checkSession();
+      }, []);
+
+      const handleLogout = async () => {
+        try {
+          await api.auth.logout();
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+
+        // Clear all state and redirect to home page
+        storage.clearAccount();
+        window.location.href = '/index.html';
+      };
+
+      const totalRounds = useMemo(() => {
+        if (players.length === 0) return 10;
+        if (players.length > 5) return Math.floor(52 / players.length);
+        return 10;
+      }, [players.length]);
+
+      const getTricksForRound = (roundIndex) => totalRounds - roundIndex;
+      
+      const getDealerIndex = (roundIndex) => {
+        const finalRoundIndex = totalRounds - 1;
+        const roundsFromEnd = finalRoundIndex - roundIndex;
+        return (players.length - roundsFromEnd % players.length) % players.length;
+      };
+      
+      const getFirstBidderIndex = (roundIndex) => (getDealerIndex(roundIndex) + 1) % players.length;
+      
+      const getPlayerOrderFromFirst = (firstIndex) => {
+        const order = [];
+        for (let i = 0; i < players.length; i++) {
+          order.push((firstIndex + i) % players.length);
+        }
+        return order;
+      };
+
+      const initializeGame = (playerNames) => {
+        setPlayers(playerNames);
+        const numRounds = playerNames.length > 5 ? Math.floor(52 / playerNames.length) : 10;
+        const initialRounds = Array(numRounds).fill(null).map(() => ({
+          bids: {},
+          scores: {},
+          totals: {}
+        }));
+        setRounds(initialRounds);
+        setCurrentRound(0);
+        setCurrentPhase('bidding');
+        setCurrentPlayerIndex(0);
+        setGameState('playing');
+        setHistory([]);
+        setAppView('game');
+      };
+
+      const getRunningTotal = (playerIndex, upToRound) => {
+        let total = 0;
+        for (let i = 0; i <= upToRound; i++) {
+          if (rounds[i]?.totals[playerIndex] !== undefined) {
+            total = rounds[i].totals[playerIndex];
+          }
+        }
+        return total;
+      };
+
+      const calculateRoundScore = (bid, tricks) => {
+        if (bid === tricks) return 10 + bid;
+        return tricks;
+      };
+
+      const getStandings = (afterRound) => {
+        return players
+          .map((name, index) => ({
+            name,
+            index,
+            total: getRunningTotal(index, afterRound)
+          }))
+          .sort((a, b) => b.total - a.total);
+      };
+
+      const getCurrentBidsTotal = () => {
+        const roundData = rounds[currentRound] || { bids: {} };
+        return Object.values(roundData.bids).reduce((sum, bid) => sum + bid, 0);
+      };
+
+      const getDisabledBids = () => {
+        const tricks = getTricksForRound(currentRound);
+        const disabled = new Set();
+        for (let i = tricks + 1; i <= 10; i++) disabled.add(i);
+        if (currentPlayerIndex === players.length - 1) {
+          const totalBidsSoFar = getCurrentBidsTotal();
+          const forbiddenBid = tricks - totalBidsSoFar;
+          if (forbiddenBid >= 0 && forbiddenBid <= tricks) disabled.add(forbiddenBid);
+        }
+        return disabled;
+      };
+
+      const getTricksScoredSoFar = () => {
+        const roundData = rounds[currentRound] || { scores: {} };
+        return Object.values(roundData.scores).reduce((sum, score) => sum + score, 0);
+      };
+
+      const getDisabledScores = () => {
+        const tricks = getTricksForRound(currentRound);
+        const disabled = new Set();
+        for (let i = tricks + 1; i <= 10; i++) disabled.add(i);
+        const scoredSoFar = getTricksScoredSoFar();
+        const remainingTricks = tricks - scoredSoFar;
+        const playersLeft = players.length - currentPlayerIndex;
+        for (let i = remainingTricks + 1; i <= tricks; i++) disabled.add(i);
+        if (playersLeft === 1) {
+          for (let i = 0; i <= 10; i++) {
+            if (i !== remainingTricks) disabled.add(i);
+          }
+        }
+        return disabled;
+      };
+
+      const saveToHistory = () => {
+        setHistory(prev => [...prev, {
+          rounds: JSON.parse(JSON.stringify(rounds)),
+          currentRound,
+          currentPhase,
+          currentPlayerIndex,
+          showStandings
+        }]);
+      };
+
+      const handleUndo = () => {
+        if (history.length === 0) return;
+        const previousState = history[history.length - 1];
+        setRounds(previousState.rounds);
+        setCurrentRound(previousState.currentRound);
+        setCurrentPhase(previousState.currentPhase);
+        setCurrentPlayerIndex(previousState.currentPlayerIndex);
+        setShowStandings(previousState.showStandings);
+        setHistory(prev => prev.slice(0, -1));
+      };
+
+      const handleValueSelect = (value) => {
+        saveToHistory();
+        const biddingOrder = getPlayerOrderFromFirst(getFirstBidderIndex(currentRound));
+        const actualPlayerIndex = biddingOrder[currentPlayerIndex];
+        const newRounds = JSON.parse(JSON.stringify(rounds));
+        
+        if (currentPhase === 'bidding') {
+          newRounds[currentRound].bids[actualPlayerIndex] = value;
+          setRounds(newRounds);
+          if (currentPlayerIndex < players.length - 1) {
+            setCurrentPlayerIndex(currentPlayerIndex + 1);
+          } else {
+            // All bids are in - show the bid summary dialog
+            setShowBidSummary(true);
+          }
+        } else {
+          const bid = newRounds[currentRound].bids[actualPlayerIndex];
+          const score = calculateRoundScore(bid, value);
+          const previousTotal = currentRound > 0 
+            ? newRounds[currentRound - 1]?.totals[actualPlayerIndex] || 0
+            : 0;
+          newRounds[currentRound].scores[actualPlayerIndex] = value;
+          newRounds[currentRound].totals[actualPlayerIndex] = previousTotal + score;
+          setRounds(newRounds);
+          if (bid === value) playFanfare();
+          else playSadSound();
+          if (currentPlayerIndex < players.length - 1) {
+            setCurrentPlayerIndex(currentPlayerIndex + 1);
+          } else {
+            setShowStandings(true);
+          }
+        }
+      };
+
+      const handleBidSummaryEnterScores = () => {
+        setShowBidSummary(false);
+        setCurrentPhase('scoring');
+        setCurrentPlayerIndex(0);
+      };
+
+      const handleBidSummaryUndo = () => {
+        setShowBidSummary(false);
+        handleUndo();
+      };
+
+      const advanceToNextRound = () => {
+        saveToHistory();
+        setShowStandings(false);
+        if (currentRound < totalRounds - 1) {
+          setCurrentRound(currentRound + 1);
+          setCurrentPhase('bidding');
+          setCurrentPlayerIndex(0);
+        } else {
+          setGameState('finished');
+        }
+      };
+
+      const saveAndFinishGame = async () => {
+        const standings = getStandings(totalRounds - 1);
+        const gameData = {
+          players,
+          rounds,
+          standings: standings.map(s => ({ name: s.name, total: s.total })),
+          winner: standings[0].name,
+        };
+        await storage.saveGame(gameData);
+        resetGame();
+      };
+
+      const resetGame = () => {
+        setGameState('setup');
+        setPlayers([]);
+        setRounds([]);
+        setCurrentRound(0);
+        setCurrentPhase('bidding');
+        setCurrentPlayerIndex(0);
+        setShowStandings(false);
+        setHistory([]);
+        setAppView('home');
+      };
+
+      // Show loading state while checking authentication
+      if (isCheckingAuth) {
+        return (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)',
+            color: '#fff',
+            fontSize: '1.5rem'
+          }}>
+            Loading...
+          </div>
+        );
+      }
+
+      if (appView === 'home') {
+        return (
+          <HomeScreen 
+            account={account}
+            onStartGame={() => setAppView('game')}
+            onViewHistory={() => setAppView('history')}
+            onViewFriends={() => setAppView('friends')}
+            onViewStats={() => setAppView('stats')}
+            onLogout={handleLogout}
+          />
+        );
+      }
+
+      if (appView === 'friends') {
+        return <FriendsScreen onBack={() => setAppView('home')} />;
+      }
+
+      if (appView === 'history') {
+        return <HistoryScreen onBack={() => setAppView('home')} />;
+      }
+
+      if (appView === 'stats') {
+        return <StatsScreen onBack={() => setAppView('home')} />;
+      }
+
+      if (appView === 'game' && gameState === 'setup') {
+        return <PlayerSetup onStart={initializeGame} onBack={() => setAppView('home')} />;
+      }
+
+      if (gameState === 'finished') {
+        return (
+          <GameFinished 
+            players={players} 
+            standings={getStandings(totalRounds - 1)}
+            rounds={rounds}
+            onSaveAndFinish={saveAndFinishGame}
+          />
+        );
+      }
+
+      const biddingOrder = getPlayerOrderFromFirst(getFirstBidderIndex(currentRound));
+      const activePlayerIndex = biddingOrder[currentPlayerIndex];
+      const tricksThisRound = getTricksForRound(currentRound);
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.header}>
+            <h1 style={styles.title}>
+              <span style={styles.titleDecorator}>♠ ♥</span>
+              Contract Whist
+              <span style={styles.titleDecorator}>♦ ♣</span>
+            </h1>
+            <div style={styles.roundInfo}>
+              Round {currentRound + 1} of {totalRounds} • {tricksThisRound} tricks • Dealer: {players[getDealerIndex(currentRound)]}
+            </div>
+          </div>
+
+          <div style={styles.scoreboardContainerCompact}>
+            <Scoreboard 
+              players={players}
+              rounds={rounds}
+              currentRound={currentRound}
+              totalRounds={totalRounds}
+              getTricksForRound={getTricksForRound}
+              getDealerIndex={getDealerIndex}
+              activePlayerIndex={activePlayerIndex}
+              currentPhase={currentPhase}
+              onActiveCellPosition={setActiveCellPosition}
+            />
+          </div>
+
+          {showStandings ? (
+            <StandingsPopover 
+              standings={getStandings(currentRound)}
+              isLastRound={currentRound === totalRounds - 1}
+              onContinue={advanceToNextRound}
+              onUndo={handleUndo}
+              canUndo={history.length > 0}
+              rounds={rounds}
+              currentRound={currentRound}
+              players={players}
+            />
+          ) : showBidSummary ? (
+            <BidSummaryDialog
+              players={players}
+              bids={rounds[currentRound]?.bids || {}}
+              tricksAvailable={tricksThisRound}
+              biddingOrder={biddingOrder}
+              onEnterScores={handleBidSummaryEnterScores}
+              onUndo={handleBidSummaryUndo}
+            />
+          ) : (
+            <BidScorePopover
+              phase={currentPhase}
+              playerName={players[activePlayerIndex]}
+              disabledValues={currentPhase === 'bidding' ? getDisabledBids() : getDisabledScores()}
+              onSelect={handleValueSelect}
+              tricksAvailable={tricksThisRound}
+              bidsSoFar={currentPhase === 'bidding' ? getCurrentBidsTotal() : null}
+              tricksScoredSoFar={currentPhase === 'scoring' ? getTricksScoredSoFar() : null}
+              onUndo={handleUndo}
+              canUndo={history.length > 0}
+              activeCellPosition={activeCellPosition}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ============ HOME SCREEN ============
+    function HomeScreen({ account, onStartGame, onViewHistory, onViewFriends, onViewStats, onLogout }) {
+      return (
+        <div style={styles.container}>
+          <div style={styles.homeCard}>
+            <h1 style={styles.setupTitle}>Contract Whist</h1>
+            <p style={styles.welcomeText}>Hello, {account.username || account.name}!</p>
+
+            <div style={styles.menuButtons}>
+              <button style={styles.menuButton} onClick={onStartGame}>
+                🃏 New Game
+              </button>
+              <button style={styles.menuButton} onClick={onViewFriends}>
+                👥 Friends
+              </button>
+              <button style={styles.menuButton} onClick={onViewHistory}>
+                📜 Game History
+              </button>
+              <button style={styles.menuButton} onClick={onViewStats}>
+                📊 Statistics
+              </button>
+            </div>
+
+            <button style={styles.logoutButton} onClick={onLogout}>
+              Sign Out
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ FRIENDS SCREEN ============
+    function FriendsScreen({ onBack }) {
+      const [friends, setFriends] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+      const [newName, setNewName] = useState('');
+      const [isAdding, setIsAdding] = useState(false);
+      const [confirmPlayer, setConfirmPlayer] = useState(null); // For existing player confirmation
+
+      // Load friends on mount
+      useEffect(() => {
+        const loadFriends = async () => {
+          setIsLoading(true);
+          const friendsList = await storage.getFriends();
+          setFriends(friendsList);
+          setIsLoading(false);
+        };
+        loadFriends();
+      }, []);
+
+      const addFriend = async () => {
+        const name = newName.trim();
+        if (!name || isAdding) return;
+
+        // Check if already in friends list
+        if (friends.some(f => f.name.toLowerCase() === name.toLowerCase())) {
+          alert('This player is already in your friends list');
+          return;
+        }
+
+        setIsAdding(true);
+
+        try {
+          // First check if player exists
+          const checkResult = await storage.checkPlayer(name);
+
+          if (checkResult.exists) {
+            // Player exists - show confirmation dialog
+            setConfirmPlayer(checkResult.player);
+          } else {
+            // Player doesn't exist - create new one and add as friend
+            const result = await storage.addFriend({ name });
+            setFriends([...friends, result.friend]);
+            setNewName('');
+          }
+        } catch (error) {
+          // Check if it's a 409 conflict (player exists)
+          if (error.message.includes('already exists')) {
+            alert('A player with this name already exists. Please choose a different name or add the existing player.');
+          } else {
+            console.error('Failed to add friend:', error);
+            alert('Failed to add friend. Please try again.');
+          }
+        } finally {
+          setIsAdding(false);
+        }
+      };
+
+      const confirmAddExistingPlayer = async () => {
+        if (!confirmPlayer) return;
+
+        setIsAdding(true);
+        try {
+          const result = await storage.addFriend({ player_id: confirmPlayer.id });
+          setFriends([...friends, result.friend]);
+          setNewName('');
+          setConfirmPlayer(null);
+        } catch (error) {
+          console.error('Failed to add existing player:', error);
+          alert('Failed to add friend. Please try again.');
+        } finally {
+          setIsAdding(false);
+        }
+      };
+
+      const removeFriend = async (friend) => {
+        try {
+          await storage.removeFriend(friend.id);
+          setFriends(friends.filter(f => f.id !== friend.id));
+        } catch (error) {
+          console.error('Failed to remove friend:', error);
+          alert('Failed to remove friend. Please try again.');
+        }
+      };
+
+      const formatDate = (dateString) => {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      };
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.screenCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>Friends</h2>
+            </div>
+
+            <div style={styles.addFriendSection}>
+              <input
+                type="text"
+                placeholder="Add a friend's name"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                style={styles.friendInput}
+                onKeyPress={(e) => e.key === 'Enter' && addFriend()}
+                disabled={isAdding}
+              />
+              <button style={styles.addButton} onClick={addFriend} disabled={isAdding}>
+                {isAdding ? '...' : 'Add'}
+              </button>
+            </div>
+
+            {/* Confirmation dialog for existing player */}
+            {confirmPlayer && (
+              <div style={styles.confirmDialog}>
+                <p style={styles.confirmText}>
+                  A player named "<strong>{confirmPlayer.name}</strong>" already exists.
+                </p>
+                <p style={styles.confirmDetails}>
+                  Games played: {confirmPlayer.total_games || 0}
+                  {confirmPlayer.last_game_date && (
+                    <><br />Last game: {formatDate(confirmPlayer.last_game_date)}</>
+                  )}
+                  {confirmPlayer.last_game_location && (
+                    <><br />({confirmPlayer.last_game_location})</>
+                  )}
+                </p>
+                <p style={styles.confirmQuestion}>Is this your friend?</p>
+                <div style={styles.confirmButtons}>
+                  <button
+                    style={styles.confirmYesButton}
+                    onClick={confirmAddExistingPlayer}
+                    disabled={isAdding}
+                  >
+                    Yes, add them
+                  </button>
+                  <button
+                    style={styles.confirmNoButton}
+                    onClick={() => {
+                      setConfirmPlayer(null);
+                      setNewName(confirmPlayer.name + ' ');
+                    }}
+                  >
+                    No, use different name
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div style={styles.friendsList}>
+              {isLoading ? (
+                <p style={styles.emptyMessage}>Loading friends...</p>
+              ) : friends.length === 0 ? (
+                <p style={styles.emptyMessage}>No friends added yet. Add people you play with regularly!</p>
+              ) : (
+                friends.map((friend) => (
+                  <div key={friend.id} style={styles.friendRow}>
+                    <div style={styles.friendInfo}>
+                      <span style={styles.friendName}>{friend.name}</span>
+                      {friend.statistics && (
+                        <span style={styles.friendStats}>
+                          {friend.statistics.total_games} games, {friend.statistics.games_won} wins
+                        </span>
+                      )}
+                    </div>
+                    <button style={styles.removeButton} onClick={() => removeFriend(friend)}>✕</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ HISTORY SCREEN ============
+    function HistoryScreen({ onBack }) {
+      const [games, setGames] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        const loadGames = async () => {
+          setIsLoading(true);
+          const fetchedGames = await storage.getGames();
+          setGames(fetchedGames);
+          setIsLoading(false);
+        };
+        loadGames();
+      }, []);
+
+      const formatDate = (dateString) => {
+        if (!dateString) return 'Unknown date';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      };
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.screenCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>Game History</h2>
+            </div>
+
+            <div style={styles.historyList}>
+              {isLoading ? (
+                <p style={styles.emptyMessage}>Loading games...</p>
+              ) : games.length === 0 ? (
+                <p style={styles.emptyMessage}>No games played yet. Start a new game!</p>
+              ) : (
+                [...games].reverse().map((game, index) => (
+                  <div key={game.id || index} style={styles.historyCard}>
+                    <div style={styles.historyDate}>{formatDate(game.date || game.played_at)}</div>
+                    <div style={styles.historyWinner}>🏆 {game.winner}</div>
+                    <div style={styles.historyPlayers}>
+                      {(game.standings || []).map((p, i) => (
+                        <span key={i} style={styles.historyPlayer}>
+                          {i + 1}. {p.name} ({p.total})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ STATS SCREEN ============
+    function StatsScreen({ onBack }) {
+      const [games, setGames] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      useEffect(() => {
+        const loadGames = async () => {
+          setIsLoading(true);
+          const fetchedGames = await storage.getGames();
+          setGames(fetchedGames);
+          setIsLoading(false);
+        };
+        loadGames();
+      }, []);
+
+      const playerStats = {};
+
+      games.forEach(game => {
+        game.players.forEach((playerName, playerIndex) => {
+          if (!playerStats[playerName]) {
+            playerStats[playerName] = {
+              gamesPlayed: 0,
+              wins: 0,
+              totalRounds: 0,
+              contractsMade: 0,
+              totalPoints: 0,
+            };
+          }
+
+          const stats = playerStats[playerName];
+          stats.gamesPlayed++;
+
+          if (game.winner === playerName) stats.wins++;
+
+          const finalStanding = (game.standings || []).find(s => s.name === playerName);
+          if (finalStanding) stats.totalPoints += finalStanding.total;
+
+          (game.rounds || []).forEach(round => {
+            if (round.bids && round.scores && round.bids[playerIndex] !== undefined && round.scores[playerIndex] !== undefined) {
+              stats.totalRounds++;
+              if (round.bids[playerIndex] === round.scores[playerIndex]) {
+                stats.contractsMade++;
+              }
+            }
+          });
+        });
+      });
+
+      const sortedPlayers = Object.entries(playerStats)
+        .map(([name, stats]) => ({ name, ...stats }))
+        .sort((a, b) => b.gamesPlayed - a.gamesPlayed);
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.screenCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>Statistics</h2>
+            </div>
+
+            {isLoading ? (
+              <p style={styles.emptyMessage}>Loading statistics...</p>
+            ) : (
+              <>
+                <div style={styles.overallStats}>
+                  <div style={styles.statBox}>
+                    <div style={styles.statNumber}>{games.length}</div>
+                    <div style={styles.statLabel}>Games Played</div>
+                  </div>
+                </div>
+
+                <h3 style={styles.subSectionTitle}>Player Statistics</h3>
+
+                <div style={styles.statsList}>
+                  {sortedPlayers.length === 0 ? (
+                    <p style={styles.emptyMessage}>No statistics yet. Play some games!</p>
+                  ) : (
+                    sortedPlayers.map((player, index) => (
+                      <div key={index} style={styles.playerStatCard}>
+                        <div style={styles.playerStatName}>{player.name}</div>
+                        <div style={styles.playerStatGrid}>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>{player.gamesPlayed}</span>
+                            <span style={styles.miniStatLabel}>Games</span>
+                          </div>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>{player.wins}</span>
+                            <span style={styles.miniStatLabel}>Wins</span>
+                          </div>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>
+                              {player.totalRounds > 0 ? Math.round((player.contractsMade / player.totalRounds) * 100) : 0}%
+                            </span>
+                            <span style={styles.miniStatLabel}>Contract %</span>
+                          </div>
+                          <div style={styles.miniStat}>
+                            <span style={styles.miniStatValue}>
+                              {player.gamesPlayed > 0 ? Math.round(player.totalPoints / player.gamesPlayed) : 0}
+                            </span>
+                            <span style={styles.miniStatLabel}>Avg Score</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ============ PLAYER SETUP ============
+    function PlayerSetup({ onStart, onBack }) {
+      const [names, setNames] = useState(['', '', '', '', '', '']);
+      const [playerCount, setPlayerCount] = useState(4);
+      const [friends, setFriends] = useState([]);
+      const [isLoadingFriends, setIsLoadingFriends] = useState(true);
+
+      // Load friends on mount
+      useEffect(() => {
+        const loadFriends = async () => {
+          setIsLoadingFriends(true);
+          const friendsList = await storage.getFriends();
+          setFriends(friendsList);
+          setIsLoadingFriends(false);
+        };
+        loadFriends();
+      }, []);
+
+      const handleNameChange = (index, value) => {
+        const newNames = [...names];
+        newNames[index] = value;
+        setNames(newNames);
+      };
+
+      const addFriendToNextSlot = (friend) => {
+        const currentNames = names.slice(0, playerCount);
+        const emptyIndex = currentNames.findIndex(n => n.trim() === '');
+
+        // friend is now an object with {id, name}
+        const friendName = friend.name;
+
+        if (emptyIndex !== -1 && !currentNames.includes(friendName)) {
+          const newNames = [...names];
+          newNames[emptyIndex] = friendName;
+          setNames(newNames);
+        }
+      };
+
+      const isPlayerSelected = (friend) => {
+        // friend is now an object with {id, name}
+        return names.slice(0, playerCount).includes(friend.name);
+      };
+
+      const canStart = names.slice(0, playerCount).every(name => name.trim() !== '');
+
+      const handleStart = () => {
+        if (canStart) {
+          onStart(names.slice(0, playerCount).map(n => n.trim()));
+        }
+      };
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.setupCard}>
+            <div style={styles.screenHeader}>
+              <button style={styles.backButton} onClick={onBack}>← Back</button>
+              <h2 style={styles.screenTitle}>New Game</h2>
+            </div>
+
+            <p style={styles.setupSubtitle}>
+              Start with whoever deals the final round, then continue clockwise
+            </p>
+            <p style={styles.setupHint}>(First player entered deals the final round)</p>
+
+            {!isLoadingFriends && friends.length > 0 && (
+              <div style={styles.quickSelectSection}>
+                <span style={styles.label}>Tap to add from friends:</span>
+                <div style={styles.friendChips}>
+                  {friends.map((friend) => (
+                    <button
+                      key={friend.id}
+                      style={{
+                        ...styles.friendChip,
+                        ...(isPlayerSelected(friend) ? styles.friendChipSelected : {})
+                      }}
+                      onClick={() => addFriendToNextSlot(friend)}
+                      disabled={isPlayerSelected(friend)}
+                    >
+                      {friend.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div style={styles.playerCountSection}>
+              <span style={styles.label}>Number of players:</span>
+              <div style={styles.playerCountButtons}>
+                {[3, 4, 5, 6].map(num => (
+                  <button
+                    key={num}
+                    style={{
+                      ...styles.countButton,
+                      ...(playerCount === num ? styles.countButtonActive : {})
+                    }}
+                    onClick={() => setPlayerCount(num)}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={styles.nameInputs}>
+              {Array(playerCount).fill(null).map((_, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  placeholder={`Player ${index + 1}${index === 0 ? ' (deals final round)' : ''}`}
+                  value={names[index]}
+                  onChange={(e) => handleNameChange(index, e.target.value)}
+                  style={styles.nameInput}
+                />
+              ))}
+            </div>
+
+            <button
+              style={{
+                ...styles.startButton,
+                ...(canStart ? {} : styles.startButtonDisabled)
+              }}
+              onClick={handleStart}
+              disabled={!canStart}
+            >
+              Start Game
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ SCOREBOARD ============
+    function Scoreboard({ players, rounds, currentRound, totalRounds, getTricksForRound, getDealerIndex, activePlayerIndex, currentPhase, onActiveCellPosition }) {
+      const activeCellRef = React.useRef(null);
+      
+      useEffect(() => {
+        if (activeCellRef.current && onActiveCellPosition) {
+          const rect = activeCellRef.current.getBoundingClientRect();
+          onActiveCellPosition({
+            top: rect.top,
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            centerX: rect.left + rect.width / 2,
+            centerY: rect.top + rect.height / 2,
+            width: rect.width,
+            height: rect.height
+          });
+        }
+      }, [currentRound, activePlayerIndex, currentPhase, onActiveCellPosition]);
+
+      return (
+        <div style={styles.scoreboard}>
+          <div style={styles.scoreboardRow}>
+            <div style={styles.roundCell}>
+              <div style={styles.roundHeader}>Round</div>
+            </div>
+            {players.map((name, index) => (
+              <div 
+                key={index} 
+                style={{
+                  ...styles.playerHeader,
+                  ...(index === activePlayerIndex ? styles.activePlayerHeader : {}),
+                  ...(index === players.length - 1 ? styles.playerHeaderLast : {})
+                }}
+              >
+                <div style={styles.playerName}>{name}</div>
+                <div style={styles.subHeaders}>
+                  <span style={styles.subHeader}>Bid</span>
+                  <span style={styles.subHeader}>Score</span>
+                  <span style={styles.subHeader}>Total</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {Array(totalRounds).fill(null).map((_, roundIndex) => {
+            const tricks = getTricksForRound(roundIndex);
+            const dealerIndex = getDealerIndex(roundIndex);
+            const roundData = rounds[roundIndex] || { bids: {}, scores: {}, totals: {} };
+            const isCurrentRound = roundIndex === currentRound;
+
+            return (
+              <div 
+                key={roundIndex} 
+                style={{
+                  ...styles.scoreboardRow,
+                  ...(isCurrentRound ? styles.currentRoundRow : {}),
+                  ...(roundIndex > currentRound ? styles.futureRoundRow : {})
+                }}
+              >
+                <div style={styles.roundCell}>
+                  <div style={styles.tricksNumber}>{tricks}</div>
+                  <div style={styles.dealerName}>{players[dealerIndex]}</div>
+                </div>
+                {players.map((_, playerIndex) => {
+                  const bid = roundData.bids[playerIndex];
+                  const score = roundData.scores[playerIndex];
+                  const total = roundData.totals[playerIndex];
+                  const isActiveCell = isCurrentRound && playerIndex === activePlayerIndex;
+                  const madeContract = bid !== undefined && score !== undefined && bid === score;
+                  const isLastPlayer = playerIndex === players.length - 1;
+
+                  return (
+                    <div 
+                      key={playerIndex}
+                      ref={isActiveCell ? activeCellRef : null}
+                      style={{
+                        ...styles.playerCell,
+                        ...(isActiveCell ? styles.activeCell : {}),
+                        ...(isLastPlayer ? styles.playerCellLast : {})
+                      }}
+                    >
+                      <span style={styles.cellValue}>{bid !== undefined ? bid : ''}</span>
+                      <span style={styles.cellValueWrapper}>
+                        {score !== undefined && (
+                          <span style={madeContract ? styles.madeContractScore : styles.missedContractScore}>
+                            {score}
+                          </span>
+                        )}
+                      </span>
+                      <span style={{...styles.cellValue, ...styles.totalValue}}>{total !== undefined ? total : ''}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ============ BID/SCORE POPOVER ============
+    function BidScorePopover({ phase, playerName, disabledValues, onSelect, tricksAvailable, bidsSoFar, tricksScoredSoFar, onUndo, canUndo, activeCellPosition }) {
+      const popoverRef = React.useRef(null);
+      const [position, setPosition] = useState({ top: 0, left: 0, arrowLeft: 0, showBelow: true });
+      
+      useEffect(() => {
+        if (!activeCellPosition || !popoverRef.current) return;
+        
+        const popoverRect = popoverRef.current.getBoundingClientRect();
+        const popoverWidth = popoverRect.width || 420;
+        const popoverHeight = popoverRect.height || 280;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const padding = 16;
+        const arrowHeight = 12;
+        
+        // Calculate horizontal position - center on cell, but keep within viewport
+        let left = activeCellPosition.centerX - popoverWidth / 2;
+        left = Math.max(padding, Math.min(left, viewportWidth - popoverWidth - padding));
+        
+        // Calculate arrow position relative to popover
+        let arrowLeft = activeCellPosition.centerX - left;
+        arrowLeft = Math.max(24, Math.min(arrowLeft, popoverWidth - 24));
+        
+        // Determine if popover should appear above or below the cell
+        const spaceBelow = viewportHeight - activeCellPosition.bottom;
+        const spaceAbove = activeCellPosition.top;
+        const showBelow = spaceBelow >= popoverHeight + arrowHeight + padding || spaceBelow > spaceAbove;
+        
+        let top;
+        if (showBelow) {
+          top = activeCellPosition.bottom + arrowHeight;
+          // Make sure it doesn't go off screen
+          if (top + popoverHeight > viewportHeight - padding) {
+            top = viewportHeight - popoverHeight - padding;
+          }
+        } else {
+          top = activeCellPosition.top - popoverHeight - arrowHeight;
+          // Make sure it doesn't go off screen
+          if (top < padding) {
+            top = padding;
+          }
+        }
+        
+        setPosition({ top, left, arrowLeft, showBelow });
+      }, [activeCellPosition]);
+
+      const popoverStyle = {
+        ...styles.popoverFloating,
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+      };
+
+      const arrowStyle = {
+        ...styles.popoverArrow,
+        left: `${position.arrowLeft}px`,
+        ...(position.showBelow ? styles.popoverArrowUp : styles.popoverArrowDown),
+      };
+
+      return (
+        <div ref={popoverRef} style={popoverStyle}>
+          <div style={arrowStyle} />
+          <div style={styles.popoverTitle}>
+            {phase === 'bidding' ? `${playerName}'s Bid` : `${playerName}'s Tricks`}
+          </div>
+          
+          {phase === 'bidding' && (
+            <div style={styles.biddingInfo}>
+              <span style={styles.biddingInfoText}>Tricks: <strong>{tricksAvailable}</strong></span>
+              <span style={styles.biddingInfoDivider}>•</span>
+              <span style={styles.biddingInfoText}>Bid so far: <strong>{bidsSoFar}</strong></span>
+            </div>
+          )}
+          
+          {phase === 'scoring' && (
+            <div style={styles.biddingInfo}>
+              <span style={styles.biddingInfoText}>Tricks: <strong>{tricksAvailable}</strong></span>
+              <span style={styles.biddingInfoDivider}>•</span>
+              <span style={styles.biddingInfoText}>Scored: <strong>{tricksScoredSoFar}</strong></span>
+              <span style={styles.biddingInfoDivider}>•</span>
+              <span style={styles.biddingInfoText}>Left: <strong>{tricksAvailable - tricksScoredSoFar}</strong></span>
+            </div>
+          )}
+          
+          <div style={styles.numberGridWithUndo}>
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
+              const isDisabled = disabledValues.has(num);
+              return (
+                <button
+                  key={num}
+                  style={{
+                    ...styles.numberButton,
+                    ...(isDisabled ? styles.numberButtonDisabled : {})
+                  }}
+                  onClick={() => !isDisabled && onSelect(num)}
+                  disabled={isDisabled}
+                >
+                  {num}
+                </button>
+              );
+            })}
+            <button 
+              style={{
+                ...styles.undoButtonInGrid,
+                ...(canUndo ? {} : styles.undoButtonDisabled)
+              }}
+              onClick={onUndo}
+              disabled={!canUndo}
+            >
+              ↩ Undo
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ BID SUMMARY DIALOG ============
+    function BidSummaryDialog({ players, bids, tricksAvailable, biddingOrder, onEnterScores, onUndo }) {
+      const totalBids = Object.values(bids).reduce((sum, bid) => sum + bid, 0);
+      const difference = totalBids - tricksAvailable;
+      const isOver = difference > 0;
+      const isUnder = difference < 0;
+      const isExact = difference === 0;
+
+      let title;
+      if (isExact) {
+        title = "We're Exact! 🎯";
+      } else if (isOver) {
+        title = `We're ${difference} Over! 📈`;
+      } else {
+        title = `We're ${Math.abs(difference)} Under! 📉`;
+      }
+
+      return (
+        <div style={styles.popoverOverlay}>
+          <div style={styles.popoverCentered}>
+            <div style={styles.bidSummaryTitle}>{title}</div>
+            <div style={styles.bidSummarySubtitle}>
+              {totalBids} tricks bid • {tricksAvailable} available
+            </div>
+            
+            <div style={styles.bidSummaryList}>
+              {biddingOrder.map((playerIndex) => (
+                <div key={playerIndex} style={styles.bidSummaryRow}>
+                  <span style={styles.bidSummaryName}>{players[playerIndex]}</span>
+                  <span style={styles.bidSummaryBid}>{bids[playerIndex]} tricks</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.bidSummaryButtons}>
+              <button style={styles.enterScoresButton} onClick={onEnterScores}>
+                Enter Scores
+              </button>
+              <button style={styles.undoButtonSummary} onClick={onUndo}>
+                ↩ Undo
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ STANDINGS POPOVER (LEADERBOARD) ============
+    function StandingsPopover({ standings, isLastRound, onContinue, onUndo, canUndo, rounds, currentRound, players }) {
+      const [selectedPlayer, setSelectedPlayer] = useState(null); // null = all players
+      const [chartMode, setChartMode] = useState('points'); // 'points' | 'efficiency'
+      
+      // Calculate contracts made for each player
+      const getContractsMadeThisGame = (playerIndex) => {
+        let count = 0;
+        for (let i = 0; i <= currentRound; i++) {
+          const r = rounds[i];
+          if (r && r.bids[playerIndex] !== undefined && r.scores[playerIndex] !== undefined) {
+            if (r.bids[playerIndex] === r.scores[playerIndex]) count++;
+          }
+        }
+        return count;
+      };
+
+      // Get points per round for charts
+      const getPointsData = () => {
+        const data = [];
+        for (let i = 0; i <= currentRound; i++) {
+          const roundData = { round: i + 1 };
+          players.forEach((name, idx) => {
+            let total = 0;
+            for (let j = 0; j <= i; j++) {
+              if (rounds[j]?.totals[idx] !== undefined) {
+                total = rounds[j].totals[idx];
+              }
+            }
+            roundData[name] = total;
+          });
+          data.push(roundData);
+        }
+        return data;
+      };
+
+      // Get underbids and overbids stats
+      const getBiddingStats = (playerIndex = null) => {
+        let underbidCount = 0;
+        let overbidCount = 0;
+        let totalUnderbid = 0;
+        let totalOverbid = 0;
+        
+        for (let i = 0; i <= currentRound; i++) {
+          const r = rounds[i];
+          if (playerIndex !== null) {
+            if (r?.bids[playerIndex] !== undefined && r?.scores[playerIndex] !== undefined) {
+              const diff = r.bids[playerIndex] - r.scores[playerIndex];
+              if (diff > 0) {
+                overbidCount++;
+                totalOverbid += diff;
+              } else if (diff < 0) {
+                underbidCount++;
+                totalUnderbid += Math.abs(diff);
+              }
+            }
+          } else {
+            players.forEach((_, idx) => {
+              if (r?.bids[idx] !== undefined && r?.scores[idx] !== undefined) {
+                const diff = r.bids[idx] - r.scores[idx];
+                if (diff > 0) {
+                  overbidCount++;
+                  totalOverbid += diff;
+                } else if (diff < 0) {
+                  underbidCount++;
+                  totalUnderbid += Math.abs(diff);
+                }
+              }
+            });
+          }
+        }
+        
+        const avgUnderbid = underbidCount > 0 ? (totalUnderbid / underbidCount).toFixed(1) : 0;
+        const avgOverbid = overbidCount > 0 ? (totalOverbid / overbidCount).toFixed(1) : 0;
+        
+        return { 
+          underbidCount, 
+          overbidCount, 
+          avgUnderbid, 
+          avgOverbid,
+          totalUnderbid,
+          totalOverbid
+        };
+      };
+
+      // Get contracts stats - possible is (players-1) per round since last bidder can't make contract
+      const getContractsStats = (playerIndex = null) => {
+        let made = 0;
+        let roundsPlayed = 0;
+        
+        for (let i = 0; i <= currentRound; i++) {
+          const r = rounds[i];
+          if (playerIndex !== null) {
+            if (r?.bids[playerIndex] !== undefined && r?.scores[playerIndex] !== undefined) {
+              roundsPlayed++;
+              if (r.bids[playerIndex] === r.scores[playerIndex]) made++;
+            }
+          } else {
+            // Check if this round has been played
+            let roundPlayed = false;
+            players.forEach((_, idx) => {
+              if (r?.bids[idx] !== undefined && r?.scores[idx] !== undefined) {
+                roundPlayed = true;
+                if (r.bids[idx] === r.scores[idx]) made++;
+              }
+            });
+            if (roundPlayed) roundsPlayed++;
+          }
+        }
+        
+        // Possible contracts: for a single player it's roundsPlayed, 
+        // for all players it's (players-1) per round (since one must miss)
+        const possible = playerIndex !== null 
+          ? roundsPlayed 
+          : roundsPlayed * (players.length - 1);
+        
+        return { made, possible, percentage: possible > 0 ? Math.round((made / possible) * 100) : 0 };
+      };
+
+      // Get efficiency data for stacked chart
+      const getEfficiencyData = () => {
+        const data = [];
+        const numRounds = players.length > 5 ? Math.floor(52 / players.length) : 10;
+        
+        // Calculate TRUE max possible points per round:
+        // Only (players - 1) can make their contract each round
+        // Max = tricks (total scored) + (players-1) * 10 (bonuses)
+        const getMaxPointsForRound = (roundIndex) => {
+          const tricks = numRounds - roundIndex;
+          return tricks + (players.length - 1) * 10;
+        };
+        
+        for (let i = 0; i <= currentRound; i++) {
+          const roundData = { round: i + 1, maxPossible: 0, pointsMissed: 0 };
+          
+          // Calculate cumulative max possible
+          let cumulativeMax = 0;
+          for (let j = 0; j <= i; j++) {
+            cumulativeMax += getMaxPointsForRound(j);
+          }
+          roundData.maxPossible = cumulativeMax;
+          
+          // Calculate actual points earned by each player
+          let totalEarned = 0;
+          players.forEach((name, idx) => {
+            let playerTotal = 0;
+            for (let j = 0; j <= i; j++) {
+              if (rounds[j]?.totals[idx] !== undefined) {
+                playerTotal = rounds[j].totals[idx];
+              }
+            }
+            roundData[name] = playerTotal;
+            totalEarned += playerTotal;
+          });
+          
+          roundData.pointsMissed = cumulativeMax - totalEarned;
+          data.push(roundData);
+        }
+        return data;
+      };
+
+      const playerColors = ['#2e7d32', '#1565c0', '#c62828', '#f57c00', '#7b1fa2', '#00838f'];
+      
+      const handlePlayerClick = (playerIndex) => {
+        setSelectedPlayer(selectedPlayer === playerIndex ? null : playerIndex);
+      };
+
+      const contractsStats = getContractsStats(selectedPlayer);
+      const biddingStats = getBiddingStats(selectedPlayer);
+
+      return (
+        <div style={styles.popoverOverlay}>
+          <div style={styles.leaderboardContainer}>
+            {/* Left Panel - Standings */}
+            <div style={styles.leaderboardLeft}>
+              <div style={styles.popoverTitle}>
+                {isLastRound ? '🏆 Final Results!' : '📊 Leaderboard'}
+              </div>
+              <div style={styles.standingsList}>
+                {standings.map((player, index) => (
+                  <div 
+                    key={player.index} 
+                    style={{
+                      ...styles.standingRow,
+                      ...(selectedPlayer === player.index ? styles.standingRowSelected : {}),
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handlePlayerClick(player.index)}
+                  >
+                    <span style={styles.standingPosition}>
+                      {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : 
+                        <span style={styles.standingPositionNumber}>{index + 1}.</span>}
+                    </span>
+                    <span style={styles.standingName}>
+                      {player.name}
+                      <span style={styles.contractsCount}>
+                        ({getContractsMadeThisGame(player.index)} contracts made!)
+                      </span>
+                    </span>
+                    <span style={styles.standingScore}>{player.total}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={styles.standingsButtonRow}>
+                <button style={styles.continueButtonWithUndo} onClick={onContinue}>
+                  {isLastRound ? 'Finish Game' : 'Next Round'}
+                </button>
+                <button 
+                  style={{
+                    ...styles.undoButtonStandings,
+                    ...(canUndo ? {} : styles.undoButtonDisabled)
+                  }}
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                >
+                  ↩ Undo
+                </button>
+              </div>
+            </div>
+
+            {/* Right Panel - Statistics */}
+            <div style={styles.leaderboardRight}>
+              {/* Chart Section */}
+              <div style={styles.chartSection}>
+                <div style={styles.chartTabs}>
+                  <button 
+                    style={{
+                      ...styles.chartTab,
+                      ...(chartMode === 'points' ? styles.chartTabActive : {})
+                    }}
+                    onClick={() => setChartMode('points')}
+                  >
+                    Points Totals
+                  </button>
+                  <button 
+                    style={{
+                      ...styles.chartTab,
+                      ...(chartMode === 'efficiency' ? styles.chartTabActive : {})
+                    }}
+                    onClick={() => setChartMode('efficiency')}
+                  >
+                    Scoring Efficiency
+                  </button>
+                </div>
+                <div style={styles.chartContainer}>
+                  {chartMode === 'points' ? (
+                    <PointsChart 
+                      data={getPointsData()} 
+                      players={players} 
+                      colors={playerColors}
+                      selectedPlayer={selectedPlayer}
+                      totalRounds={players.length > 5 ? Math.floor(52 / players.length) : 10}
+                    />
+                  ) : (
+                    <EfficiencyChart 
+                      data={getEfficiencyData()} 
+                      players={players} 
+                      colors={playerColors}
+                      selectedPlayer={selectedPlayer}
+                      totalRounds={players.length > 5 ? Math.floor(52 / players.length) : 10}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Stats Row */}
+              <div style={styles.statsRow}>
+                <div style={styles.statItem}>
+                  <div style={styles.statLabel}>Contracts Made</div>
+                  <div style={styles.statValue}>{contractsStats.made}/{contractsStats.possible}</div>
+                  <div style={styles.statSubtext}>{contractsStats.percentage}% success</div>
+                </div>
+                <div style={styles.statItem}>
+                  <div style={styles.statLabel}>Underbids</div>
+                  <div style={styles.statValue}>{biddingStats.underbidCount}</div>
+                  <div style={styles.statSubtext}>Avg {biddingStats.avgUnderbid} Tricks Under</div>
+                </div>
+                <div style={styles.statItem}>
+                  <div style={styles.statLabel}>Overbids</div>
+                  <div style={styles.statValue}>{biddingStats.overbidCount}</div>
+                  <div style={styles.statSubtext}>Avg {biddingStats.avgOverbid} Tricks Over</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ CHART COMPONENTS ============
+    function PointsChart({ data, players, colors, selectedPlayer, totalRounds }) {
+      // Build full data array with all rounds, starting from 0
+      const fullData = [{ round: 0 }];
+      players.forEach(name => { fullData[0][name] = 0; });
+      
+      for (let i = 0; i < totalRounds; i++) {
+        const existingData = data.find(d => d.round === i + 1);
+        if (existingData) {
+          fullData.push(existingData);
+        } else {
+          const roundData = { round: i + 1 };
+          // Carry forward last known values
+          players.forEach(name => {
+            const lastData = fullData[fullData.length - 1];
+            roundData[name] = lastData ? lastData[name] : 0;
+          });
+          fullData.push(roundData);
+        }
+      }
+
+      const currentRoundIndex = data.length; // Index into fullData of current progress
+      const maxPoints = Math.max(...fullData.flatMap(d => players.map(p => d[p] || 0)), 10);
+      const yAxisMax = Math.ceil(maxPoints / 10) * 10; // Round up to nearest 10
+      
+      const chartHeight = 280;
+      const chartWidth = 450;
+      const padding = { top: 20, right: 100, bottom: 45, left: 55 };
+      
+      const xScale = (i) => padding.left + (i / totalRounds) * (chartWidth - padding.left - padding.right);
+      const yScale = (v) => chartHeight - padding.bottom - (v / yAxisMax) * (chartHeight - padding.top - padding.bottom);
+
+      const displayPlayers = selectedPlayer !== null ? [players[selectedPlayer]] : players;
+      const displayColors = selectedPlayer !== null ? [colors[selectedPlayer]] : colors;
+
+      // Calculate y-axis tick values (increments of 10)
+      const yTicks = [];
+      for (let i = 0; i <= yAxisMax; i += 10) {
+        yTicks.push(i);
+      }
+
+      // Get final values for label positioning
+      const finalValues = displayPlayers.map((player, idx) => ({
+        player,
+        color: displayColors[idx],
+        value: fullData[currentRoundIndex]?.[player] || 0,
+        y: yScale(fullData[currentRoundIndex]?.[player] || 0)
+      })).sort((a, b) => a.value - b.value); // Sort by value ascending
+
+      // Adjust label positions to avoid overlap (minimum 16px apart)
+      const minGap = 16;
+      for (let i = 1; i < finalValues.length; i++) {
+        const prev = finalValues[i - 1];
+        const curr = finalValues[i];
+        if (prev.y - curr.y < minGap) {
+          curr.y = prev.y - minGap;
+        }
+      }
+
+      return (
+        <svg width={chartWidth} height={chartHeight} style={styles.chart}>
+          {/* Y-axis grid lines and labels */}
+          {yTicks.map(val => {
+            const y = yScale(val);
+            return (
+              <g key={val}>
+                <line x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y} stroke="#eee" />
+                <text x={padding.left - 8} y={y + 4} fontSize="10" textAnchor="end" fill="#999">
+                  {val}
+                </text>
+              </g>
+            );
+          })}
+          
+          {/* Y-axis label */}
+          <text 
+            x={15} 
+            y={chartHeight / 2} 
+            fontSize="11" 
+            fill="#666" 
+            textAnchor="middle"
+            transform={`rotate(-90, 15, ${chartHeight / 2})`}
+          >
+            Points
+          </text>
+          
+          {/* X-axis labels */}
+          {Array(totalRounds + 1).fill(null).map((_, i) => (
+            <text key={i} x={xScale(i)} y={chartHeight - 25} fontSize="10" textAnchor="middle" fill="#999">
+              {i === 0 ? 'Start' : `R${i}`}
+            </text>
+          ))}
+          
+          {/* X-axis label */}
+          <text 
+            x={(padding.left + chartWidth - padding.right) / 2} 
+            y={chartHeight - 5} 
+            fontSize="11" 
+            fill="#666" 
+            textAnchor="middle"
+          >
+            Rounds
+          </text>
+
+          {/* Lines - only draw up to current round */}
+          {displayPlayers.map((player, pIdx) => {
+            const lineData = fullData.slice(0, currentRoundIndex + 1);
+            const points = lineData.map((d, i) => `${xScale(i)},${yScale(d[player] || 0)}`).join(' ');
+            return (
+              <g key={player}>
+                <polyline
+                  points={points}
+                  fill="none"
+                  stroke={displayColors[pIdx]}
+                  strokeWidth="3"
+                />
+                {lineData.map((d, i) => (
+                  <circle
+                    key={i}
+                    cx={xScale(i)}
+                    cy={yScale(d[player] || 0)}
+                    r="4"
+                    fill={displayColors[pIdx]}
+                  />
+                ))}
+              </g>
+            );
+          })}
+
+          {/* Player labels on the right */}
+          {finalValues.map(({ player, color, value, y }) => (
+            <g key={player}>
+              <line 
+                x1={xScale(currentRoundIndex) + 6} 
+                y1={yScale(fullData[currentRoundIndex]?.[player] || 0)} 
+                x2={chartWidth - padding.right + 5} 
+                y2={y}
+                stroke={color}
+                strokeWidth="1"
+                strokeDasharray="2"
+                opacity="0.5"
+              />
+              <text 
+                x={chartWidth - padding.right + 8} 
+                y={y + 4} 
+                fontSize="11" 
+                fill={color}
+                fontWeight="500"
+              >
+                {player} ({value})
+              </text>
+            </g>
+          ))}
+        </svg>
+      );
+    }
+
+    function EfficiencyChart({ data, players, colors, selectedPlayer, totalRounds }) {
+      // Build full data array with all rounds, starting from 0
+      const numRounds = totalRounds || (players.length > 5 ? Math.floor(52 / players.length) : 10);
+      const numPlayers = players.length;
+      
+      // Calculate TRUE max possible points per round (for all players):
+      // Only (players - 1) can make their contract each round
+      // Max = tricks (total scored) + (players-1) * 10 (bonuses)
+      const getMaxPointsForRound = (roundIndex) => {
+        const tricks = numRounds - roundIndex;
+        return tricks + (numPlayers - 1) * 10;
+      };
+      
+      // Calculate max possible for a SINGLE player per round:
+      // tricks + 10 (if they make their contract)
+      const getSinglePlayerMaxForRound = (roundIndex) => {
+        const tricks = numRounds - roundIndex;
+        return tricks + 10;
+      };
+
+      const fullData = [{ round: 0, maxPossible: 0, singlePlayerMax: 0, pointsMissed: 0 }];
+      players.forEach(name => { fullData[0][name] = 0; });
+      
+      for (let i = 0; i < numRounds; i++) {
+        const existingData = data.find(d => d.round === i + 1);
+        
+        // Calculate cumulative max possible up to this round
+        let cumulativeMax = 0;
+        let cumulativeSingleMax = 0;
+        for (let j = 0; j <= i; j++) {
+          cumulativeMax += getMaxPointsForRound(j);
+          cumulativeSingleMax += getSinglePlayerMaxForRound(j);
+        }
+        
+        if (existingData) {
+          const correctedData = { ...existingData, maxPossible: cumulativeMax, singlePlayerMax: cumulativeSingleMax };
+          let totalEarned = 0;
+          players.forEach(name => {
+            totalEarned += correctedData[name] || 0;
+          });
+          correctedData.pointsMissed = cumulativeMax - totalEarned;
+          fullData.push(correctedData);
+        } else {
+          const roundData = { round: i + 1, maxPossible: cumulativeMax, singlePlayerMax: cumulativeSingleMax, pointsMissed: cumulativeMax };
+          players.forEach(name => { roundData[name] = 0; });
+          fullData.push(roundData);
+        }
+      }
+
+      const currentRoundIndex = data.length;
+      
+      // When filtering on a single player, use single player max; otherwise use total max
+      const isFiltering = selectedPlayer !== null;
+      const currentMax = isFiltering 
+        ? (fullData[currentRoundIndex]?.singlePlayerMax || 100)
+        : (fullData[currentRoundIndex]?.maxPossible || 100);
+      const yAxisMax = Math.ceil(currentMax / 50) * 50 || 50;
+      
+      const chartHeight = 280;
+      const chartWidth = 450;
+      const padding = { top: 20, right: 100, bottom: 45, left: 55 };
+      
+      const xScale = (i) => padding.left + (i / numRounds) * (chartWidth - padding.left - padding.right);
+      const yScale = (v) => chartHeight - padding.bottom - (v / yAxisMax) * (chartHeight - padding.top - padding.bottom);
+
+      const displayPlayers = selectedPlayer !== null ? [players[selectedPlayer]] : players;
+
+      // Calculate y-axis tick values (increments of 50)
+      const yTicks = [];
+      for (let i = 0; i <= yAxisMax; i += 50) {
+        yTicks.push(i);
+      }
+
+      // Sort players by total points descending (leader first)
+      const playerTotals = displayPlayers.map((player) => ({
+        player,
+        originalIndex: players.indexOf(player),
+        value: fullData[currentRoundIndex]?.[player] || 0
+      })).sort((a, b) => b.value - a.value);
+
+      // Stack order: lowest scorer at bottom, leader on top
+      const stackOrder = [...playerTotals].reverse();
+      
+      // Calculate stacked positions for labels
+      const stackedLabels = [];
+      let runningTotal = 0;
+      stackOrder.forEach(({ player, value, originalIndex }) => {
+        runningTotal += value;
+        stackedLabels.push({
+          player,
+          color: colors[originalIndex],
+          value,
+          topY: runningTotal,
+          y: yScale(runningTotal)
+        });
+      });
+      // Reverse so leader is first in label list (will be highest on screen)
+      stackedLabels.reverse();
+
+      // Calculate missed points based on whether filtering
+      const playerValue = isFiltering ? (fullData[currentRoundIndex]?.[players[selectedPlayer]] || 0) : 0;
+      const totalEarnedAllPlayers = currentMax - (fullData[currentRoundIndex]?.pointsMissed || 0);
+      const currentMissed = isFiltering 
+        ? (currentMax - playerValue)
+        : (fullData[currentRoundIndex]?.pointsMissed || 0);
+      const totalEarned = currentMax - currentMissed;
+
+      // Build all labels
+      const allLabels = [];
+      
+      // Add Total label first (highest)
+      if (currentRoundIndex > 0) {
+        allLabels.push({
+          player: 'Total',
+          color: '#666',
+          value: currentMax,
+          y: yScale(currentMax),
+          isTotal: true
+        });
+      }
+      
+      // Add Missed label
+      if (currentRoundIndex > 0 && currentMissed > 0) {
+        allLabels.push({
+          player: 'Missed',
+          color: '#c62828',
+          value: currentMissed,
+          y: yScale(totalEarned + currentMissed / 2),
+          isMissed: true
+        });
+      }
+      
+      // Add player labels (already sorted leader first)
+      stackedLabels.forEach(label => allLabels.push(label));
+      
+      // Adjust label positions to avoid overlap
+      allLabels.sort((a, b) => a.y - b.y); // Sort by y ascending (top to bottom on screen)
+      
+      const minGap = 14;
+      for (let i = 1; i < allLabels.length; i++) {
+        const prev = allLabels[i - 1];
+        const curr = allLabels[i];
+        if (curr.y - prev.y < minGap) {
+          curr.y = prev.y + minGap;
+        }
+      }
+
+      return (
+        <svg width={chartWidth} height={chartHeight} style={styles.chart}>
+          {/* Y-axis grid lines and labels */}
+          {yTicks.map(val => {
+            const y = yScale(val);
+            return (
+              <g key={val}>
+                <line x1={padding.left} y1={y} x2={chartWidth - padding.right} y2={y} stroke="#eee" />
+                <text x={padding.left - 8} y={y + 4} fontSize="10" textAnchor="end" fill="#999">
+                  {val}
+                </text>
+              </g>
+            );
+          })}
+          
+          {/* Y-axis label */}
+          <text 
+            x={15} 
+            y={chartHeight / 2} 
+            fontSize="11" 
+            fill="#666" 
+            textAnchor="middle"
+            transform={`rotate(-90, 15, ${chartHeight / 2})`}
+          >
+            Points
+          </text>
+
+          {/* Max possible line - only up to current round */}
+          {currentRoundIndex > 0 && (
+            <polyline
+              points={fullData.slice(0, currentRoundIndex + 1).map((d, i) => 
+                `${xScale(i)},${yScale(isFiltering ? d.singlePlayerMax : d.maxPossible)}`
+              ).join(' ')}
+              fill="none"
+              stroke="#999"
+              strokeWidth="2"
+              strokeDasharray="4"
+            />
+          )}
+          
+          {/* Points missed area */}
+          {currentRoundIndex > 0 && currentMissed > 0 && (
+            <polygon
+              points={[
+                ...fullData.slice(0, currentRoundIndex + 1).map((d, i) => 
+                  `${xScale(i)},${yScale(isFiltering ? d.singlePlayerMax : d.maxPossible)}`
+                ),
+                ...fullData.slice(0, currentRoundIndex + 1).slice().reverse().map((d, i) => {
+                  const idx = currentRoundIndex - i;
+                  const maxVal = isFiltering ? fullData[idx].singlePlayerMax : fullData[idx].maxPossible;
+                  const earnedVal = isFiltering 
+                    ? (fullData[idx][players[selectedPlayer]] || 0)
+                    : (maxVal - fullData[idx].pointsMissed);
+                  return `${xScale(idx)},${yScale(earnedVal)}`;
+                })
+              ].join(' ')}
+              fill="#ffcdd2"
+              opacity="0.6"
+            />
+          )}
+
+          {/* Player areas (stacked) - lowest at bottom, leader on top */}
+          {stackOrder.map(({ player, originalIndex }, pIdx) => {
+            const playersBelow = stackOrder.slice(0, pIdx);
+            let cumulative = fullData.slice(0, currentRoundIndex + 1).map(() => 0);
+            playersBelow.forEach(({ player: pBelow }) => {
+              fullData.slice(0, currentRoundIndex + 1).forEach((d, i) => {
+                cumulative[i] += d[pBelow] || 0;
+              });
+            });
+            
+            const slicedData = fullData.slice(0, currentRoundIndex + 1);
+            const topPoints = slicedData.map((d, i) => `${xScale(i)},${yScale(cumulative[i] + (d[player] || 0))}`);
+            const bottomPoints = slicedData.slice().reverse().map((d, i) => `${xScale(currentRoundIndex - i)},${yScale(cumulative[currentRoundIndex - i])}`);
+            
+            return (
+              <polygon
+                key={player}
+                points={[...topPoints, ...bottomPoints].join(' ')}
+                fill={colors[originalIndex]}
+                opacity={0.7}
+              />
+            );
+          })}
+
+          {/* X-axis labels */}
+          {Array(numRounds + 1).fill(null).map((_, i) => (
+            <text key={i} x={xScale(i)} y={chartHeight - 25} fontSize="10" textAnchor="middle" fill="#999">
+              {i === 0 ? 'Start' : `R${i}`}
+            </text>
+          ))}
+          
+          {/* X-axis label */}
+          <text 
+            x={(padding.left + chartWidth - padding.right) / 2} 
+            y={chartHeight - 5} 
+            fontSize="11" 
+            fill="#666" 
+            textAnchor="middle"
+          >
+            Rounds
+          </text>
+
+          {/* All labels on the right */}
+          {allLabels.map(({ player, color, value, y, isTotal }) => (
+            <text 
+              key={player}
+              x={chartWidth - padding.right + 8} 
+              y={y + 4} 
+              fontSize={isTotal ? '10' : '11'} 
+              fill={color}
+              fontWeight={isTotal ? '600' : '500'}
+            >
+              {player} ({value})
+            </text>
+          ))}
+        </svg>
+      );
+    }
+
+    // ============ GAME FINISHED ============
+    function GameFinished({ players, standings, rounds, onSaveAndFinish }) {
+      const stats = players.map((name, index) => {
+        let contractsMade = 0;
+        let totalRounds = 0;
+        rounds.forEach(round => {
+          if (round.bids[index] !== undefined && round.scores[index] !== undefined) {
+            totalRounds++;
+            if (round.bids[index] === round.scores[index]) contractsMade++;
+          }
+        });
+        return {
+          name,
+          contractsMade,
+          totalRounds,
+          successRate: totalRounds > 0 ? Math.round((contractsMade / totalRounds) * 100) : 0,
+        };
+      });
+
+      const totalContracts = stats.reduce((sum, s) => sum + s.contractsMade, 0);
+      const totalPossible = stats.reduce((sum, s) => sum + s.totalRounds, 0);
+
+      return (
+        <div style={styles.container}>
+          <div style={styles.finishedCard}>
+            <h1 style={styles.finishedTitle}>🏆 Game Complete!</h1>
+            
+            <div style={styles.finalStandings}>
+              <h2 style={styles.sectionTitle}>Final Standings</h2>
+              {standings.map((player, index) => (
+                <div key={player.index} style={styles.finalStandingRow}>
+                  <span style={styles.finalPosition}>
+                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`}
+                  </span>
+                  <span style={styles.finalName}>{player.name}</span>
+                  <span style={styles.finalScore}>{player.total} pts</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={styles.statsSection}>
+              <h2 style={styles.sectionTitle}>Statistics</h2>
+              <div style={styles.groupStat}>
+                Group contract success: {totalContracts}/{totalPossible} ({Math.round((totalContracts/totalPossible)*100)}%)
+              </div>
+              {stats.map((stat, index) => (
+                <div key={index} style={styles.playerStat}>
+                  <strong>{stat.name}:</strong> {stat.contractsMade}/{stat.totalRounds} contracts ({stat.successRate}%)
+                </div>
+              ))}
+            </div>
+
+            <button style={styles.newGameButton} onClick={onSaveAndFinish}>
+              Save & Return Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ============ STYLES ============
+    const styles = {
+      container: {
+        minHeight: '100vh',
+        padding: '16px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        background: `
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'%3E%3Cdefs%3E%3Cstyle%3E.c%7Bfill:%23ffffff;opacity:0.07%7D%3C/style%3E%3C/defs%3E%3Cg transform='rotate(-15 150 150)'%3E%3Crect class='c' x='20' y='20' width='45' height='65' rx='5'/%3E%3Ctext fill='%23ffffff' opacity='0.07' x='42' y='62' font-size='32' text-anchor='middle'%3E♠%3C/text%3E%3Crect class='c' x='230' y='30' width='45' height='65' rx='5'/%3E%3Ctext fill='%23ffffff' opacity='0.07' x='252' y='72' font-size='32' text-anchor='middle'%3E♥%3C/text%3E%3Crect class='c' x='120' y='10' width='45' height='65' rx='5'/%3E%3Ctext fill='%23ffffff' opacity='0.07' x='142' y='52' font-size='32' text-anchor='middle'%3E♦%3C/text%3E%3Ccircle class='c' cx='70' cy='150' r='35'/%3E%3Ccircle cx='70' cy='150' r='25' fill='none' stroke='%23ffffff' stroke-width='2' opacity='0.07'/%3E%3Ccircle cx='70' cy='150' r='15' fill='none' stroke='%23ffffff' stroke-width='2' opacity='0.07'/%3E%3Ccircle cx='70' cy='150' r='5' fill='%23ffffff' opacity='0.07'/%3E%3Crect class='c' x='180' y='120' width='50' height='50' rx='8'/%3E%3Ccircle cx='195' cy='135' r='5' fill='%231a472a'/%3E%3Ccircle cx='215' cy='135' r='5' fill='%231a472a'/%3E%3Ccircle cx='195' cy='155' r='5' fill='%231a472a'/%3E%3Ccircle cx='215' cy='155' r='5' fill='%231a472a'/%3E%3Ccircle cx='205' cy='145' r='5' fill='%231a472a'/%3E%3Crect class='c' x='40' y='220' width='45' height='65' rx='5'/%3E%3Ctext fill='%23ffffff' opacity='0.07' x='62' y='262' font-size='32' text-anchor='middle'%3E♣%3C/text%3E%3Crect class='c' x='140' y='200' width='45' height='65' rx='5'/%3E%3Ctext fill='%23ffffff' opacity='0.07' x='162' y='240' font-size='28' text-anchor='middle'%3EA%3C/text%3E%3Ccircle class='c' cx='250' cy='240' r='30'/%3E%3Ccircle cx='250' cy='240' r='22' fill='none' stroke='%23ffffff' stroke-width='2' opacity='0.07'/%3E%3Ccircle cx='250' cy='240' r='14' fill='none' stroke='%23ffffff' stroke-width='2' opacity='0.07'/%3E%3Ccircle cx='250' cy='240' r='6' fill='%23ffffff' opacity='0.07'/%3E%3C/g%3E%3C/svg%3E") repeat,
+          linear-gradient(135deg, #1a472a 0%, #0d2818 50%, #1a472a 100%)
+        `,
+        backgroundColor: '#1a472a',
+      },
+      header: { textAlign: 'center', marginBottom: '16px' },
+      title: { 
+        color: '#fff', 
+        fontSize: '32px', 
+        margin: '0 0 8px 0',
+        fontFamily: '"Playfair Display", Georgia, serif',
+        fontWeight: 700,
+        letterSpacing: '1px',
+        textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+      },
+      titleDecorator: {
+        color: '#ffd700',
+        fontSize: '28px',
+        margin: '0 12px',
+        textShadow: '1px 1px 2px rgba(0,0,0,0.3)',
+      },
+      roundInfo: { color: '#a8d5a2', fontSize: '18px' },
+      scoreboardContainer: { overflowX: 'auto', marginBottom: '16px', paddingBottom: '280px' },
+      scoreboardContainerCompact: { overflowX: 'auto', marginBottom: '16px' },
+      scoreboard: { backgroundColor: '#fff', borderRadius: '12px', overflow: 'hidden', minWidth: 'fit-content' },
+      scoreboardRow: { display: 'flex', borderBottom: '1px solid #ddd' },
+      currentRoundRow: { backgroundColor: '#fffde7' },
+      futureRoundRow: { backgroundColor: '#f5f5f5', opacity: 0.6 },
+      roundCell: { width: '80px', minWidth: '80px', padding: '8px', backgroundColor: '#2e7d32', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' },
+      roundHeader: { fontWeight: 'bold', fontSize: '14px' },
+      tricksNumber: { fontSize: '24px', fontWeight: 'bold' },
+      dealerName: { fontSize: '12px', opacity: 0.9 },
+      playerHeader: { flex: 1, minWidth: '120px', padding: '8px', backgroundColor: '#388e3c', color: '#fff', textAlign: 'center', borderRight: '2px solid #2e7d32' },
+      playerHeaderLast: { borderRight: 'none' },
+      activePlayerHeader: { backgroundColor: '#ff9800' },
+      playerName: { fontWeight: 'bold', fontSize: '32px', marginBottom: '4px' },
+      subHeaders: { display: 'flex', justifyContent: 'space-around' },
+      subHeader: { fontSize: '11px', opacity: 0.9 },
+      subHeaderLabels: { bid: 'Bid', score: 'Score', total: 'Total' },
+      playerCell: { flex: 1, minWidth: '120px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', padding: '12px 8px', borderRight: '2px solid #e0e0e0' },
+      playerCellLast: { borderRight: 'none' },
+      activeCell: { backgroundColor: '#fff3e0', boxShadow: 'inset 0 0 0 3px #ff9800' },
+      cellValue: { fontSize: '22px', width: '33%', textAlign: 'center', fontWeight: '500' },
+      cellValueWrapper: { width: '33%', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center' },
+      madeContractScore: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', borderRadius: '50%', border: '3px solid #ffd700', backgroundColor: '#fff8e1', fontWeight: 'bold', fontSize: '22px', boxShadow: '0 0 8px rgba(255, 215, 0, 0.6), inset 0 0 4px rgba(255, 215, 0, 0.3)' },
+      missedContractScore: { fontSize: '22px', fontWeight: '500' },
+      totalValue: { fontWeight: 'bold' },
+      popover: { position: 'fixed', bottom: '0', left: '0', right: '0', backgroundColor: '#fff', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '16px 24px 24px', boxShadow: '0 -4px 20px rgba(0,0,0,0.2)' },
+      popoverOverlay: { 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        zIndex: 1000,
+        background: `
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300' viewBox='0 0 300 300'%3E%3Cdefs%3E%3Cstyle%3E.c%7Bfill:%232e7d32;opacity:0.06%7D%3C/style%3E%3C/defs%3E%3Cg transform='rotate(-15 150 150)'%3E%3Crect class='c' x='20' y='20' width='45' height='65' rx='5'/%3E%3Ctext fill='%232e7d32' opacity='0.06' x='42' y='62' font-size='32' text-anchor='middle'%3E♠%3C/text%3E%3Crect class='c' x='230' y='30' width='45' height='65' rx='5'/%3E%3Ctext fill='%232e7d32' opacity='0.06' x='252' y='72' font-size='32' text-anchor='middle'%3E♥%3C/text%3E%3Crect class='c' x='120' y='10' width='45' height='65' rx='5'/%3E%3Ctext fill='%232e7d32' opacity='0.06' x='142' y='52' font-size='32' text-anchor='middle'%3E♦%3C/text%3E%3Ccircle class='c' cx='70' cy='150' r='35'/%3E%3Ccircle cx='70' cy='150' r='25' fill='none' stroke='%232e7d32' stroke-width='2' opacity='0.06'/%3E%3Ccircle cx='70' cy='150' r='15' fill='none' stroke='%232e7d32' stroke-width='2' opacity='0.06'/%3E%3Ccircle cx='70' cy='150' r='5' fill='%232e7d32' opacity='0.06'/%3E%3Crect class='c' x='180' y='120' width='50' height='50' rx='8'/%3E%3Ccircle cx='195' cy='135' r='5' fill='%23f5f5f5'/%3E%3Ccircle cx='215' cy='135' r='5' fill='%23f5f5f5'/%3E%3Ccircle cx='195' cy='155' r='5' fill='%23f5f5f5'/%3E%3Ccircle cx='215' cy='155' r='5' fill='%23f5f5f5'/%3E%3Ccircle cx='205' cy='145' r='5' fill='%23f5f5f5'/%3E%3Crect class='c' x='40' y='220' width='45' height='65' rx='5'/%3E%3Ctext fill='%232e7d32' opacity='0.06' x='62' y='262' font-size='32' text-anchor='middle'%3E♣%3C/text%3E%3Crect class='c' x='140' y='200' width='45' height='65' rx='5'/%3E%3Ctext fill='%232e7d32' opacity='0.06' x='162' y='240' font-size='28' text-anchor='middle'%3EA%3C/text%3E%3Ccircle class='c' cx='250' cy='240' r='30'/%3E%3Ccircle cx='250' cy='240' r='22' fill='none' stroke='%232e7d32' stroke-width='2' opacity='0.06'/%3E%3Ccircle cx='250' cy='240' r='14' fill='none' stroke='%232e7d32' stroke-width='2' opacity='0.06'/%3E%3Ccircle cx='250' cy='240' r='6' fill='%232e7d32' opacity='0.06'/%3E%3C/g%3E%3C/svg%3E") repeat,
+          rgba(255, 255, 255, 0.97)
+        `,
+        backgroundColor: 'rgba(255, 255, 255, 0.97)',
+      },
+      popoverCentered: { 
+        backgroundColor: '#fff', 
+        borderRadius: '20px', 
+        padding: '24px', 
+        boxShadow: '0 8px 32px rgba(0,0,0,0.2)', 
+        maxWidth: '500px', 
+        width: 'calc(100vw - 48px)',
+        border: '2px solid #2e7d32',
+      },
+      bidSummaryTitle: {
+        fontSize: '28px',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: '8px',
+        color: '#333',
+      },
+      bidSummarySubtitle: {
+        fontSize: '16px',
+        textAlign: 'center',
+        color: '#666',
+        marginBottom: '20px',
+      },
+      bidSummaryList: {
+        marginBottom: '24px',
+      },
+      bidSummaryRow: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 16px',
+        backgroundColor: '#f5f5f5',
+        borderRadius: '8px',
+        marginBottom: '8px',
+      },
+      bidSummaryName: {
+        fontSize: '18px',
+        fontWeight: '500',
+        color: '#333',
+      },
+      bidSummaryBid: {
+        fontSize: '18px',
+        fontWeight: 'bold',
+        color: '#2e7d32',
+      },
+      bidSummaryButtons: {
+        display: 'flex',
+        gap: '12px',
+      },
+      enterScoresButton: {
+        flex: 1,
+        padding: '18px',
+        fontSize: '20px',
+        fontWeight: 'bold',
+        border: 'none',
+        borderRadius: '12px',
+        backgroundColor: '#2e7d32',
+        color: '#fff',
+        cursor: 'pointer',
+        touchAction: 'manipulation',
+      },
+      undoButtonSummary: {
+        flex: '0 0 auto',
+        padding: '18px 24px',
+        fontSize: '18px',
+        fontWeight: 'bold',
+        border: 'none',
+        borderRadius: '12px',
+        backgroundColor: '#757575',
+        color: '#fff',
+        cursor: 'pointer',
+        touchAction: 'manipulation',
+      },
+      popoverFloating: { position: 'fixed', backgroundColor: '#fff', borderRadius: '16px', padding: '16px 20px 20px', boxShadow: '0 4px 24px rgba(0,0,0,0.25)', zIndex: 1000, maxWidth: '420px', width: 'calc(100vw - 32px)' },
+      popoverArrow: { position: 'absolute', width: 0, height: 0, borderLeft: '12px solid transparent', borderRight: '12px solid transparent', marginLeft: '-12px' },
+      popoverArrowUp: { top: '-12px', borderBottom: '12px solid #fff' },
+      popoverArrowDown: { bottom: '-12px', borderTop: '12px solid #fff' },
+      popoverTitle: { fontSize: '22px', fontWeight: 'bold', textAlign: 'center', marginBottom: '8px', color: '#333' },
+      biddingInfo: { display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '16px', padding: '10px 16px', backgroundColor: '#e3f2fd', borderRadius: '8px', flexWrap: 'wrap', gap: '4px' },
+      biddingInfoText: { fontSize: '18px', color: '#1565c0' },
+      biddingInfoDivider: { margin: '0 12px', color: '#90caf9', fontSize: '18px' },
+      numberGridWithUndo: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', maxWidth: '400px', margin: '0 auto' },
+      numberButton: { height: '64px', fontSize: '28px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      numberButtonDisabled: { backgroundColor: '#ccc', color: '#888', cursor: 'not-allowed' },
+      undoButtonInGrid: { height: '64px', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      undoButtonDisabled: { backgroundColor: '#e0e0e0', color: '#9e9e9e', cursor: 'not-allowed' },
+      standingsList: { marginBottom: '20px' },
+      standingRow: { display: 'flex', alignItems: 'center', padding: '12px 16px', fontSize: '20px', borderBottom: '1px solid #eee' },
+      standingPosition: { width: '50px', fontSize: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      standingPositionNumber: { fontSize: '24px', fontWeight: 'bold', color: '#666' },
+      standingName: { flex: 1, fontWeight: '500', display: 'flex', flexDirection: 'column', gap: '2px' },
+      standingScore: { fontWeight: 'bold', color: '#2e7d32', fontSize: '20px' },
+      contractsCount: { fontSize: '13px', color: '#888', fontWeight: 'normal' },
+      standingRowSelected: { backgroundColor: '#e8f5e9', borderLeft: '4px solid #2e7d32' },
+      
+      // Two-panel leaderboard
+      leaderboardContainer: {
+        display: 'flex',
+        backgroundColor: '#fff',
+        borderRadius: '20px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        maxWidth: '900px',
+        width: 'calc(100vw - 32px)',
+        maxHeight: 'calc(100vh - 64px)',
+        overflow: 'hidden',
+        border: '2px solid #2e7d32',
+      },
+      leaderboardLeft: {
+        flex: '0 0 320px',
+        padding: '24px',
+        borderRight: '1px solid #e0e0e0',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'auto',
+      },
+      leaderboardRight: {
+        flex: 1,
+        padding: '24px',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'auto',
+        backgroundColor: '#fafafa',
+      },
+      chartSection: {
+        flex: 1,
+        marginBottom: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+      },
+      chartTabs: {
+        display: 'flex',
+        gap: '0',
+        marginBottom: '12px',
+      },
+      chartTab: {
+        flex: 1,
+        padding: '10px 16px',
+        fontSize: '14px',
+        fontWeight: '500',
+        border: '1px solid #ddd',
+        backgroundColor: '#fff',
+        color: '#666',
+        cursor: 'pointer',
+        transition: 'all 0.2s',
+      },
+      chartTabActive: {
+        backgroundColor: '#2e7d32',
+        color: '#fff',
+        borderColor: '#2e7d32',
+      },
+      chartContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: '12px',
+        padding: '16px',
+        minHeight: '200px',
+      },
+      statsRow: {
+        display: 'flex',
+        gap: '16px',
+      },
+      statItem: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderRadius: '12px',
+        padding: '16px',
+        textAlign: 'center',
+      },
+      statLabel: {
+        fontSize: '12px',
+        color: '#666',
+        marginBottom: '4px',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+      },
+      statValue: {
+        fontSize: '28px',
+        fontWeight: 'bold',
+        color: '#2e7d32',
+        marginBottom: '4px',
+      },
+      statSubtext: {
+        fontSize: '12px',
+        color: '#888',
+      },
+      statsHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '16px',
+      },
+      statsTitle: {
+        fontSize: '18px',
+        fontWeight: 'bold',
+        color: '#333',
+      },
+      chart: {
+        maxWidth: '100%',
+      },
+      noData: {
+        color: '#999',
+        fontSize: '14px',
+        textAlign: 'center',
+      },
+      standingsButtonRow: { display: 'flex', gap: '12px' },
+      undoButtonStandings: { flex: '0 0 auto', padding: '18px 24px', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      continueButtonWithUndo: { flex: 1, padding: '18px', fontSize: '20px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      loginCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '32px 24px', maxWidth: '500px', margin: '0 auto' },
+      welcomeName: { fontSize: '28px', fontWeight: 'bold', color: '#2e7d32', textAlign: 'center', marginBottom: '24px' },
+      errorMessage: { backgroundColor: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '8px', marginBottom: '16px', textAlign: 'center' },
+      pinSection: { marginBottom: '24px' },
+      pinInputContainer: { display: 'flex', justifyContent: 'center' },
+      pinInput: { width: '150px', padding: '16px', fontSize: '32px', textAlign: 'center', letterSpacing: '8px', border: '2px solid #ddd', borderRadius: '12px', outline: 'none' },
+      linkButton: { display: 'block', width: '100%', marginTop: '16px', padding: '12px', fontSize: '16px', color: '#2e7d32', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' },
+      homeCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '32px 24px', maxWidth: '500px', margin: '0 auto' },
+      welcomeText: { fontSize: '20px', color: '#666', textAlign: 'center', marginBottom: '32px' },
+      menuButtons: { display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' },
+      menuButton: { padding: '20px', fontSize: '20px', fontWeight: 'bold', border: '2px solid #2e7d32', borderRadius: '12px', backgroundColor: '#fff', color: '#2e7d32', cursor: 'pointer', touchAction: 'manipulation' },
+      logoutButton: { width: '100%', padding: '16px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer' },
+      screenCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '24px', maxWidth: '600px', margin: '0 auto', maxHeight: 'calc(100vh - 64px)', overflow: 'auto' },
+      screenHeader: { display: 'flex', alignItems: 'center', marginBottom: '24px', gap: '16px' },
+      backButton: { padding: '12px 16px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '8px', backgroundColor: '#f5f5f5', color: '#333', cursor: 'pointer' },
+      screenTitle: { fontSize: '24px', color: '#2e7d32', margin: 0 },
+      addFriendSection: { display: 'flex', gap: '12px', marginBottom: '24px' },
+      friendInput: { flex: 1, padding: '14px', fontSize: '18px', border: '2px solid #ddd', borderRadius: '12px', outline: 'none' },
+      addButton: { padding: '14px 24px', fontSize: '18px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer' },
+      friendsList: { display: 'flex', flexDirection: 'column', gap: '8px' },
+      friendRow: { display: 'flex', alignItems: 'center', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '8px' },
+      friendInfo: { flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' },
+      friendName: { fontSize: '18px', fontWeight: '500' },
+      friendStats: { fontSize: '14px', color: '#666' },
+      removeButton: { width: '40px', height: '40px', fontSize: '18px', border: 'none', borderRadius: '8px', backgroundColor: '#ef5350', color: '#fff', cursor: 'pointer' },
+      confirmDialog: { backgroundColor: '#fff3e0', padding: '16px', borderRadius: '12px', marginBottom: '16px', border: '2px solid #ff9800' },
+      confirmText: { fontSize: '16px', color: '#333', marginBottom: '8px' },
+      confirmDetails: { fontSize: '14px', color: '#666', marginBottom: '12px', lineHeight: '1.5' },
+      confirmQuestion: { fontSize: '16px', fontWeight: 'bold', color: '#333', marginBottom: '12px' },
+      confirmButtons: { display: 'flex', gap: '12px' },
+      confirmYesButton: { flex: 1, padding: '12px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '8px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer' },
+      confirmNoButton: { flex: 1, padding: '12px', fontSize: '16px', fontWeight: 'bold', border: 'none', borderRadius: '8px', backgroundColor: '#757575', color: '#fff', cursor: 'pointer' },
+      emptyMessage: { color: '#999', textAlign: 'center', padding: '32px', fontSize: '16px' },
+      historyList: { display: 'flex', flexDirection: 'column', gap: '12px' },
+      historyCard: { padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '12px' },
+      historyDate: { fontSize: '14px', color: '#999', marginBottom: '8px' },
+      historyWinner: { fontSize: '20px', fontWeight: 'bold', color: '#2e7d32', marginBottom: '8px' },
+      historyPlayers: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+      historyPlayer: { fontSize: '14px', color: '#666', backgroundColor: '#fff', padding: '4px 8px', borderRadius: '4px' },
+      overallStats: { display: 'flex', justifyContent: 'center', marginBottom: '24px' },
+      statBox: { padding: '20px 40px', backgroundColor: '#e8f5e9', borderRadius: '12px', textAlign: 'center' },
+      statNumber: { fontSize: '36px', fontWeight: 'bold', color: '#2e7d32' },
+      statLabel: { fontSize: '14px', color: '#666' },
+      subSectionTitle: { fontSize: '18px', color: '#333', marginBottom: '16px' },
+      statsList: { display: 'flex', flexDirection: 'column', gap: '12px' },
+      playerStatCard: { padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '12px' },
+      playerStatName: { fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: '#333' },
+      playerStatGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' },
+      miniStat: { display: 'flex', flexDirection: 'column', alignItems: 'center' },
+      miniStatValue: { fontSize: '20px', fontWeight: 'bold', color: '#2e7d32' },
+      miniStatLabel: { fontSize: '11px', color: '#999' },
+      setupCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '24px', maxWidth: '500px', margin: '0 auto' },
+      setupTitle: { fontSize: '32px', color: '#2e7d32', textAlign: 'center', margin: '0 0 8px 0' },
+      setupSubtitle: { color: '#666', textAlign: 'center', fontSize: '16px', marginBottom: '4px' },
+      setupHint: { color: '#999', textAlign: 'center', fontSize: '14px', fontStyle: 'italic', marginBottom: '24px' },
+      quickSelectSection: { marginBottom: '24px', padding: '16px', backgroundColor: '#f5f5f5', borderRadius: '12px' },
+      friendChips: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' },
+      friendChip: { padding: '10px 16px', fontSize: '16px', border: '2px solid #2e7d32', borderRadius: '20px', backgroundColor: '#fff', color: '#2e7d32', cursor: 'pointer' },
+      friendChipSelected: { backgroundColor: '#2e7d32', color: '#fff' },
+      playerCountSection: { marginBottom: '24px' },
+      label: { fontSize: '16px', color: '#333', display: 'block', marginBottom: '12px' },
+      playerCountButtons: { display: 'flex', gap: '12px' },
+      countButton: { flex: 1, height: '56px', fontSize: '24px', fontWeight: 'bold', border: '2px solid #2e7d32', borderRadius: '12px', backgroundColor: '#fff', color: '#2e7d32', cursor: 'pointer', touchAction: 'manipulation' },
+      countButtonActive: { backgroundColor: '#2e7d32', color: '#fff' },
+      nameInputs: { display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' },
+      nameInput: { padding: '16px', fontSize: '18px', border: '2px solid #ddd', borderRadius: '12px', outline: 'none' },
+      startButton: { width: '100%', padding: '18px', fontSize: '22px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+      startButtonDisabled: { backgroundColor: '#ccc', cursor: 'not-allowed' },
+      finishedCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '32px 24px', maxWidth: '500px', margin: '0 auto' },
+      finishedTitle: { fontSize: '28px', color: '#2e7d32', textAlign: 'center', margin: '0 0 24px 0' },
+      finalStandings: { marginBottom: '32px' },
+      sectionTitle: { fontSize: '20px', color: '#333', margin: '0 0 16px 0' },
+      finalStandingRow: { display: 'flex', alignItems: 'center', padding: '16px', fontSize: '20px', backgroundColor: '#f5f5f5', borderRadius: '8px', marginBottom: '8px' },
+      finalPosition: { width: '48px', fontSize: '28px' },
+      finalName: { flex: 1, fontWeight: '500' },
+      finalScore: { fontWeight: 'bold', color: '#2e7d32', fontSize: '22px' },
+      statsSection: { marginBottom: '24px' },
+      groupStat: { fontSize: '16px', color: '#666', marginBottom: '12px', padding: '12px', backgroundColor: '#e8f5e9', borderRadius: '8px' },
+      playerStat: { fontSize: '14px', color: '#555', padding: '8px 0', borderBottom: '1px solid #eee' },
+      newGameButton: { width: '100%', padding: '18px', fontSize: '20px', fontWeight: 'bold', border: 'none', borderRadius: '12px', backgroundColor: '#2e7d32', color: '#fff', cursor: 'pointer', touchAction: 'manipulation' },
+    };
+
+    // Render the app
+    ReactDOM.render(<WhistScoreboard />, document.getElementById('root'));
+  </script>
+</body>
+</html>

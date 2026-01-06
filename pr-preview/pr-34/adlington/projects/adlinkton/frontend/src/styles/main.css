@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html, body {
+    @apply h-full m-0 p-0;
+  }
+
+  body {
+    @apply font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Compact link item styles */
+  .link-item {
+    @apply flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer transition-colors;
+    min-height: 40px;
+  }
+
+  .link-item:focus-visible {
+    @apply outline-2 outline-primary-500 outline-offset-2;
+  }
+
+  /* Category tree styles */
+  .category-node {
+    @apply select-none cursor-pointer;
+  }
+
+  .category-node.expanded > .category-children {
+    @apply block;
+  }
+
+  .category-node:not(.expanded) > .category-children {
+    @apply hidden;
+  }
+
+  /* Pane styles */
+  .pane {
+    @apply flex flex-col overflow-hidden;
+  }
+
+  .pane-header {
+    @apply flex items-center justify-between px-4 py-2 border-b bg-gray-50;
+  }
+
+  .pane-content {
+    @apply flex-1 overflow-y-auto;
+  }
+
+  /* Split.js gutter styles */
+  .gutter {
+    @apply bg-gray-200 hover:bg-gray-300 cursor-col-resize;
+  }
+
+  .gutter.gutter-horizontal {
+    cursor: col-resize;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
+}
