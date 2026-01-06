@@ -5,7 +5,7 @@
  */
 
 // Include main site's database configuration
-require_once __DIR__ . '/../../../api/db_config.php';
+require_once __DIR__ . '/../../../../api/config.php';
 
 /**
  * Get a PDO database connection
