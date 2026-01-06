@@ -8,7 +8,9 @@
 
 ## 1. Overview
 
-A personal link management system integrated with an existing website's session-based authentication. The system provides rich organization through nested categories, tags, and smart categories, with a desktop-first SPA interface emphasizing keyboard-driven productivity and flexible layouts.
+A personal link management system called "Adlinkton", integrated with adlington.fr's session-based authentication. The system provides rich organization through nested categories, tags, and smart categories, with a desktop-first SPA interface emphasizing keyboard-driven productivity and flexible layouts.
+
+Location: adlington/projects/adlinkton/
 
 ### 1.1 Key Characteristics
 
