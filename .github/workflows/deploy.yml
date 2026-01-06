@@ -13,6 +13,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'adlington/projects/adlinkton/frontend/package-lock.json'
+
+    - name: Build Adlinkton frontend
+      run: |
+        cd adlington/projects/adlinkton/frontend
+        npm ci
+        npm run build
+
     - name: Deploy via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
@@ -23,7 +36,7 @@ jobs:
         protocol: ftp  # Use 'ftps' for FTP with TLS, 'ftps-legacy' for implicit TLS
         local-dir: ./adlington/          # Deploy contents of adlington folder
         server-dir: /public_html/        # To web root
-        # Exclude sensitive files
+        # Exclude sensitive files and source frontend files
         exclude: |
           **/.git*
           **/.git*/**
@@ -31,4 +44,13 @@ jobs:
           **/api/config.php
           **/api/debug.php
           **/api/test.php
+          **/frontend/src/**
+          **/frontend/node_modules/**
+          **/frontend/package.json
+          **/frontend/package-lock.json
+          **/frontend/vite.config.js
+          **/frontend/tailwind.config.js
+          **/frontend/postcss.config.js
+          **/frontend/index.html
+          **/frontend/.gitignore
         log-level: verbose  # Get detailed error messages

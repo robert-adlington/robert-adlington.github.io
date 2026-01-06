@@ -10,7 +10,7 @@
  * DELETE /api/friends.php?player_id=123 - Remove friend (doesn't delete the player)
  */
 
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../../../api/auth.php';
 
 handlePreflight();
 
