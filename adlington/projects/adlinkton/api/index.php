@@ -4,6 +4,11 @@
  * Main entry point for all API requests
  */
 
+// DEBUG: Log request details
+error_log("Adlinkton API Request: " . $_SERVER['REQUEST_URI']);
+error_log("Script Name: " . ($_SERVER['SCRIPT_NAME'] ?? 'not set'));
+error_log("Path Info: " . ($_SERVER['PATH_INFO'] ?? 'not set'));
+
 // Enable CORS for development (adjust for production)
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -23,12 +28,9 @@ require_once __DIR__ . '/helpers/validation.php';
 
 // Get request method and path
 $method = $_SERVER['REQUEST_METHOD'];
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Remove base path to get relative path (handles both /api/links and /api/index.php/links)
-$basePath = '/adlington/projects/adlinkton/api';
-$relativePath = str_replace($basePath, '', $path);
-$relativePath = str_replace('/index.php', '', $relativePath); // Strip index.php if present
+// Get endpoint from query parameter (e.g., ?endpoint=/links)
+$relativePath = $_GET['endpoint'] ?? '';
 $relativePath = trim($relativePath, '/');
 
 // Parse path segments

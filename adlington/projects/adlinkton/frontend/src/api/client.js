@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 // Create axios instance with base configuration
-// Note: Using index.php directly since .htaccess rewriting isn't enabled on this hosting
+// Note: Using query parameter routing since .htaccess and PATH_INFO don't work on this hosting
 const apiClient = axios.create({
   baseURL: '/adlington/projects/adlinkton/api/index.php',
   headers: {
@@ -9,6 +9,25 @@ const apiClient = axios.create({
   },
   withCredentials: true, // Include session cookies
 })
+
+// Request interceptor to convert URL paths to query parameters
+apiClient.interceptors.request.use(
+  (config) => {
+    // Convert /links to ?endpoint=/links
+    if (config.url && config.url !== '/') {
+      const url = config.url.startsWith('/') ? config.url : '/' + config.url
+      config.url = ''
+      config.params = {
+        ...config.params,
+        endpoint: url
+      }
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
 
 // Request interceptor for authentication
 apiClient.interceptors.request.use(
