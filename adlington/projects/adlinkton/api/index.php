@@ -25,9 +25,10 @@ require_once __DIR__ . '/helpers/validation.php';
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Remove base path to get relative path
+// Remove base path to get relative path (handles both /api/links and /api/index.php/links)
 $basePath = '/adlington/projects/adlinkton/api';
 $relativePath = str_replace($basePath, '', $path);
+$relativePath = str_replace('/index.php', '', $relativePath); // Strip index.php if present
 $relativePath = trim($relativePath, '/');
 
 // Parse path segments

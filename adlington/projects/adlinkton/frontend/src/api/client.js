@@ -1,8 +1,9 @@
 import axios from 'axios'
 
 // Create axios instance with base configuration
+// Note: Using index.php directly since .htaccess rewriting isn't enabled on this hosting
 const apiClient = axios.create({
-  baseURL: '/adlington/projects/adlinkton/api',
+  baseURL: '/adlington/projects/adlinkton/api/index.php',
   headers: {
     'Content-Type': 'application/json',
   },
