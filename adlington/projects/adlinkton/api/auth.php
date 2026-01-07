@@ -8,11 +8,33 @@ require_once __DIR__ . '/helpers/db.php';
 require_once __DIR__ . '/helpers/response.php';
 
 /**
- * Start session if not already started
+ * Get user from session token cookie
+ * @return array|null User data or null if not authenticated
  */
-function ensureSession() {
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
+function getUserFromToken() {
+    $token = $_COOKIE['session_token'] ?? null;
+
+    if (!$token) {
+        return null;
+    }
+
+    try {
+        $pdo = getDB();
+
+        // Look up session token in sessions table
+        $stmt = $pdo->prepare("
+            SELECT s.user_id, u.id, u.username, u.email, u.is_admin
+            FROM sessions s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.token = ? AND s.expires_at > NOW()
+        ");
+        $stmt->execute([$token]);
+        $user = $stmt->fetch();
+
+        return $user ?: null;
+    } catch (Exception $e) {
+        error_log("Auth error: " . $e->getMessage());
+        return null;
     }
 }
 
@@ -21,8 +43,7 @@ function ensureSession() {
  * @return bool
  */
 function isAuthenticated() {
-    ensureSession();
-    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+    return getUserFromToken() !== null;
 }
 
 /**
@@ -30,8 +51,8 @@ function isAuthenticated() {
  * @return int|null
  */
 function getCurrentUserId() {
-    ensureSession();
-    return $_SESSION['user_id'] ?? null;
+    $user = getUserFromToken();
+    return $user ? (int)$user['user_id'] : null;
 }
 
 /**
@@ -39,10 +60,11 @@ function getCurrentUserId() {
  * @return int User ID
  */
 function requireAuth() {
-    if (!isAuthenticated()) {
+    $userId = getCurrentUserId();
+    if (!$userId) {
         jsonUnauthorized('Authentication required');
     }
-    return getCurrentUserId();
+    return $userId;
 }
 
 /**
