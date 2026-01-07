@@ -24,8 +24,8 @@
     const { useState, useMemo, useEffect } = React;
 
     // ============ API CONFIGURATION ============
-    const API_BASE_URL = '/adlington/projects/contract-whist/api';
-    const AUTH_API_URL = '/adlington/api/auth-api.php'; // Shared auth API
+    const API_BASE_URL = '/projects/contract-whist/api';
+    const AUTH_API_URL = '/api/auth-api.php'; // Shared auth API
 
     // API helper for making authenticated requests
     const api = {
@@ -500,11 +500,11 @@
               setIsCheckingAuth(false);
             } else {
               // No active session - redirect to login page
-              window.location.href = '/adlington/index.html?return=' + encodeURIComponent(window.location.pathname);
+              window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
             }
           } catch (error) {
             // Authentication failed - redirect to login page
-            window.location.href = '/adlington/index.html?return=' + encodeURIComponent(window.location.pathname);
+            window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
           }
         };
         checkSession();
@@ -519,7 +519,7 @@
 
         // Clear all state and redirect to home page
         storage.clearAccount();
-        window.location.href = '/adlington/index.html';
+        window.location.href = '/index.html';
       };
 
       const totalRounds = useMemo(() => {
