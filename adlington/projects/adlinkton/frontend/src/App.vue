@@ -56,10 +56,21 @@
             </a>
           </nav>
 
-          <h2 class="text-xs font-semibold text-gray-500 uppercase mt-6 mb-2">Categories</h2>
+          <div class="flex items-center justify-between mt-6 mb-2">
+            <h2 class="text-xs font-semibold text-gray-500 uppercase">Categories</h2>
+            <button
+              class="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              @click="showAddCategoryModal = true"
+              title="Add new category"
+            >
+              + Add
+            </button>
+          </div>
           <CategoryTree
             ref="categoryTree"
             @select-category="handleCategorySelect"
+            @edit-category="handleEditCategory"
+            @delete-category="handleDeleteCategory"
           />
         </div>
       </aside>
@@ -116,6 +127,15 @@
       @close="showAddLinkModal = false"
       @link-added="handleLinkAdded"
     />
+
+    <!-- Add/Edit Category Modal -->
+    <AddCategoryModal
+      :is-open="showAddCategoryModal"
+      :category="editingCategory"
+      :categories="categories"
+      @close="closeAddCategoryModal"
+      @category-saved="handleCategorySaved"
+    />
   </div>
 </template>
 
@@ -124,6 +144,8 @@ import { ref, computed, onMounted } from 'vue'
 import LinkList from './components/LinkList.vue'
 import CategoryTree from './components/CategoryTree.vue'
 import AddLinkModal from './components/AddLinkModal.vue'
+import AddCategoryModal from './components/AddCategoryModal.vue'
+import { categoriesApi } from './api/categories'
 
 // Refs
 const linkList = ref(null)
@@ -133,9 +155,26 @@ const categoryTree = ref(null)
 const currentView = ref('all')
 const selectedCategoryId = ref(null)
 const showAddLinkModal = ref(false)
+const showAddCategoryModal = ref(false)
+const editingCategory = ref(null)
+const categories = ref([])
 const searchQuery = ref('')
 const sortMode = ref('created')
 const sortOrder = ref('desc')
+
+// Load categories on mount
+onMounted(async () => {
+  await loadCategories()
+})
+
+async function loadCategories() {
+  try {
+    const response = await categoriesApi.getCategories()
+    categories.value = response.categories
+  } catch (error) {
+    console.error('Failed to load categories:', error)
+  }
+}
 
 // Computed
 const favoriteFilter = computed(() => {
@@ -223,11 +262,49 @@ function handleLinkAdded(link) {
   if (categoryTree.value) {
     categoryTree.value.loadCategories()
   }
+  loadCategories()
 }
 
-onMounted(() => {
-  console.log('Adlinkton initialized')
-})
+function handleEditCategory(category) {
+  editingCategory.value = category
+  showAddCategoryModal.value = true
+}
+
+async function handleDeleteCategory(category) {
+  if (!confirm(`Are you sure you want to delete "${category.name}"? This will also delete all subcategories.`)) {
+    return
+  }
+
+  try {
+    await categoriesApi.deleteCategory(category.id)
+    // Reload categories
+    if (categoryTree.value) {
+      categoryTree.value.loadCategories()
+    }
+    loadCategories()
+    // If we were viewing this category, go back to all links
+    if (selectedCategoryId.value === category.id) {
+      selectView('all')
+    }
+  } catch (error) {
+    console.error('Failed to delete category:', error)
+    alert('Failed to delete category. Please try again.')
+  }
+}
+
+function handleCategorySaved(category) {
+  console.log('Category saved:', category)
+  // Reload categories
+  if (categoryTree.value) {
+    categoryTree.value.loadCategories()
+  }
+  loadCategories()
+}
+
+function closeAddCategoryModal() {
+  showAddCategoryModal.value = false
+  editingCategory.value = null
+}
 </script>
 
 <style scoped>

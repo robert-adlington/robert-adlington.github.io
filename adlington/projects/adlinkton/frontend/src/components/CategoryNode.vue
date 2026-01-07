@@ -2,7 +2,7 @@
   <div class="category-node">
     <!-- Category item -->
     <div
-      class="flex items-center px-3 py-2 rounded hover:bg-gray-200 cursor-pointer"
+      class="group flex items-center px-3 py-2 rounded hover:bg-gray-200 cursor-pointer"
       :class="{ 'bg-gray-200': isSelected }"
       @click="handleClick"
     >
@@ -24,6 +24,24 @@
       <span v-if="category.link_count > 0" class="text-xs text-gray-500 ml-2">
         {{ category.link_count }}
       </span>
+
+      <!-- Action buttons (show on hover) -->
+      <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 ml-2">
+        <button
+          class="text-xs text-gray-600 hover:text-primary-600"
+          @click.stop="handleEdit"
+          title="Edit category"
+        >
+          ✏️
+        </button>
+        <button
+          class="text-xs text-gray-600 hover:text-red-600"
+          @click.stop="handleDelete"
+          title="Delete category"
+        >
+          🗑️
+        </button>
+      </div>
     </div>
 
     <!-- Children (recursive) -->
@@ -39,6 +57,8 @@
         :expanded-ids="expandedIds"
         @select="$emit('select', $event)"
         @toggle-expand="$emit('toggle-expand', $event)"
+        @edit="$emit('edit', $event)"
+        @delete="$emit('delete', $event)"
       />
     </div>
   </div>
@@ -62,7 +82,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['select', 'toggle-expand'])
+const emit = defineEmits(['select', 'toggle-expand', 'edit', 'delete'])
 
 const isSelected = computed(() => props.category.id === props.selectedId)
 const isExpanded = computed(() => props.expandedIds.has(props.category.id))
@@ -73,5 +93,13 @@ function handleClick() {
 
 function toggleExpanded() {
   emit('toggle-expand', props.category.id)
+}
+
+function handleEdit() {
+  emit('edit', props.category)
+}
+
+function handleDelete() {
+  emit('delete', props.category)
 }
 </script>

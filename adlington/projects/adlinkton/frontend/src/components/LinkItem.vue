@@ -19,11 +19,30 @@
       </div>
     </div>
 
-    <!-- Link name -->
+    <!-- Link name and categories -->
     <div class="flex-1 min-w-0">
-      <span class="text-sm truncate block" :title="link.name">
-        {{ link.name }}
-      </span>
+      <div class="flex items-center gap-2">
+        <span class="text-sm truncate" :title="link.name">
+          {{ link.name }}
+        </span>
+        <div v-if="link.categories && link.categories.length > 0" class="flex gap-1 flex-shrink-0">
+          <span
+            v-for="(categoryId, index) in link.categories.slice(0, 3)"
+            :key="categoryId"
+            class="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded"
+            :title="getCategoryTitle(categoryId)"
+          >
+            {{ getCategoryName(categoryId) }}
+          </span>
+          <span
+            v-if="link.categories.length > 3"
+            class="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded"
+            :title="getExtraCategoriesTitle()"
+          >
+            +{{ link.categories.length - 3 }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- Favorite indicator -->
@@ -58,6 +77,10 @@ const props = defineProps({
   focused: {
     type: Boolean,
     default: false
+  },
+  categoryMap: {
+    type: Object,
+    default: () => ({})
   }
 })
 
@@ -71,6 +94,22 @@ function handleClick() {
 
 function handleFaviconError(event) {
   event.target.style.display = 'none'
+}
+
+function getCategoryName(categoryId) {
+  return props.categoryMap[categoryId]?.name || `Cat ${categoryId}`
+}
+
+function getCategoryTitle(categoryId) {
+  const category = props.categoryMap[categoryId]
+  return category ? category.name : `Category ${categoryId}`
+}
+
+function getExtraCategoriesTitle() {
+  const extraCategories = props.link.categories.slice(3)
+  return extraCategories
+    .map(id => getCategoryName(id))
+    .join(', ')
 }
 </script>
 

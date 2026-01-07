@@ -20,6 +20,8 @@
         :expanded-ids="expandedCategoryIds"
         @select="handleSelect"
         @toggle-expand="handleToggleExpand"
+        @edit="handleEdit"
+        @delete="handleDelete"
       />
     </div>
   </div>
@@ -30,7 +32,7 @@ import { ref, onMounted } from 'vue'
 import CategoryNode from './CategoryNode.vue'
 import { categoriesApi } from '@/api/categories'
 
-const emit = defineEmits(['select-category'])
+const emit = defineEmits(['select-category', 'edit-category', 'delete-category'])
 
 const categories = ref([])
 const loading = ref(true)
@@ -64,6 +66,14 @@ function handleToggleExpand(categoryId) {
   } else {
     expandedCategoryIds.value.add(categoryId)
   }
+}
+
+function handleEdit(category) {
+  emit('edit-category', category)
+}
+
+function handleDelete(category) {
+  emit('delete-category', category)
 }
 
 // Expose methods to parent
