@@ -579,6 +579,14 @@
                 </div>
             </a>
 
+            <a href="/projects/adlinkton/" id="adlinkton-card" class="project-card card" style="display: none;">
+                <div class="project-icon">🔗</div>
+                <div>
+                    <h3 class="card-title">Adlinkton <span style="color: #888; font-size: 0.85em; font-weight: 400;">(Admin Only)</span></h3>
+                    <p class="card-excerpt">Link Management Tool</p>
+                </div>
+            </a>
+
         </section>
     </main>
 
@@ -715,6 +723,7 @@
         const resetFormError = document.getElementById('reset-form-error');
         const resetSuccessMessage = document.getElementById('reset-success-message');
         const backToLogin = document.getElementById('back-to-login');
+        const adlinktonCard = document.getElementById('adlinkton-card');
 
         // API Helper
         async function apiRequest(endpoint, options = {}) {
@@ -803,14 +812,17 @@
                 // Admin button
                 if (currentUser.is_admin) {
                     adminToggle.classList.add('visible');
+                    adlinktonCard.style.display = 'flex';
                 } else {
                     adminToggle.classList.remove('visible');
+                    adlinktonCard.style.display = 'none';
                 }
             } else {
                 loginBtn.style.display = 'block';
                 userMenu.style.display = 'none';
                 adminToggle.classList.remove('visible');
                 adminMenu.classList.remove('open');
+                adlinktonCard.style.display = 'none';
             }
         }
         
