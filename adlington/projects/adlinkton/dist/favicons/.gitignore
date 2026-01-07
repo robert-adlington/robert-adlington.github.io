@@ -1,0 +1,9 @@
+# Favicons are generated dynamically, don't commit them
+*.ico
+*.png
+*.jpg
+*.gif
+*.svg
+
+# Keep the directory structure
+!.gitignore

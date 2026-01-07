@@ -87,7 +87,7 @@ function isValidImage($content) {
  * @return string Path to saved favicon
  */
 function saveFavicon($content, $domain) {
-    $storageDir = __DIR__ . '/../../public/favicons';
+    $storageDir = __DIR__ . '/../../dist/favicons';
     if (!is_dir($storageDir)) {
         mkdir($storageDir, 0755, true);
     }
@@ -114,7 +114,7 @@ function saveFavicon($content, $domain) {
     file_put_contents($filepath, $content);
     chmod($filepath, 0644);
 
-    return "/adlington/projects/adlinkton/public/favicons/{$filename}";
+    return "/adlington/projects/adlinkton/dist/favicons/{$filename}";
 }
 
 /**
@@ -123,7 +123,7 @@ function saveFavicon($content, $domain) {
  * @return string Path to saved SVG favicon
  */
 function generateFallbackFavicon($domain) {
-    $storageDir = __DIR__ . '/../../public/favicons';
+    $storageDir = __DIR__ . '/../../dist/favicons';
     if (!is_dir($storageDir)) {
         mkdir($storageDir, 0755, true);
     }
@@ -145,7 +145,7 @@ SVG;
     file_put_contents($filepath, $svg);
     chmod($filepath, 0644);
 
-    return "/adlington/projects/adlinkton/public/favicons/{$filename}";
+    return "/adlington/projects/adlinkton/dist/favicons/{$filename}";
 }
 
 /**
@@ -155,14 +155,14 @@ SVG;
  */
 function getExistingFavicon($domain) {
     $hash = md5($domain);
-    $storageDir = __DIR__ . '/../../public/favicons';
+    $storageDir = __DIR__ . '/../../dist/favicons';
 
     $extensions = ['png', 'jpg', 'gif', 'ico', 'svg'];
 
     foreach ($extensions as $ext) {
         $filepath = "{$storageDir}/{$hash}.{$ext}";
         if (file_exists($filepath)) {
-            return "/adlington/projects/adlinkton/public/favicons/{$hash}.{$ext}";
+            return "/adlington/projects/adlinkton/dist/favicons/{$hash}.{$ext}";
         }
     }
 
