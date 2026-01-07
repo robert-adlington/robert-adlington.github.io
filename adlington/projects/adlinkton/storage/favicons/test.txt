@@ -1,0 +1,2 @@
+This file tests if the storage/favicons directory is accessible via web.
+If you can read this, the directory is working!

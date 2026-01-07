@@ -1,5 +1,16 @@
-# Allow access to storage files
+# Allow direct access to favicon files
+# Compatible with both Apache 2.2 and 2.4
 Options -Indexes
-<FilesMatch "\.(ico|png|jpg|gif|svg)$">
-    Require all granted
-</FilesMatch>
+<IfModule mod_authz_core.c>
+    # Apache 2.4
+    <FilesMatch "\.(ico|png|jpg|jpeg|gif|svg)$">
+        Require all granted
+    </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    # Apache 2.2
+    <FilesMatch "\.(ico|png|jpg|jpeg|gif|svg)$">
+        Order allow,deny
+        Allow from all
+    </FilesMatch>
+</IfModule>
