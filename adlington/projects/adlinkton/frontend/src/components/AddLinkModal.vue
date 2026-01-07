@@ -50,6 +50,40 @@
           ></textarea>
         </div>
 
+        <!-- Categories -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Categories
+          </label>
+          <div v-if="loadingCategories" class="text-sm text-gray-500">
+            Loading categories...
+          </div>
+          <div v-else-if="categories.length === 0" class="text-sm text-gray-500">
+            No categories yet
+          </div>
+          <div v-else class="max-h-48 overflow-y-auto border rounded-lg p-2 space-y-1">
+            <label
+              v-for="category in categories"
+              :key="category.id"
+              class="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded"
+            >
+              <input
+                type="checkbox"
+                :checked="form.category_ids.includes(category.id)"
+                @change="toggleCategory(category.id)"
+                class="mr-2"
+              />
+              <span class="text-sm" :style="{ marginLeft: (category.depth * 16) + 'px' }">
+                {{ category.name }}
+                <span class="text-gray-400 text-xs">({{ category.link_count || 0 }})</span>
+              </span>
+            </label>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">
+            If no categories selected, link will go to Inbox
+          </p>
+        </div>
+
         <!-- Favorite -->
         <div class="mb-4">
           <label class="flex items-center">
@@ -90,8 +124,9 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { linksApi } from '@/api/links'
+import { categoriesApi } from '@/api/categories'
 
 const props = defineProps({
   isOpen: {
@@ -106,11 +141,19 @@ const form = ref({
   url: '',
   name: '',
   description: '',
-  is_favorite: false
+  is_favorite: false,
+  category_ids: []
 })
 
 const submitting = ref(false)
 const error = ref(null)
+const categories = ref([])
+const loadingCategories = ref(false)
+
+// Load categories on mount
+onMounted(async () => {
+  await loadCategories()
+})
 
 // Reset form when modal opens/closes
 watch(() => props.isOpen, (newVal) => {
@@ -119,14 +162,48 @@ watch(() => props.isOpen, (newVal) => {
   }
 })
 
+async function loadCategories() {
+  loadingCategories.value = true
+  try {
+    const response = await categoriesApi.getCategories()
+    categories.value = flattenCategories(response.categories)
+  } catch (err) {
+    console.error('Failed to load categories:', err)
+  } finally {
+    loadingCategories.value = false
+  }
+}
+
+// Flatten category tree for easier display
+function flattenCategories(cats, depth = 0) {
+  let result = []
+  for (const cat of cats) {
+    result.push({ ...cat, depth })
+    if (cat.children && cat.children.length > 0) {
+      result = result.concat(flattenCategories(cat.children, depth + 1))
+    }
+  }
+  return result
+}
+
 function resetForm() {
   form.value = {
     url: '',
     name: '',
     description: '',
-    is_favorite: false
+    is_favorite: false,
+    category_ids: []
   }
   error.value = null
+}
+
+function toggleCategory(categoryId) {
+  const index = form.value.category_ids.indexOf(categoryId)
+  if (index > -1) {
+    form.value.category_ids.splice(index, 1)
+  } else {
+    form.value.category_ids.push(categoryId)
+  }
 }
 
 async function handleSubmit() {

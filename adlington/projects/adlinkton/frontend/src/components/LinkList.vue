@@ -20,6 +20,7 @@
         :key="link.id"
         :link="link"
         :focused="focusedLinkId === link.id"
+        :category-map="categoryMap"
         @click="handleLinkClick"
         @toggle-favorite="handleToggleFavorite"
         @menu="handleMenu"
@@ -33,6 +34,7 @@
 import { ref, onMounted } from 'vue'
 import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
+import { categoriesApi } from '@/api/categories'
 
 const props = defineProps({
   categoryId: {
@@ -66,10 +68,35 @@ const emit = defineEmits(['link-click', 'link-updated'])
 const links = ref([])
 const loading = ref(true)
 const focusedLinkId = ref(null)
+const categoryMap = ref({})
 
 onMounted(async () => {
-  await loadLinks()
+  await Promise.all([
+    loadCategories(),
+    loadLinks()
+  ])
 })
+
+async function loadCategories() {
+  try {
+    const response = await categoriesApi.getCategories()
+    categoryMap.value = buildCategoryMap(response.categories)
+  } catch (error) {
+    console.error('Failed to load categories:', error)
+  }
+}
+
+function buildCategoryMap(categories) {
+  const map = {}
+  function processCategory(cat) {
+    map[cat.id] = cat
+    if (cat.children) {
+      cat.children.forEach(processCategory)
+    }
+  }
+  categories.forEach(processCategory)
+  return map
+}
 
 async function loadLinks() {
   loading.value = true
