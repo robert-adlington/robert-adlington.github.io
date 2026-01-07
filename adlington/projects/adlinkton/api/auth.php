@@ -14,7 +14,14 @@ require_once __DIR__ . '/helpers/response.php';
 function getUserFromToken() {
     $token = $_COOKIE['session_token'] ?? null;
 
+    // DEBUG: Log cookie presence
+    error_log("Adlinkton Auth - Cookie present: " . ($token ? "YES" : "NO"));
+    if ($token) {
+        error_log("Adlinkton Auth - Token: " . substr($token, 0, 10) . "...");
+    }
+
     if (!$token) {
+        error_log("Adlinkton Auth - No session_token cookie found");
         return null;
     }
 
@@ -31,9 +38,12 @@ function getUserFromToken() {
         $stmt->execute([$token]);
         $user = $stmt->fetch();
 
+        // DEBUG: Log query result
+        error_log("Adlinkton Auth - User found: " . ($user ? "YES (user_id: {$user['user_id']})" : "NO"));
+
         return $user ?: null;
     } catch (Exception $e) {
-        error_log("Auth error: " . $e->getMessage());
+        error_log("Adlinkton Auth - Error: " . $e->getMessage());
         return null;
     }
 }
