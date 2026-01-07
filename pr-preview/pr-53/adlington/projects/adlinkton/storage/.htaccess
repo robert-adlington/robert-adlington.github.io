@@ -1,5 +1,0 @@
-# Allow access to storage files
-Options -Indexes
-<FilesMatch "\.(ico|png|jpg|gif|svg)$">
-    Require all granted
-</FilesMatch>
