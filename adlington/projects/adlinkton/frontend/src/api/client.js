@@ -49,8 +49,9 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Redirect to login if unauthorized
-      window.location.href = '/login'
+      // Redirect to main page with return URL if unauthorized
+      const returnUrl = encodeURIComponent(window.location.pathname)
+      window.location.href = `/index.html?return=${returnUrl}`
     }
     return Promise.reject(error)
   }
