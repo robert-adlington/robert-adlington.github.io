@@ -1,0 +1,20 @@
+# Adlinkton main .htaccess
+
+# Allow access to storage directory
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Don't rewrite requests for storage/favicons
+    RewriteCond %{REQUEST_URI} ^/adlington/projects/adlinkton/storage/ [NC]
+    RewriteRule .* - [L]
+</IfModule>
+
+# Explicitly allow storage directory access
+<Directory "storage">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Allow from all
+    </IfModule>
+</Directory>
