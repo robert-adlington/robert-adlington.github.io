@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Include dependencies
-require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/../../../api/auth.php'; // Shared auth system
 require_once __DIR__ . '/helpers/db.php';
 require_once __DIR__ . '/helpers/response.php';
 require_once __DIR__ . '/helpers/validation.php';
