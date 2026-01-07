@@ -9,17 +9,6 @@ error_log("Adlinkton API Request: " . $_SERVER['REQUEST_URI']);
 error_log("Script Name: " . ($_SERVER['SCRIPT_NAME'] ?? 'not set'));
 error_log("Path Info: " . ($_SERVER['PATH_INFO'] ?? 'not set'));
 
-// Enable CORS for development (adjust for production)
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-// Handle preflight requests
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
 // Include dependencies
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/helpers/db.php';
