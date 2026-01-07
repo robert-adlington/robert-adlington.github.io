@@ -1,0 +1,1 @@
+Public directory test - if you can see this, the public directory is accessible!
