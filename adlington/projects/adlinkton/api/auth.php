@@ -28,12 +28,12 @@ function getUserFromToken() {
     try {
         $pdo = getDB();
 
-        // Look up session token in sessions table
+        // Look up session token in sessions table (token is stored in 'id' column)
         $stmt = $pdo->prepare("
             SELECT s.user_id, u.id, u.username, u.email, u.is_admin
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = ? AND s.expires_at > NOW()
+            WHERE s.id = ? AND s.expires_at > NOW()
         ");
         $stmt->execute([$token]);
         $user = $stmt->fetch();

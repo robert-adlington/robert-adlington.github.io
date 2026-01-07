@@ -21,7 +21,7 @@ if (isset($_COOKIE['session_token'])) {
             SELECT s.user_id, s.expires_at, u.username, u.email
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = ?
+            WHERE s.id = ?
         ");
         $stmt->execute([$_COOKIE['session_token']]);
         $session = $stmt->fetch();
