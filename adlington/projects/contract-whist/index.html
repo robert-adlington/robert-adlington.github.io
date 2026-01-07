@@ -25,6 +25,7 @@
 
     // ============ API CONFIGURATION ============
     const API_BASE_URL = '/adlington/projects/contract-whist/api';
+    const AUTH_API_URL = '/adlington/api/auth-api.php'; // Shared auth API
 
     // API helper for making authenticated requests
     const api = {
@@ -67,33 +68,53 @@
         }
       },
 
-      // Authentication endpoints
+      // Authentication endpoints (use shared auth API)
       auth: {
         register: async (username, email, password) => {
-          return await api.request('/auth-api.php?action=register', {
+          const response = await fetch(`${AUTH_API_URL}?action=register`, {
             method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, email, password }),
           });
+          const data = await response.json();
+          if (!data.success) throw new Error(data.message || 'Registration failed');
+          return data.data;
         },
 
         login: async (identifier, password) => {
-          return await api.request('/auth-api.php?action=login', {
+          const response = await fetch(`${AUTH_API_URL}?action=login`, {
             method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: identifier, password }),
           });
+          const data = await response.json();
+          if (!data.success) throw new Error(data.message || 'Login failed');
+          return data.data;
         },
 
         logout: async () => {
-          return await api.request('/auth-api.php?action=logout', {
+          const response = await fetch(`${AUTH_API_URL}?action=logout`, {
             method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
           });
+          const data = await response.json();
+          if (!data.success) throw new Error(data.message || 'Logout failed');
+          return data.data;
         },
 
         getCurrentUser: async () => {
           try {
-            return await api.request('/auth-api.php?action=me', {
+            const response = await fetch(`${AUTH_API_URL}?action=me`, {
               method: 'GET',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
             });
+            const data = await response.json();
+            if (!data.success) return null;
+            return data.data;
           } catch (error) {
             return null;
           }
