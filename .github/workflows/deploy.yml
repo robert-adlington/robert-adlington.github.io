@@ -35,7 +35,7 @@ jobs:
         port: 21  # Standard FTP port (use 22 for SFTP)
         protocol: ftp  # Use 'ftps' for FTP with TLS, 'ftps-legacy' for implicit TLS
         local-dir: ./adlington/          # Deploy contents of adlington folder
-        server-dir: /public_html/adlington/  # Deploy to /adlington/ subdirectory
+        server-dir: /public_html/        # Deploy to web root
         # Exclude sensitive files and source frontend files
         exclude: |
           **/.git*

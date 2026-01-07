@@ -3,7 +3,7 @@ import axios from 'axios'
 // Create axios instance with base configuration
 // Note: Using query parameter routing since .htaccess and PATH_INFO don't work on this hosting
 const apiClient = axios.create({
-  baseURL: '/adlington/projects/adlinkton/api/index.php',
+  baseURL: '/projects/adlinkton/api/index.php',
   headers: {
     'Content-Type': 'application/json',
   },
