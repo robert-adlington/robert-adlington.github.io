@@ -28,7 +28,7 @@ jobs:
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
           PREVIEW_PATH="pr-preview/pr-${PR_NUMBER}"
-          PREVIEW_URL="https://${{ github.repository_owner }}.github.io/${PREVIEW_PATH}/adlington/"
+          PREVIEW_URL="https://${{ github.repository_owner }}.github.io/${PREVIEW_PATH}/"
 
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
           echo "preview_path=${PREVIEW_PATH}" >> $GITHUB_OUTPUT
@@ -49,27 +49,8 @@ jobs:
           # Create preview directory
           mkdir -p gh-pages/${{ steps.setup.outputs.preview_path }}
 
-          # Copy the adlington folder to preview
-          cp -r adlington gh-pages/${{ steps.setup.outputs.preview_path }}/
-
-          # Copy other necessary files if they exist
-          if [ -f index.html ]; then
-            cp index.html gh-pages/${{ steps.setup.outputs.preview_path }}/
-          fi
-
-          # Create a simple redirect at the root
-          cat > gh-pages/${{ steps.setup.outputs.preview_path }}/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta http-equiv="refresh" content="0; url=./adlington/">
-            <title>Preview Redirect</title>
-          </head>
-          <body>
-            <p>Redirecting to <a href="./adlington/">preview</a>...</p>
-          </body>
-          </html>
-          EOF
+          # Copy all content to preview (excluding .git and .github)
+          rsync -av --exclude='.git' --exclude='.github' --exclude='gh-pages' ./ gh-pages/${{ steps.setup.outputs.preview_path }}/
 
           cd gh-pages
 

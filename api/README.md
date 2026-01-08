@@ -19,7 +19,7 @@ This API provides backend services for the Contract Whist game, including user a
 Create your local configuration file:
 
 ```bash
-cd adlington/api
+cd api
 cp config.example.php config.php
 ```
 
@@ -405,7 +405,7 @@ DELETE /api/games.php?id=123
 ## File Structure
 
 ```
-adlington/api/
+api/
 ├── README.md              # This file
 ├── schema.sql             # Database schema
 ├── config.example.php     # Configuration template (committed to repo)

@@ -8,7 +8,7 @@
 
     <h2>Direct Path Test</h2>
     <p>This should show the GitHub favicon if the path is correct:</p>
-    <img src="/adlington/projects/adlinkton/storage/favicons/99cd2175108d157588c04758296d1cfc.ico"
+    <img src="/projects/adlinkton/storage/favicons/99cd2175108d157588c04758296d1cfc.ico"
          alt="GitHub favicon"
          style="width: 32px; height: 32px; border: 1px solid #ccc;"
          onerror="this.style.border='3px solid red'; this.alt='FAILED TO LOAD'">
@@ -25,7 +25,7 @@
 
     <script>
         console.log('Testing favicon paths...');
-        fetch('/adlington/projects/adlinkton/storage/favicons/99cd2175108d157588c04758296d1cfc.ico')
+        fetch('/projects/adlinkton/storage/favicons/99cd2175108d157588c04758296d1cfc.ico')
             .then(response => {
                 console.log('Favicon fetch response:', response.status, response.statusText);
                 if (response.ok) {

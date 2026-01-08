@@ -36,7 +36,6 @@ git checkout -b update/improve-styling
 Edit files as needed. The main project structure:
 
 ```
-adlington/
 ├── index.html              # Main dashboard page
 ├── projects/
 │   ├── contract-whist/     # Contract Whist project
@@ -49,10 +48,7 @@ adlington/
 Before pushing, always test your changes locally:
 
 ```bash
-# Navigate to the adlington folder
-cd adlington
-
-# Start a local web server
+# Start a local web server in the project root
 python3 -m http.server 8000
 
 # Open in browser: http://localhost:8000/
@@ -226,10 +222,9 @@ mkdir -p adlington/projects/coin-flip
 # ... write your code ...
 
 # 5. Update main dashboard
-# Edit adlington/index.html to add project card
+# Edit index.html to add project card
 
 # 6. Test locally
-cd adlington
 python3 -m http.server 8000
 # Test in browser
 

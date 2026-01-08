@@ -105,7 +105,7 @@
     $testFavicons = glob($storageDir . '/*.{ico,png,svg,jpg,gif}', GLOB_BRACE);
     if (count($testFavicons) > 0) {
         $testFile = basename($testFavicons[0]);
-        $webPath = '/adlington/projects/adlinkton/storage/favicons/' . $testFile;
+        $webPath = '/projects/adlinkton/storage/favicons/' . $testFile;
         echo '<p>Test file: <code>' . htmlspecialchars($webPath) . '</code></p>';
         echo '<img src="' . htmlspecialchars($webPath) . '" width="32" height="32" onerror="this.className=\'error\'; this.title=\'Failed to load\'" title="Should show favicon">';
         echo '<script>';
@@ -126,7 +126,7 @@
         echo '<p class="info">⚠️ You have ' . $withoutFavicon . ' link(s) without favicons.</p>';
         echo '<p><strong>To fix:</strong></p>';
         echo '<ol>';
-        echo '<li>Run: <code>php adlington/projects/adlinkton/api/refetch-favicons.php</code></li>';
+        echo '<li>Run: <code>php projects/adlinkton/api/refetch-favicons.php</code></li>';
         echo '<li>Or create new links (they will automatically have favicons)</li>';
         echo '</ol>';
     } else {

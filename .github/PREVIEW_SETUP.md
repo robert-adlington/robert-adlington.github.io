@@ -71,12 +71,12 @@ Once set up, the system automatically:
 ## Preview URL Format
 
 ```
-https://robert-adlington.github.io/robert-adlington.github.io/pr-preview/pr-{NUMBER}/adlington/
+https://robert-adlington.github.io/robert-adlington.github.io/pr-preview/pr-{NUMBER}/
 ```
 
 Example: PR #5 would be at:
 ```
-https://robert-adlington.github.io/robert-adlington.github.io/pr-preview/pr-5/adlington/
+https://robert-adlington.github.io/robert-adlington.github.io/pr-preview/pr-5/
 ```
 
 ## Troubleshooting
@@ -99,7 +99,7 @@ https://robert-adlington.github.io/robert-adlington.github.io/pr-preview/pr-5/ad
 To test a PR preview manually:
 
 1. Checkout the PR branch locally
-2. Run: `cd adlington && python3 -m http.server 8000`
+2. Run: `python3 -m http.server 8000`
 3. Visit: `http://localhost:8000/`
 
 This simulates what the preview will show.

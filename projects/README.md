@@ -30,9 +30,9 @@ A fun random selection tool with various modes:
 
 To add a new project:
 
-1. Create a new folder: `adlington/projects/your-project-name/`
+1. Create a new folder: `projects/your-project-name/`
 2. Add your `index.html` file inside
-3. Update `adlington/index.html` to add a project card
+3. Update `index.html` to add a project card
 4. Test locally before pushing
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for detailed instructions.
@@ -58,4 +58,4 @@ Projects can access the shared API at `/api/` for:
 - Database storage
 - Shared utilities
 
-See `adlington/api/README.md` for API documentation.
+See `api/README.md` for API documentation.

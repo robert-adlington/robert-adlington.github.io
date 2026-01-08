@@ -2,7 +2,7 @@
 /**
  * API Test Script
  * Access this file directly to test if PHP and the API are working
- * Example: https://yourdomain.com/adlington/api/test.php
+ * Example: https://yourdomain.com/api/test.php
  */
 
 header('Content-Type: text/html; charset=utf-8');
@@ -119,7 +119,7 @@ header('Content-Type: text/html; charset=utf-8');
         resultDiv.innerHTML = '<p>Testing...</p>';
 
         try {
-            const response = await fetch('/adlington/api/auth-api.php?action=login', {
+            const response = await fetch('/api/auth-api.php?action=login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

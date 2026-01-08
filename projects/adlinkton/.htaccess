@@ -4,7 +4,7 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
     # Don't rewrite requests for storage/favicons
-    RewriteCond %{REQUEST_URI} ^/adlington/projects/adlinkton/storage/ [NC]
+    RewriteCond %{REQUEST_URI} ^/projects/adlinkton/storage/ [NC]
     RewriteRule .* - [L]
 </IfModule>
 
