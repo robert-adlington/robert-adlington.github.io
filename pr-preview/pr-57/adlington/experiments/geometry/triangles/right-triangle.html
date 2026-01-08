@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Triangle Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 1400px;
+            width: 100%;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .controls-section {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .type-btn {
+            padding: 12px 20px;
+            font-size: 14px;
+            background-color: #e9ecef;
+            color: #333;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .type-btn:hover {
+            background-color: #dee2e6;
+            transform: translateY(-2px);
+        }
+
+        .type-btn.active {
+            background-color: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .generate-btn {
+            padding: 12px 30px;
+            font-size: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .unit-selector {
+            margin-bottom: 15px;
+        }
+
+        .unit-selector label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .unit-selector select {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            background: white;
+            color: #333;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        canvas {
+            border: 2px solid #dee2e6;
+            background-color: white;
+            border-radius: 10px;
+            max-width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .canvas-container.animating canvas {
+            animation: triangleGenerate 0.5s ease-out;
+        }
+
+        @keyframes triangleGenerate {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+
+        .properties-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .properties-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .properties-section h3 {
+            color: #667eea;
+            margin: 0;
+        }
+
+        .properties-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .properties-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .angle-column {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .angle-column h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            text-align: center;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .property-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .angle-property {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+
+        .property-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        .property-value {
+            color: #333;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .property-input {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #667eea;
+            background: white;
+            transition: border-color 0.3s ease;
+        }
+
+        .property-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .property-input:disabled {
+            background: #f8f9fa;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .locked-indicator {
+            color: #999;
+            font-size: 0.8em;
+            font-style: italic;
+        }
+
+        .construction-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .construction-btn {
+            padding: 8px 16px;
+            font-size: 12px;
+            background-color: #f8f9fa;
+            color: #333;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .construction-btn:hover {
+            background-color: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .construction-btn.active {
+            background-color: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .properties-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .properties-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .controls-section {
+                flex-direction: column;
+            }
+
+            .type-btn, .generate-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive Triangle Generator</h1>
+
+        <div class="controls-section">
+            <button class="type-btn active" onclick="setTriangleType('right')">Right-Angle</button>
+            <button class="type-btn" onclick="setTriangleType('equilateral')">Equilateral</button>
+            <button class="type-btn" onclick="setTriangleType('isosceles')">Isosceles</button>
+            <button class="type-btn" onclick="setTriangleType('scalene')">Scalene</button>
+            <button class="generate-btn" onclick="randomizeTriangle()">Generate</button>
+        </div>
+
+        <div class="main-content">
+            <div>
+                <div class="canvas-container" id="canvasContainer">
+                    <canvas id="triangleCanvas"></canvas>
+                </div>
+                <div class="construction-controls">
+                    <button class="construction-btn" id="circumcenterBtn" onclick="toggleConstruction('circumcenter')">Circumcenter</button>
+                    <button class="construction-btn" id="incenterBtn" onclick="toggleConstruction('incenter')">Incenter</button>
+                    <button class="construction-btn" id="centroidBtn" onclick="toggleConstruction('centroid')">Centroid</button>
+                    <button class="construction-btn" id="orthocenterBtn" onclick="toggleConstruction('orthocenter')">Orthocenter</button>
+                </div>
+            </div>
+
+            <div class="properties-section">
+            <div class="properties-header">
+                <h3>Triangle Properties</h3>
+                <div class="unit-selector">
+                    <label>
+                        Unit:
+                        <select id="unitSelect" onchange="updateTriangle()">
+                            <option value="metre">metre (m)</option>
+                            <option value="centimetre">centimetre (cm)</option>
+                            <option value="millimetre">millimetre (mm)</option>
+                            <option value="kilometre">kilometre (km)</option>
+                            <option value="inch">inch (in)</option>
+                            <option value="foot">foot (ft)</option>
+                            <option value="yard">yard (yd)</option>
+                            <option value="mile">mile (mi)</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <div class="properties-summary" id="propertiesSummary">
+                <!-- Summary properties (Type, Perimeter, Area) will be inserted here -->
+            </div>
+            <div class="properties-grid" id="propertiesGrid">
+                <!-- Angle columns will be dynamically inserted here -->
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('triangleCanvas');
+        const ctx = canvas.getContext('2d');
+        let currentType = 'right';
+        let currentTriangle = null;
+        let activeConstructions = {
+            circumcenter: false,
+            incenter: false,
+            centroid: false,
+            orthocenter: false
+        };
+
+        const unitLabels = {
+            'metre': 'm',
+            'centimetre': 'cm',
+            'millimetre': 'mm',
+            'kilometre': 'km',
+            'inch': 'in',
+            'foot': 'ft',
+            'yard': 'yd',
+            'mile': 'mi'
+        };
+
+        // Set canvas size based on viewport
+        function resizeCanvas() {
+            const container = document.querySelector('.canvas-container');
+            const containerWidth = container.clientWidth - 40;
+            canvas.width = Math.min(containerWidth, 700);
+            canvas.height = Math.min(canvas.width * 0.8, 500);
+            if (currentTriangle) {
+                drawTriangle(currentTriangle);
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function setTriangleType(type) {
+            currentType = type;
+            document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            initializeTriangle();
+        }
+
+        function initializeTriangle() {
+            let sides, angles;
+
+            switch(currentType) {
+                case 'right':
+                    // Right angle at vertex A (angle A = 90°)
+                    // Side BC (opposite to A) is the hypotenuse
+                    const leg1 = 150;
+                    const leg2 = 150;
+                    const hyp = Math.sqrt(leg1*leg1 + leg2*leg2);
+                    sides = [hyp, leg1, leg2];  // BC=hyp, CA=leg1, AB=leg2
+                    angles = [90, Math.atan(leg2/leg1) * (180/Math.PI), Math.atan(leg1/leg2) * (180/Math.PI)];
+                    break;
+                case 'equilateral':
+                    sides = [150, 150, 150];
+                    angles = [60, 60, 60];
+                    break;
+                case 'isosceles':
+                    // Two equal sides at CA and AB (sides[1] and sides[2])
+                    const base = 100;
+                    const leg = 150;
+                    sides = [base, leg, leg];  // BC=base, CA=leg, AB=leg
+                    const baseAngle = Math.acos((base/2) / leg) * (180/Math.PI);
+                    angles = [180 - 2*baseAngle, baseAngle, baseAngle];
+                    break;
+                case 'scalene':
+                    sides = [150, 120, 100];
+                    const [a, b, c] = sides;
+                    angles = [
+                        Math.acos((b*b + c*c - a*a) / (2*b*c)) * (180/Math.PI),
+                        Math.acos((a*a + c*c - b*b) / (2*a*c)) * (180/Math.PI),
+                        0
+                    ];
+                    angles[2] = 180 - angles[0] - angles[1];
+                    break;
+            }
+
+            currentTriangle = {
+                type: getTypeName(),
+                sides: sides,
+                sideLabels: ['BC', 'CA', 'AB'],
+                angles: angles,
+                vertices: calculateVertices(sides[0], sides[1], sides[2])
+            };
+
+            drawTriangle(currentTriangle);
+            displayProperties(currentTriangle);
+        }
+
+        function randomizeTriangle() {
+            const canvasContainer = document.getElementById('canvasContainer');
+            canvasContainer.classList.add('animating');
+            setTimeout(() => canvasContainer.classList.remove('animating'), 500);
+
+            let sides, angles;
+            const random = () => Math.random() * 150 + 50;
+
+            switch(currentType) {
+                case 'right':
+                    // Right angle at vertex A (angle A = 90°)
+                    // Side BC (opposite to A) is the hypotenuse
+                    const leg1 = random();
+                    const leg2 = random();
+                    const hyp = Math.sqrt(leg1*leg1 + leg2*leg2);
+                    sides = [hyp, leg1, leg2];  // BC=hyp, CA=leg1, AB=leg2
+                    angles = [90, Math.atan(leg2/leg1) * (180/Math.PI), Math.atan(leg1/leg2) * (180/Math.PI)];
+                    break;
+                case 'equilateral':
+                    const side = random();
+                    sides = [side, side, side];
+                    angles = [60, 60, 60];
+                    break;
+                case 'isosceles':
+                    // Two equal sides at CA and AB (sides[1] and sides[2])
+                    const base = random();
+                    const leg = random() + 50; // Ensure leg is longer than base/2
+                    sides = [base, leg, leg];  // BC=base, CA=leg, AB=leg
+                    const baseAngle = Math.acos((base/2) / leg) * (180/Math.PI);
+                    angles = [180 - 2*baseAngle, baseAngle, baseAngle];
+                    break;
+                case 'scalene':
+                    sides = [random(), random(), random()];
+                    // Ensure valid triangle
+                    while (!isValidTriangle(sides[0], sides[1], sides[2])) {
+                        sides = [random(), random(), random()];
+                    }
+                    const [sA, sB, sC] = sides;
+                    angles = [
+                        Math.acos((sB*sB + sC*sC - sA*sA) / (2*sB*sC)) * (180/Math.PI),
+                        Math.acos((sA*sA + sC*sC - sB*sB) / (2*sA*sC)) * (180/Math.PI),
+                        0
+                    ];
+                    angles[2] = 180 - angles[0] - angles[1];
+                    break;
+            }
+
+            currentTriangle = {
+                type: getTypeName(),
+                sides: sides,
+                sideLabels: ['BC', 'CA', 'AB'],
+                angles: angles,
+                vertices: calculateVertices(sides[0], sides[1], sides[2])
+            };
+
+            drawTriangle(currentTriangle);
+            displayProperties(currentTriangle);
+        }
+
+        function getTypeName() {
+            const names = {
+                'right': 'Right-Angled',
+                'equilateral': 'Equilateral',
+                'isosceles': 'Isosceles',
+                'scalene': 'Scalene'
+            };
+            return names[currentType];
+        }
+
+        function toggleConstruction(type) {
+            activeConstructions[type] = !activeConstructions[type];
+            const btn = document.getElementById(type + 'Btn');
+            if (activeConstructions[type]) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            if (currentTriangle) {
+                drawTriangle(currentTriangle);
+            }
+        }
+
+        function calculateCircumcenter(vertices) {
+            const [v0, v1, v2] = vertices;
+            const D = 2 * (v0.x * (v1.y - v2.y) + v1.x * (v2.y - v0.y) + v2.x * (v0.y - v1.y));
+            const ux = ((v0.x*v0.x + v0.y*v0.y) * (v1.y - v2.y) +
+                        (v1.x*v1.x + v1.y*v1.y) * (v2.y - v0.y) +
+                        (v2.x*v2.x + v2.y*v2.y) * (v0.y - v1.y)) / D;
+            const uy = ((v0.x*v0.x + v0.y*v0.y) * (v2.x - v1.x) +
+                        (v1.x*v1.x + v1.y*v1.y) * (v0.x - v2.x) +
+                        (v2.x*v2.x + v2.y*v2.y) * (v1.x - v0.x)) / D;
+            return {x: ux, y: uy};
+        }
+
+        function calculateIncenter(vertices, sides) {
+            const [v0, v1, v2] = vertices;
+            const [a, b, c] = sides;
+            const perimeter = a + b + c;
+            const x = (a * v0.x + b * v1.x + c * v2.x) / perimeter;
+            const y = (a * v0.y + b * v1.y + c * v2.y) / perimeter;
+            return {x: x, y: y};
+        }
+
+        function calculateCentroid(vertices) {
+            const [v0, v1, v2] = vertices;
+            return {
+                x: (v0.x + v1.x + v2.x) / 3,
+                y: (v0.y + v1.y + v2.y) / 3
+            };
+        }
+
+        function calculateOrthocenter(vertices) {
+            const [v0, v1, v2] = vertices;
+
+            // Calculate slopes of sides
+            const slope01 = (v1.y - v0.y) / (v1.x - v0.x);
+            const slope12 = (v2.y - v1.y) / (v2.x - v1.x);
+
+            // Perpendicular slopes for altitudes
+            const perpSlope01 = -1 / slope01;
+            const perpSlope12 = -1 / slope12;
+
+            // Altitude from v2 perpendicular to v0-v1
+            // y - v2.y = perpSlope01 * (x - v2.x)
+            // Altitude from v0 perpendicular to v1-v2
+            // y - v0.y = perpSlope12 * (x - v0.x)
+
+            // Solve for intersection
+            const x = (v0.y - v2.y + perpSlope01 * v2.x - perpSlope12 * v0.x) / (perpSlope01 - perpSlope12);
+            const y = v2.y + perpSlope01 * (x - v2.x);
+
+            return {x: x, y: y};
+        }
+
+        function calculateVertices(a, b, c) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            // Scale to fit canvas
+            const maxSide = Math.max(a, b, c);
+            const scale = Math.min(250, canvas.width * 0.4) / maxSide;
+
+            // Calculate angles using law of cosines
+            const angleA = Math.acos((b*b + c*c - a*a) / (2*b*c));
+            const angleB = Math.acos((a*a + c*c - b*b) / (2*a*c));
+
+            // Position vertices
+            // Vertex 0 (Angle A) - bottom left
+            const x0 = centerX - (c * scale) / 2;
+            const y0 = centerY + 80;
+
+            // Vertex 1 (Angle B) - bottom right
+            const x1 = centerX + (c * scale) / 2;
+            const y1 = centerY + 80;
+
+            // Vertex 2 (Angle C) - calculated using angle A from vertex 0
+            const x2 = x0 + b * scale * Math.cos(angleA);
+            const y2 = y0 - b * scale * Math.sin(angleA);
+
+            return [{x: x0, y: y0}, {x: x1, y: y1}, {x: x2, y: y2}];
+        }
+
+        function drawTriangle(triangle) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const vertices = triangle.vertices;
+
+            // Draw triangle fill with gradient
+            const gradient = ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[2].x, vertices[2].y);
+            gradient.addColorStop(0, 'rgba(102, 126, 234, 0.1)');
+            gradient.addColorStop(1, 'rgba(118, 75, 162, 0.1)');
+
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            ctx.lineTo(vertices[1].x, vertices[1].y);
+            ctx.lineTo(vertices[2].x, vertices[2].y);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Draw triangle outline
+            ctx.strokeStyle = '#667eea';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Draw vertices as circles
+            vertices.forEach((v, i) => {
+                ctx.beginPath();
+                ctx.arc(v.x, v.y, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#764ba2';
+                ctx.fill();
+            });
+
+            // Draw right angle indicator if right triangle
+            if (currentType === 'right') {
+                const squareSize = 15;
+                ctx.strokeStyle = '#FF5722';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(vertices[0].x, vertices[0].y - squareSize, squareSize, squareSize);
+            }
+
+            const unit = unitLabels[document.getElementById('unitSelect').value];
+
+            // Label vertices (outside the triangle)
+            ctx.fillStyle = '#764ba2';
+            ctx.font = 'bold 16px Arial';
+
+            const angleNames = ['A', 'B', 'C'];
+            const vertexLabelOffsets = [
+                {x: vertices[0].x - 20, y: vertices[0].y + 20},   // Vertex A (bottom left) - outside
+                {x: vertices[1].x + 15, y: vertices[1].y + 20},   // Vertex B (bottom right) - outside
+                {x: vertices[2].x, y: vertices[2].y - 15}         // Vertex C (top) - outside
+            ];
+
+            angleNames.forEach((name, i) => {
+                ctx.fillText(name, vertexLabelOffsets[i].x, vertexLabelOffsets[i].y);
+            });
+
+            // Label angles with values (positioned outside the triangle)
+            ctx.fillStyle = '#D32F2F';
+            ctx.font = 'bold 13px Arial';
+
+            const angleLabelOffsets = [
+                {x: vertices[0].x + 25, y: vertices[0].y + 5},    // Angle A (bottom left) - to the right
+                {x: vertices[1].x - 70, y: vertices[1].y + 5},    // Angle B (bottom right) - to the left
+                {x: vertices[2].x - 10, y: vertices[2].y + 20}    // Angle C (top) - below
+            ];
+
+            triangle.angles.forEach((angle, i) => {
+                ctx.fillText(`${angleNames[i]} = ${angle.toFixed(1)}°`, angleLabelOffsets[i].x, angleLabelOffsets[i].y);
+            });
+
+            // Label sides with values (positioned outside the triangle)
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 14px Arial';
+
+            // Calculate positions outside the triangle for each side
+            const sideLabelOffsets = [
+                // Side BC (between vertices 1 and 2, opposite to angle A)
+                {
+                    x: (vertices[1].x + vertices[2].x) / 2 + 30,
+                    y: (vertices[1].y + vertices[2].y) / 2 + 5
+                },
+                // Side CA (between vertices 2 and 0, opposite to angle B)
+                {
+                    x: (vertices[2].x + vertices[0].x) / 2 - 70,
+                    y: (vertices[2].y + vertices[0].y) / 2
+                },
+                // Side AB (between vertices 0 and 1, opposite to angle C)
+                {
+                    x: (vertices[0].x + vertices[1].x) / 2,
+                    y: (vertices[0].y + vertices[1].y) / 2 + 25
+                }
+            ];
+
+            triangle.sides.forEach((side, i) => {
+                ctx.fillText(`${triangle.sideLabels[i]} = ${side.toFixed(1)} ${unit}`, sideLabelOffsets[i].x, sideLabelOffsets[i].y);
+            });
+
+            // Draw construction points and lines
+            if (activeConstructions.circumcenter) {
+                const circumcenter = calculateCircumcenter(vertices);
+                // Draw perpendicular bisectors
+                ctx.strokeStyle = '#FF9800';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+
+                // Perpendicular bisector of each side
+                const midpoints = [
+                    {x: (vertices[0].x + vertices[1].x) / 2, y: (vertices[0].y + vertices[1].y) / 2},
+                    {x: (vertices[1].x + vertices[2].x) / 2, y: (vertices[1].y + vertices[2].y) / 2},
+                    {x: (vertices[2].x + vertices[0].x) / 2, y: (vertices[2].y + vertices[0].y) / 2}
+                ];
+
+                midpoints.forEach((mid, i) => {
+                    ctx.beginPath();
+                    ctx.moveTo(mid.x, mid.y);
+                    ctx.lineTo(circumcenter.x, circumcenter.y);
+                    ctx.stroke();
+                });
+
+                // Draw circumcircle
+                const radius = Math.sqrt((circumcenter.x - vertices[0].x) ** 2 + (circumcenter.y - vertices[0].y) ** 2);
+                ctx.beginPath();
+                ctx.arc(circumcenter.x, circumcenter.y, radius, 0, 2 * Math.PI);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+                // Draw circumcenter point
+                ctx.fillStyle = '#FF9800';
+                ctx.beginPath();
+                ctx.arc(circumcenter.x, circumcenter.y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#FF9800';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('O', circumcenter.x + 10, circumcenter.y - 10);
+            }
+
+            if (activeConstructions.incenter) {
+                const incenter = calculateIncenter(vertices, triangle.sides);
+                // Draw angle bisectors
+                ctx.strokeStyle = '#4CAF50';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+
+                vertices.forEach((v, i) => {
+                    ctx.beginPath();
+                    ctx.moveTo(v.x, v.y);
+                    ctx.lineTo(incenter.x, incenter.y);
+                    ctx.stroke();
+                });
+
+                // Draw incircle
+                const s = triangle.sides.reduce((a, b) => a + b, 0) / 2;
+                const area = Math.sqrt(s * (s - triangle.sides[0]) * (s - triangle.sides[1]) * (s - triangle.sides[2]));
+                const inradius = area / s;
+
+                // Calculate scale factor used in calculateVertices
+                const maxSide = Math.max(...triangle.sides);
+                const scale = Math.min(250, canvas.width * 0.4) / maxSide;
+                const scaledInradius = inradius * scale;
+
+                ctx.beginPath();
+                ctx.arc(incenter.x, incenter.y, scaledInradius, 0, 2 * Math.PI);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+                // Draw incenter point
+                ctx.fillStyle = '#4CAF50';
+                ctx.beginPath();
+                ctx.arc(incenter.x, incenter.y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#4CAF50';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('I', incenter.x + 10, incenter.y - 10);
+            }
+
+            if (activeConstructions.centroid) {
+                const centroid = calculateCentroid(vertices);
+                // Draw medians
+                ctx.strokeStyle = '#2196F3';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+
+                // Median from each vertex to opposite side midpoint
+                const midpoints = [
+                    {x: (vertices[1].x + vertices[2].x) / 2, y: (vertices[1].y + vertices[2].y) / 2},
+                    {x: (vertices[2].x + vertices[0].x) / 2, y: (vertices[2].y + vertices[0].y) / 2},
+                    {x: (vertices[0].x + vertices[1].x) / 2, y: (vertices[0].y + vertices[1].y) / 2}
+                ];
+
+                vertices.forEach((v, i) => {
+                    ctx.beginPath();
+                    ctx.moveTo(v.x, v.y);
+                    ctx.lineTo(midpoints[i].x, midpoints[i].y);
+                    ctx.stroke();
+                });
+
+                ctx.setLineDash([]);
+                // Draw centroid point
+                ctx.fillStyle = '#2196F3';
+                ctx.beginPath();
+                ctx.arc(centroid.x, centroid.y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#2196F3';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('G', centroid.x + 10, centroid.y - 10);
+            }
+
+            if (activeConstructions.orthocenter) {
+                const orthocenter = calculateOrthocenter(vertices);
+                // Draw altitudes
+                ctx.strokeStyle = '#9C27B0';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+
+                // Altitude from each vertex to opposite side
+                // Altitude from v0 perpendicular to v1-v2
+                const slope12 = (vertices[2].y - vertices[1].y) / (vertices[2].x - vertices[1].x);
+                const perpSlope12 = -1 / slope12;
+                // Find point on line v1-v2 that's perpendicular to v0
+                const t0 = ((vertices[0].x - vertices[1].x) * (vertices[2].x - vertices[1].x) +
+                           (vertices[0].y - vertices[1].y) * (vertices[2].y - vertices[1].y)) /
+                          ((vertices[2].x - vertices[1].x) ** 2 + (vertices[2].y - vertices[1].y) ** 2);
+                const foot0 = {
+                    x: vertices[1].x + t0 * (vertices[2].x - vertices[1].x),
+                    y: vertices[1].y + t0 * (vertices[2].y - vertices[1].y)
+                };
+
+                ctx.beginPath();
+                ctx.moveTo(vertices[0].x, vertices[0].y);
+                ctx.lineTo(foot0.x, foot0.y);
+                ctx.stroke();
+
+                // Altitude from v1 perpendicular to v2-v0
+                const t1 = ((vertices[1].x - vertices[2].x) * (vertices[0].x - vertices[2].x) +
+                           (vertices[1].y - vertices[2].y) * (vertices[0].y - vertices[2].y)) /
+                          ((vertices[0].x - vertices[2].x) ** 2 + (vertices[0].y - vertices[2].y) ** 2);
+                const foot1 = {
+                    x: vertices[2].x + t1 * (vertices[0].x - vertices[2].x),
+                    y: vertices[2].y + t1 * (vertices[0].y - vertices[2].y)
+                };
+
+                ctx.beginPath();
+                ctx.moveTo(vertices[1].x, vertices[1].y);
+                ctx.lineTo(foot1.x, foot1.y);
+                ctx.stroke();
+
+                // Altitude from v2 perpendicular to v0-v1
+                const t2 = ((vertices[2].x - vertices[0].x) * (vertices[1].x - vertices[0].x) +
+                           (vertices[2].y - vertices[0].y) * (vertices[1].y - vertices[0].y)) /
+                          ((vertices[1].x - vertices[0].x) ** 2 + (vertices[1].y - vertices[0].y) ** 2);
+                const foot2 = {
+                    x: vertices[0].x + t2 * (vertices[1].x - vertices[0].x),
+                    y: vertices[0].y + t2 * (vertices[1].y - vertices[0].y)
+                };
+
+                ctx.beginPath();
+                ctx.moveTo(vertices[2].x, vertices[2].y);
+                ctx.lineTo(foot2.x, foot2.y);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+                // Draw orthocenter point
+                ctx.fillStyle = '#9C27B0';
+                ctx.beginPath();
+                ctx.arc(orthocenter.x, orthocenter.y, 6, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#9C27B0';
+                ctx.font = 'bold 12px Arial';
+                ctx.fillText('H', orthocenter.x + 10, orthocenter.y - 10);
+            }
+        }
+
+        function formatTanValue(tanValue) {
+            // If tan is very large or very small, use exponential notation
+            if (Math.abs(tanValue) > 999 || (Math.abs(tanValue) < 0.0001 && tanValue !== 0)) {
+                return tanValue.toExponential(2);
+            }
+            return tanValue.toFixed(4);
+        }
+
+        function displayProperties(triangle) {
+            const sides = triangle.sides;
+            const perimeter = sides.reduce((a, b) => a + b, 0);
+
+            // Calculate area using Heron's formula
+            const s = perimeter / 2;
+            const area = Math.sqrt(s * (s - sides[0]) * (s - sides[1]) * (s - sides[2]));
+
+            const unit = document.getElementById('unitSelect').value;
+            const unitLabel = unitLabels[unit];
+
+            // Summary properties
+            const summaryProperties = [
+                {label: 'Perimeter', value: `${perimeter.toFixed(2)} ${unitLabel}`},
+                {label: 'Area', value: `${area.toFixed(2)} ${unitLabel}²`}
+            ];
+
+            const propertiesSummary = document.getElementById('propertiesSummary');
+            propertiesSummary.innerHTML = summaryProperties.map(prop => `
+                <div class="property-item">
+                    <div class="property-label">${prop.label}</div>
+                    <div class="property-value">${prop.value}</div>
+                </div>
+            `).join('');
+
+            // Angle columns with opposite sides and trig functions
+            const angleData = [
+                {
+                    name: 'A',
+                    angle: triangle.angles[0],
+                    oppositeSide: 'BC',
+                    oppositeSideLength: sides[0]
+                },
+                {
+                    name: 'B',
+                    angle: triangle.angles[1],
+                    oppositeSide: 'CA',
+                    oppositeSideLength: sides[1]
+                },
+                {
+                    name: 'C',
+                    angle: triangle.angles[2],
+                    oppositeSide: 'AB',
+                    oppositeSideLength: sides[2]
+                }
+            ];
+
+            const propertiesGrid = document.getElementById('propertiesGrid');
+            propertiesGrid.innerHTML = angleData.map(data => {
+                const angleRad = data.angle * Math.PI / 180;
+                const isAngleDisabled = shouldDisableAngle(data.name);
+                const isSideDisabled = shouldDisableSide(data.name);
+
+                return `
+                    <div class="angle-column">
+                        <h4>Angle ${data.name}</h4>
+                        <div class="angle-property">
+                            <div class="property-label">Angle (degrees)</div>
+                            <input type="number"
+                                   class="property-input"
+                                   id="angle${data.name}Input"
+                                   value="${data.angle.toFixed(2)}"
+                                   min="1"
+                                   max="178"
+                                   step="0.1"
+                                   ${isAngleDisabled ? 'disabled' : ''}
+                                   oninput="updateFromAngle('${data.name}', this.value)">
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">Opposite Side ${data.oppositeSide} (${unitLabel})</div>
+                            <input type="number"
+                                   class="property-input"
+                                   id="side${data.oppositeSide}Input"
+                                   value="${data.oppositeSideLength.toFixed(2)}"
+                                   min="1"
+                                   step="0.1"
+                                   ${isSideDisabled ? 'disabled' : ''}
+                                   oninput="updateFromSide('${data.oppositeSide}', this.value)">
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">sin(${data.name})</div>
+                            <div class="property-value">${Math.sin(angleRad).toFixed(4)}</div>
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">cos(${data.name})</div>
+                            <div class="property-value">${Math.cos(angleRad).toFixed(4)}</div>
+                        </div>
+                        <div class="angle-property">
+                            <div class="property-label">tan(${data.name})</div>
+                            <div class="property-value">${formatTanValue(Math.tan(angleRad))}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function shouldDisableAngle(angleName) {
+            if (currentType === 'right' && angleName === 'A') return true;
+            if (currentType === 'equilateral') return true;
+            if (currentType === 'isosceles' && angleName === 'C') return true;
+            return false;
+        }
+
+        function shouldDisableSide(angleName) {
+            if (currentType === 'equilateral' && (angleName === 'B' || angleName === 'C')) return true;
+            if (currentType === 'isosceles' && angleName === 'C') return true;
+            return false;
+        }
+
+        function updateFromAngle(angleName, value) {
+            const angle = parseFloat(value);
+            if (isNaN(angle) || angle <= 0 || angle >= 180) return;
+
+            // Update internal state based on angle change
+            if (angleName === 'A') {
+                currentTriangle.angles[0] = angle;
+            } else if (angleName === 'B') {
+                currentTriangle.angles[1] = angle;
+            } else if (angleName === 'C') {
+                currentTriangle.angles[2] = angle;
+            }
+
+            // Recalculate other angles based on constraints
+            if (currentType === 'right') {
+                currentTriangle.angles[0] = 90;
+                if (angleName === 'B') {
+                    currentTriangle.angles[2] = 180 - 90 - angle;
+                } else if (angleName === 'C') {
+                    currentTriangle.angles[1] = 180 - 90 - angle;
+                }
+            } else if (currentType === 'isosceles') {
+                if (angleName === 'A') {
+                    currentTriangle.angles[1] = (180 - angle) / 2;
+                    currentTriangle.angles[2] = currentTriangle.angles[1];
+                } else if (angleName === 'B') {
+                    currentTriangle.angles[2] = angle;
+                    currentTriangle.angles[0] = 180 - 2 * angle;
+                }
+            } else if (currentType === 'scalene') {
+                // For scalene, adjust other angles proportionally
+                if (angleName === 'A') {
+                    const remaining = 180 - angle;
+                    const ratio = remaining / (currentTriangle.angles[1] + currentTriangle.angles[2]);
+                    currentTriangle.angles[1] *= ratio;
+                    currentTriangle.angles[2] *= ratio;
+                } else if (angleName === 'B') {
+                    const remaining = 180 - angle;
+                    const ratio = remaining / (currentTriangle.angles[0] + currentTriangle.angles[2]);
+                    currentTriangle.angles[0] *= ratio;
+                    currentTriangle.angles[2] *= ratio;
+                } else if (angleName === 'C') {
+                    const remaining = 180 - angle;
+                    const ratio = remaining / (currentTriangle.angles[0] + currentTriangle.angles[1]);
+                    currentTriangle.angles[0] *= ratio;
+                    currentTriangle.angles[1] *= ratio;
+                }
+            }
+
+            // Recalculate sides using law of sines
+            const refSide = currentTriangle.sides[0];
+            currentTriangle.sides[1] = refSide * Math.sin(currentTriangle.angles[1] * Math.PI / 180) / Math.sin(currentTriangle.angles[0] * Math.PI / 180);
+            currentTriangle.sides[2] = refSide * Math.sin(currentTriangle.angles[2] * Math.PI / 180) / Math.sin(currentTriangle.angles[0] * Math.PI / 180);
+
+            currentTriangle.vertices = calculateVertices(currentTriangle.sides[0], currentTriangle.sides[1], currentTriangle.sides[2]);
+            drawTriangle(currentTriangle);
+            displayProperties(currentTriangle);
+        }
+
+        function updateFromSide(sideName, value) {
+            const sideLength = parseFloat(value);
+            if (isNaN(sideLength) || sideLength <= 0) return;
+
+            // Update the corresponding side
+            if (sideName === 'BC') {
+                currentTriangle.sides[0] = sideLength;
+            } else if (sideName === 'CA') {
+                currentTriangle.sides[1] = sideLength;
+            } else if (sideName === 'AB') {
+                currentTriangle.sides[2] = sideLength;
+            }
+
+            // Apply triangle type constraints
+            if (currentType === 'equilateral') {
+                currentTriangle.sides[0] = sideLength;
+                currentTriangle.sides[1] = sideLength;
+                currentTriangle.sides[2] = sideLength;
+            } else if (currentType === 'isosceles') {
+                if (sideName === 'CA') {
+                    currentTriangle.sides[2] = sideLength;
+                } else if (sideName === 'AB') {
+                    currentTriangle.sides[1] = sideLength;
+                }
+            }
+
+            // Recalculate angles using law of cosines
+            const [a, b, c] = currentTriangle.sides;
+            if (isValidTriangle(a, b, c)) {
+                currentTriangle.angles[0] = Math.acos((b*b + c*c - a*a) / (2*b*c)) * (180/Math.PI);
+                currentTriangle.angles[1] = Math.acos((a*a + c*c - b*b) / (2*a*c)) * (180/Math.PI);
+                currentTriangle.angles[2] = 180 - currentTriangle.angles[0] - currentTriangle.angles[1];
+
+                currentTriangle.vertices = calculateVertices(a, b, c);
+                drawTriangle(currentTriangle);
+                displayProperties(currentTriangle);
+            }
+        }
+
+        function isValidTriangle(a, b, c) {
+            return (a + b > c) && (a + c > b) && (b + c > a) && a > 0 && b > 0 && c > 0;
+        }
+
+        function updateTriangle() {
+            // Called when unit changes - just redraw with current triangle
+            if (currentTriangle) {
+                drawTriangle(currentTriangle);
+                displayProperties(currentTriangle);
+            }
+        }
+
+        // Initialize
+        initializeTriangle();
+    </script>
+</body>
+</html>
