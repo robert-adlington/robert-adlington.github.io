@@ -114,7 +114,7 @@ function saveFavicon($content, $domain) {
     file_put_contents($filepath, $content);
     chmod($filepath, 0644);
 
-    return "/adlington/projects/adlinkton/public/favicons/{$filename}";
+    return "/projects/adlinkton/public/favicons/{$filename}";
 }
 
 /**
@@ -145,7 +145,7 @@ SVG;
     file_put_contents($filepath, $svg);
     chmod($filepath, 0644);
 
-    return "/adlington/projects/adlinkton/public/favicons/{$filename}";
+    return "/projects/adlinkton/public/favicons/{$filename}";
 }
 
 /**
@@ -162,7 +162,7 @@ function getExistingFavicon($domain) {
     foreach ($extensions as $ext) {
         $filepath = "{$storageDir}/{$hash}.{$ext}";
         if (file_exists($filepath)) {
-            return "/adlington/projects/adlinkton/public/favicons/{$hash}.{$ext}";
+            return "/projects/adlinkton/public/favicons/{$hash}.{$ext}";
         }
     }
 

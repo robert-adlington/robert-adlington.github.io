@@ -15,7 +15,7 @@ if ($faviconPath) {
     echo "Success! Favicon saved to: $faviconPath\n";
 
     // Check if file exists
-    $fullPath = __DIR__ . '/../' . str_replace('/adlington/projects/adlinkton/', '', $faviconPath);
+    $fullPath = __DIR__ . '/../' . str_replace('/projects/adlinkton/', '', $faviconPath);
     echo "Full path: $fullPath\n";
 
     if (file_exists($fullPath)) {

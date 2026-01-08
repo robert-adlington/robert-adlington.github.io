@@ -19,7 +19,7 @@
 
 4. **Create your config.php:**
    ```bash
-   cd adlington/api
+   cd api
    cp config.example.php config.php
    nano config.php  # Edit with your database credentials
    chmod 600 config.php

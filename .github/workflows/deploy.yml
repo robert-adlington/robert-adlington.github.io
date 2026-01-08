@@ -18,11 +18,11 @@ jobs:
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: 'adlington/projects/adlinkton/frontend/package-lock.json'
+        cache-dependency-path: 'projects/adlinkton/frontend/package-lock.json'
 
     - name: Build Adlinkton frontend
       run: |
-        cd adlington/projects/adlinkton/frontend
+        cd projects/adlinkton/frontend
         npm ci
         npm run build
 
@@ -34,7 +34,7 @@ jobs:
         password: ${{ secrets.FTP_PASSWORD }}
         port: 21  # Standard FTP port (use 22 for SFTP)
         protocol: ftp  # Use 'ftps' for FTP with TLS, 'ftps-legacy' for implicit TLS
-        local-dir: ./adlington/          # Deploy contents of adlington folder
+        local-dir: ./          # Deploy repository root
         server-dir: /public_html/        # Deploy to web root
         # Exclude sensitive files and source frontend files
         exclude: |
