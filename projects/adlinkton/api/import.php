@@ -184,17 +184,24 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 }
 
                 // Nested DT - DOMDocument creates this when DT tags aren't properly closed
-                // If a nested DT contains an H3, its folder DL is the parent DT's nextSibling
+                // Check if it contains an H3 (folder) or just A (link that should be in parent category)
                 if ($childTag === 'dt') {
+                    $hasNestedFolder = false;
                     foreach ($child->childNodes as $grandchild) {
                         if ($grandchild->nodeType === XML_ELEMENT_NODE && strtolower($grandchild->nodeName) === 'h3') {
                             $nestedFolderName = trim($grandchild->textContent);
                             if (!empty($nestedFolderName)) {
                                 $nestedFolderCategoryId = getOrCreateCategory($userId, $db, $nestedFolderName, $parentCategoryId);
                                 $stats['folders']++;
+                                $hasNestedFolder = true;
                             }
                             break;
                         }
+                    }
+
+                    // If nested DT has no folder (just links), recursively process it in the parent category
+                    if (!$hasNestedFolder) {
+                        processNestedDT($child, $userId, $db, $parentCategoryId, $stats);
                     }
                 }
             }
@@ -235,6 +242,41 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
         // DL can also appear as a direct child of another DL
         elseif ($tagName === 'dl') {
             processBookmarkList($node, $userId, $db, $parentCategoryId, $stats);
+        }
+    }
+}
+
+/**
+ * Process a nested DT element that contains links (not folders)
+ */
+function processNestedDT($dtElement, $userId, $db, $parentCategoryId, &$stats) {
+    foreach ($dtElement->childNodes as $child) {
+        if ($child->nodeType !== XML_ELEMENT_NODE) {
+            continue;
+        }
+
+        $childTag = strtolower($child->nodeName);
+
+        // Process links in the nested DT
+        if ($childTag === 'a') {
+            $url = $child->getAttribute('href');
+            $name = trim($child->textContent);
+            $addDate = $child->getAttribute('add_date');
+            $icon = $child->getAttribute('icon');
+
+            if (!empty($url) && !empty($name)) {
+                try {
+                    createBookmarkLink($userId, $db, $url, $name, $parentCategoryId, $addDate, $icon, $stats);
+                    $stats['links']++;
+                } catch (Exception $e) {
+                    $stats['skipped']++;
+                }
+            }
+        }
+
+        // Recursively process further nested DTs
+        elseif ($childTag === 'dt') {
+            processNestedDT($child, $userId, $db, $parentCategoryId, $stats);
         }
     }
 }
