@@ -36,6 +36,11 @@ function importBookmarks($userId) {
     require_once __DIR__ . '/helpers/favicon.php';
     require_once __DIR__ . '/helpers/validation.php';
 
+    // Increase PHP limits for large imports
+    @ini_set('max_execution_time', '300'); // 5 minutes
+    @ini_set('memory_limit', '256M');
+    @ini_set('max_input_vars', '5000');
+
     // Check if file was uploaded
     if (!isset($_FILES['file'])) {
         jsonError('No file uploaded', 400);
@@ -67,6 +72,8 @@ function importBookmarks($userId) {
         $stats = parseBookmarkHTML($html, $userId, $db);
 
         $db->commit();
+
+        error_log("Bookmark import completed: {$stats['folders']} folders, {$stats['links']} links, {$stats['skipped']} skipped");
 
         jsonSuccess([
             'message' => 'Bookmarks imported successfully',
