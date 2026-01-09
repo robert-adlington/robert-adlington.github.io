@@ -91,6 +91,23 @@
           </div>
         </div>
 
+        <!-- Debug info (first 50 lines) -->
+        <div v-if="result.stats.debug && result.stats.debug.length > 0" class="mb-6">
+          <details class="text-xs">
+            <summary class="cursor-pointer text-gray-600 hover:text-gray-800 mb-2">
+              Show debug log (first 50 lines)
+            </summary>
+            <div class="bg-gray-50 border border-gray-200 rounded p-3 max-h-64 overflow-y-auto font-mono text-xs">
+              <div v-for="(line, index) in result.stats.debug.slice(0, 50)" :key="index">
+                {{ line }}
+              </div>
+              <div v-if="result.stats.debug.length > 50" class="text-gray-500 mt-2">
+                ... ({{ result.stats.debug.length - 50 }} more lines)
+              </div>
+            </div>
+          </details>
+        </div>
+
         <button
           type="button"
           class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
