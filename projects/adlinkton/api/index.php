@@ -80,6 +80,11 @@ try {
             handleImportRequest($method, $segments, $requestBody, $userId);
             break;
 
+        case 'user-data':
+            require_once __DIR__ . '/user-data.php';
+            handleUserDataRequest($method, $segments, $requestBody, $userId);
+            break;
+
         default:
             jsonError('Unknown API endpoint', 404);
     }

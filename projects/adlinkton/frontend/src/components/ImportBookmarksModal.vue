@@ -34,6 +34,21 @@
           {{ error }}
         </div>
 
+        <!-- Delete all data button -->
+        <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded">
+          <p class="text-sm text-amber-800 mb-2">
+            Want to start fresh? Delete all your bookmarks and categories before importing.
+          </p>
+          <button
+            type="button"
+            class="text-sm px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700"
+            :disabled="deleting"
+            @click="handleDeleteAll"
+          >
+            {{ deleting ? 'Deleting...' : 'Delete All Data' }}
+          </button>
+        </div>
+
         <!-- Buttons -->
         <div class="flex justify-end gap-2">
           <button
@@ -136,6 +151,7 @@ const emit = defineEmits(['close', 'import-completed'])
 const fileInput = ref(null)
 const selectedFile = ref(null)
 const uploading = ref(false)
+const deleting = ref(false)
 const error = ref(null)
 const result = ref(null)
 
@@ -196,6 +212,30 @@ async function handleUpload() {
     if (!error.value) {
       uploading.value = false
     }
+  }
+}
+
+async function handleDeleteAll() {
+  if (!confirm('Are you sure you want to delete ALL bookmarks and categories? This action cannot be undone!')) {
+    return
+  }
+
+  deleting.value = true
+  error.value = null
+
+  try {
+    const response = await apiClient.delete('/user-data/all')
+
+    // Show success message
+    alert(`Successfully deleted:\n- ${response.data.deleted.links} links\n- ${response.data.deleted.categories} categories\n- ${response.data.deleted.tags} tags`)
+
+    // Emit event to refresh the main app
+    emit('import-completed', { deleted: true })
+  } catch (err) {
+    console.error('Failed to delete all data:', err)
+    error.value = err.response?.data?.error || 'Failed to delete data. Please try again.'
+  } finally {
+    deleting.value = false
   }
 }
 
