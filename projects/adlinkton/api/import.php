@@ -136,8 +136,11 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
         // DT contains either a folder (H3) or a link (A)
         if ($tagName === 'dt') {
-            $isFolder = false;
+            $hasFolder = false;
+            $hasLink = false;
             $folderCategoryId = null;
+            $folderDl = null;
+            $nestedFolderCategoryId = null;
 
             // Check what's inside this DT
             foreach ($node->childNodes as $child) {
@@ -149,7 +152,7 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
                 // H3 = Folder/Category
                 if ($childTag === 'h3') {
-                    $isFolder = true;
+                    $hasFolder = true;
                     $folderName = trim($child->textContent);
                     if (!empty($folderName)) {
                         $folderCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
@@ -158,7 +161,8 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 }
 
                 // A = Bookmark/Link
-                elseif ($childTag === 'a') {
+                if ($childTag === 'a') {
+                    $hasLink = true;
                     $url = $child->getAttribute('href');
                     $name = trim($child->textContent);
                     $addDate = $child->getAttribute('add_date');
@@ -173,10 +177,41 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                         }
                     }
                 }
+
+                // DL = Folder contents (may be child of DT in some parsings)
+                if ($childTag === 'dl') {
+                    $folderDl = $child;
+                }
+
+                // Nested DT - DOMDocument creates this when DT tags aren't properly closed
+                // Check if it contains an H3 (folder) or just A (link that should be in parent category)
+                if ($childTag === 'dt') {
+                    $hasNestedFolder = false;
+                    foreach ($child->childNodes as $grandchild) {
+                        if ($grandchild->nodeType === XML_ELEMENT_NODE && strtolower($grandchild->nodeName) === 'h3') {
+                            $nestedFolderName = trim($grandchild->textContent);
+                            if (!empty($nestedFolderName)) {
+                                $nestedFolderCategoryId = getOrCreateCategory($userId, $db, $nestedFolderName, $parentCategoryId);
+                                $stats['folders']++;
+                                $hasNestedFolder = true;
+                            }
+                            break;
+                        }
+                    }
+
+                    // If nested DT has no folder (just links), recursively process it in the parent category
+                    if (!$hasNestedFolder) {
+                        processNestedDT($child, $userId, $db, $parentCategoryId, $stats);
+                    }
+                }
             }
 
-            // If this DT contained a folder (H3), the next sibling DL contains the folder's contents
-            if ($isFolder && $folderCategoryId !== null) {
+            // If we found a folder and its DL as a child, process it
+            if ($hasFolder && $folderCategoryId !== null && $folderDl !== null) {
+                processBookmarkList($folderDl, $userId, $db, $folderCategoryId, $stats);
+            }
+            // Otherwise, if we found a folder, check for sibling DL
+            elseif ($hasFolder && $folderCategoryId !== null) {
                 // Find the next element sibling (skip text nodes)
                 $nextSibling = $node->nextSibling;
                 while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
@@ -190,11 +225,58 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                     $nodesToSkip[] = spl_object_id($nextSibling);
                 }
             }
+            // Special case: if we have a link AND a nested folder, the nextSibling DL belongs to the nested folder
+            elseif ($hasLink && $nestedFolderCategoryId !== null) {
+                $nextSibling = $node->nextSibling;
+                while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
+                    $nextSibling = $nextSibling->nextSibling;
+                }
+
+                if ($nextSibling && strtolower($nextSibling->nodeName) === 'dl') {
+                    processBookmarkList($nextSibling, $userId, $db, $nestedFolderCategoryId, $stats);
+                    $nodesToSkip[] = spl_object_id($nextSibling);
+                }
+            }
         }
 
         // DL can also appear as a direct child of another DL
         elseif ($tagName === 'dl') {
             processBookmarkList($node, $userId, $db, $parentCategoryId, $stats);
+        }
+    }
+}
+
+/**
+ * Process a nested DT element that contains links (not folders)
+ */
+function processNestedDT($dtElement, $userId, $db, $parentCategoryId, &$stats) {
+    foreach ($dtElement->childNodes as $child) {
+        if ($child->nodeType !== XML_ELEMENT_NODE) {
+            continue;
+        }
+
+        $childTag = strtolower($child->nodeName);
+
+        // Process links in the nested DT
+        if ($childTag === 'a') {
+            $url = $child->getAttribute('href');
+            $name = trim($child->textContent);
+            $addDate = $child->getAttribute('add_date');
+            $icon = $child->getAttribute('icon');
+
+            if (!empty($url) && !empty($name)) {
+                try {
+                    createBookmarkLink($userId, $db, $url, $name, $parentCategoryId, $addDate, $icon, $stats);
+                    $stats['links']++;
+                } catch (Exception $e) {
+                    $stats['skipped']++;
+                }
+            }
+        }
+
+        // Recursively process further nested DTs
+        elseif ($childTag === 'dt') {
+            processNestedDT($child, $userId, $db, $parentCategoryId, $stats);
         }
     }
 }
