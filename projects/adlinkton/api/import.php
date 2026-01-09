@@ -119,7 +119,8 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
         return;
     }
 
-    $currentCategoryId = $parentCategoryId;
+    // Track the category for the next DL element (used when we find a folder)
+    $nextDlCategoryId = null;
 
     foreach ($dlElement->childNodes as $node) {
         // Skip text nodes
@@ -142,7 +143,8 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 if ($childTag === 'h3') {
                     $folderName = trim($child->textContent);
                     if (!empty($folderName)) {
-                        $currentCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
+                        // Create category, but store it for the next DL we encounter
+                        $nextDlCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
                         $stats['folders']++;
                     }
                 }
@@ -156,7 +158,8 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
                     if (!empty($url) && !empty($name)) {
                         try {
-                            createBookmarkLink($userId, $db, $url, $name, $currentCategoryId, $addDate, $icon, $stats);
+                            // Links go in the parent category
+                            createBookmarkLink($userId, $db, $url, $name, $parentCategoryId, $addDate, $icon, $stats);
                             $stats['links']++;
                         } catch (Exception $e) {
                             error_log("Failed to create bookmark: {$name} - {$e->getMessage()}");
@@ -169,7 +172,13 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
         // DL = Nested list (subfolder contents)
         elseif ($tagName === 'dl') {
-            processBookmarkList($node, $userId, $db, $currentCategoryId, $stats);
+            // If we just saw a folder (H3), use its category ID
+            // Otherwise, use the parent category
+            $categoryForThisDl = $nextDlCategoryId !== null ? $nextDlCategoryId : $parentCategoryId;
+            processBookmarkList($node, $userId, $db, $categoryForThisDl, $stats);
+
+            // Reset for next iteration
+            $nextDlCategoryId = null;
         }
     }
 }
