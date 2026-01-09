@@ -175,6 +175,167 @@ npm ci && npm run build
 
 ---
 
+## Database Management
+
+### ⚠️ CRITICAL: Production Database with Active Users
+
+**This database has REAL USERS and LIVE DATA. Treat every database change with extreme care.**
+
+### Database Migration Rules
+
+**NEVER provide schema.sql files that assume a fresh start!**
+
+When making database changes, you MUST:
+
+1. **Check existing schema first**
+   ```bash
+   # SSH into Hostinger and inspect current tables
+   mysql -u username -p database_name
+   SHOW TABLES;
+   DESCRIBE table_name;
+   ```
+
+2. **Provide UPDATE scripts (migrations), not CREATE scripts**
+   - Use `ALTER TABLE` to modify existing tables
+   - Use `ADD COLUMN IF NOT EXISTS` (MySQL 8.0+) or check first
+   - Use `CREATE TABLE IF NOT EXISTS` only for genuinely new tables
+
+3. **Preserve existing data**
+   - Never DROP tables without explicit user approval
+   - Never TRUNCATE tables
+   - Use UPDATE with WHERE clauses carefully
+   - Consider data migration for column changes
+
+4. **Never include dummy/test data**
+   - ❌ No "admin" / "password123" accounts
+   - ❌ No test users or sample data
+   - ✅ Only structural changes (tables, columns, indexes)
+
+5. **Provide rollback instructions**
+   - Every migration should have a rollback script
+   - Document what the migration does
+   - Warn about irreversible changes
+
+### Migration Script Template
+
+```sql
+-- Migration: [Brief description]
+-- Date: YYYY-MM-DD
+-- Purpose: [Why this change is needed]
+
+-- Check current state first
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_NAME = 'your_table' AND COLUMN_NAME = 'new_column';
+
+-- Apply migration (example: adding a column)
+ALTER TABLE your_table
+ADD COLUMN IF NOT EXISTS new_column VARCHAR(255) NULL DEFAULT NULL;
+
+-- Create index if needed
+CREATE INDEX IF NOT EXISTS idx_new_column ON your_table(new_column);
+
+-- Verify migration
+DESCRIBE your_table;
+
+-- ROLLBACK (if needed):
+-- ALTER TABLE your_table DROP COLUMN new_column;
+```
+
+### Safe Migration Patterns
+
+**Adding a column:**
+```sql
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+```
+
+**Adding a table:**
+```sql
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    preference_key VARCHAR(100) NOT NULL,
+    preference_value TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_preference (user_id, preference_key)
+);
+```
+
+**Modifying a column (safe approach):**
+```sql
+-- Step 1: Add new column
+ALTER TABLE links ADD COLUMN new_url_column VARCHAR(2048);
+
+-- Step 2: Copy data
+UPDATE links SET new_url_column = old_url_column;
+
+-- Step 3: User manually verifies data, then drops old column
+-- ALTER TABLE links DROP COLUMN old_url_column;
+-- ALTER TABLE links RENAME COLUMN new_url_column TO url;
+```
+
+### Unsafe Patterns to AVOID
+
+❌ **Never do this:**
+```sql
+-- DON'T: Drop and recreate existing tables
+DROP TABLE IF EXISTS users;
+CREATE TABLE users (...);
+
+-- DON'T: Truncate production data
+TRUNCATE TABLE user_sessions;
+
+-- DON'T: Insert dummy data into production
+INSERT INTO users (username, password) VALUES ('admin', 'admin123');
+
+-- DON'T: Modify without checking existence
+ALTER TABLE users ADD COLUMN email VARCHAR(255); -- Fails if exists!
+```
+
+### Migration Workflow
+
+1. **Analyze:** Review current schema in production
+2. **Plan:** Write migration script with rollback
+3. **Review:** Share script with user for approval
+4. **Backup:** User backs up database before running
+5. **Execute:** Run migration on production
+6. **Verify:** Check that data is intact and application works
+7. **Monitor:** Watch for errors in the hours after deployment
+
+### Finding Current Schema
+
+**To check existing tables:**
+```bash
+# SSH into Hostinger
+mysql -u [user] -p [database] -e "SHOW TABLES;"
+```
+
+**To check table structure:**
+```bash
+mysql -u [user] -p [database] -e "DESCRIBE table_name;"
+```
+
+**To check if column exists:**
+```sql
+SELECT COUNT(*) as column_exists
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'your_database'
+  AND TABLE_NAME = 'your_table'
+  AND COLUMN_NAME = 'your_column';
+```
+
+### Projects with Their Own Tables
+
+Some projects maintain their own database tables:
+
+- **Contract Whist:** `whist_games`, `whist_players`, etc.
+- **Adlinkton:** `links`, `categories`, `tags`, etc.
+- **Shared Auth:** `users`, `sessions`
+
+Always check which project owns which tables before modifying.
+
+---
+
 ## Common Patterns
 
 ### Adding a New Project
@@ -325,4 +486,4 @@ npm run dev
 
 ---
 
-**Last Updated:** January 2025 (Repository restructuring)
+**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines)
