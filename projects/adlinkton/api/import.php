@@ -92,8 +92,7 @@ function parseBookmarkHTML($html, $userId, $db) {
         'folders' => 0,
         'links' => 0,
         'skipped' => 0,
-        'favicons_fetched' => 0,
-        'debug' => []
+        'favicons_fetched' => 0
     ];
 
     // Find the root DL (definition list) which contains bookmarks
@@ -120,9 +119,6 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
         return;
     }
 
-    $skipNextDl = false;
-    $debugLimit = 100; // Only collect first 100 debug messages to avoid memory issues
-
     foreach ($dlElement->childNodes as $node) {
         // Skip text nodes
         if ($node->nodeType !== XML_ELEMENT_NODE) {
@@ -130,114 +126,60 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
         }
 
         $tagName = strtolower($node->nodeName);
-        if (count($stats['debug']) < $debugLimit) {
-            $stats['debug'][] = "Processing node: {$tagName}, parent category: {$parentCategoryId}";
-        }
 
-        // DT contains either a folder (H3) or a link (A)
+        // DT contains either a folder (H3 + DL) or a link (A)
         if ($tagName === 'dt') {
-            $hasFolder = false;
-            $hasLink = false;
+            // Look for H3 (folder), A (link), or DL (folder contents) within this DT
+            $folderCategoryId = null;
+            $folderDl = null;
 
-            // Check what's inside this DT
             foreach ($node->childNodes as $child) {
                 if ($child->nodeType !== XML_ELEMENT_NODE) {
                     continue;
                 }
 
                 $childTag = strtolower($child->nodeName);
-                if (count($stats['debug']) < $debugLimit) {
-                    $stats['debug'][] = "  DT child: {$childTag}";
-                }
 
                 // H3 = Folder/Category
                 if ($childTag === 'h3') {
-                    $hasFolder = true;
                     $folderName = trim($child->textContent);
-                    if (count($stats['debug']) < $debugLimit) {
-                        $stats['debug'][] = "  Found folder: {$folderName}";
-                    }
                     if (!empty($folderName)) {
                         $folderCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
                         $stats['folders']++;
-
-                        // In Chrome bookmark format, the DL (folder contents) is the NEXT SIBLING of this DT
-                        // Skip text nodes to find the next element
-                        $nextSibling = $node->nextSibling;
-                        while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
-                            $nextSibling = $nextSibling->nextSibling;
-                        }
-
-                        // If the next sibling is a DL, it contains this folder's contents
-                        if ($nextSibling && strtolower($nextSibling->nodeName) === 'dl') {
-                            if (count($stats['debug']) < $debugLimit) {
-                                $stats['debug'][] = "  Found folder DL sibling, recursing with category {$folderCategoryId}";
-                            }
-                            processBookmarkList($nextSibling, $userId, $db, $folderCategoryId, $stats);
-                            $skipNextDl = true; // Mark this DL as processed so we don't process it again
-                        } else {
-                            if (count($stats['debug']) < $debugLimit) {
-                                $stats['debug'][] = "  No DL sibling found after folder";
-                            }
-                        }
                     }
                 }
 
                 // A = Bookmark/Link
                 elseif ($childTag === 'a') {
-                    $hasLink = true;
                     $url = $child->getAttribute('href');
                     $name = trim($child->textContent);
                     $addDate = $child->getAttribute('add_date');
                     $icon = $child->getAttribute('icon');
 
-                    if (count($stats['debug']) < $debugLimit) {
-                        $stats['debug'][] = "  Found link: {$name} -> {$url}";
-                    }
-
                     if (!empty($url) && !empty($name)) {
-                        if (count($stats['debug']) < $debugLimit) {
-                            $stats['debug'][] = "  Creating bookmark link for: {$name}";
-                        }
                         try {
                             createBookmarkLink($userId, $db, $url, $name, $parentCategoryId, $addDate, $icon, $stats);
                             $stats['links']++;
-                            if (count($stats['debug']) < $debugLimit) {
-                                $stats['debug'][] = "  Successfully created link";
-                            }
                         } catch (Exception $e) {
-                            if (count($stats['debug']) < $debugLimit) {
-                                $stats['debug'][] = "  Failed to create bookmark: {$name} - {$e->getMessage()}";
-                            }
                             $stats['skipped']++;
-                        }
-                    } else {
-                        if (count($stats['debug']) < $debugLimit) {
-                            $stats['debug'][] = "  Skipping link - empty url or name";
                         }
                     }
                 }
+
+                // DL = Folder contents (nested inside DT for folders)
+                elseif ($childTag === 'dl') {
+                    $folderDl = $child;
+                }
             }
 
-            if (count($stats['debug']) < $debugLimit) {
-                $stats['debug'][] = "  DT summary - hasFolder: " . ($hasFolder ? 'yes' : 'no') . ", hasLink: " . ($hasLink ? 'yes' : 'no'));
+            // If we found both a folder and its DL, process the DL with the folder category
+            if ($folderCategoryId !== null && $folderDl !== null) {
+                processBookmarkList($folderDl, $userId, $db, $folderCategoryId, $stats);
             }
         }
 
-        // DL = Nested list
+        // DL can also appear as a direct child of another DL
         elseif ($tagName === 'dl') {
-            // Skip if we already processed this DL as part of a folder
-            if ($skipNextDl) {
-                if (count($stats['debug']) < $debugLimit) {
-                    $stats['debug'][] = "Skipping DL (already processed as folder contents)";
-                }
-                $skipNextDl = false;
-                continue;
-            }
-            // Otherwise process it (shouldn't normally happen in Chrome format)
-            if (count($stats['debug']) < $debugLimit) {
-                $stats['debug'][] = "Processing standalone DL";
-            }
             processBookmarkList($node, $userId, $db, $parentCategoryId, $stats);
         }
     }
