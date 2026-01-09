@@ -15,6 +15,13 @@
           @input="handleSearch"
         />
         <button
+          class="px-3 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50"
+          @click="showImportModal = true"
+          title="Import bookmarks from Chrome, Firefox, Safari, or Edge"
+        >
+          📥 Import
+        </button>
+        <button
           class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
           @click="showAddLinkModal = true"
         >
@@ -136,6 +143,13 @@
       @close="closeAddCategoryModal"
       @category-saved="handleCategorySaved"
     />
+
+    <!-- Import Bookmarks Modal -->
+    <ImportBookmarksModal
+      :is-open="showImportModal"
+      @close="showImportModal = false"
+      @import-completed="handleImportCompleted"
+    />
   </div>
 </template>
 
@@ -145,6 +159,7 @@ import LinkList from './components/LinkList.vue'
 import CategoryTree from './components/CategoryTree.vue'
 import AddLinkModal from './components/AddLinkModal.vue'
 import AddCategoryModal from './components/AddCategoryModal.vue'
+import ImportBookmarksModal from './components/ImportBookmarksModal.vue'
 import { categoriesApi } from './api/categories'
 
 // Refs
@@ -156,6 +171,7 @@ const currentView = ref('all')
 const selectedCategoryId = ref(null)
 const showAddLinkModal = ref(false)
 const showAddCategoryModal = ref(false)
+const showImportModal = ref(false)
 const editingCategory = ref(null)
 const categories = ref([])
 const searchQuery = ref('')
@@ -304,6 +320,18 @@ function handleCategorySaved(category) {
 function closeAddCategoryModal() {
   showAddCategoryModal.value = false
   editingCategory.value = null
+}
+
+function handleImportCompleted(result) {
+  console.log('Import completed:', result)
+  // Reload links and categories
+  if (linkList.value) {
+    linkList.value.loadLinks()
+  }
+  if (categoryTree.value) {
+    categoryTree.value.loadCategories()
+  }
+  loadCategories()
 }
 </script>
 
