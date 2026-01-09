@@ -105,7 +105,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import axios from 'axios'
+import apiClient from '@/api/client'
 
 const props = defineProps({
   isOpen: {
@@ -163,7 +163,7 @@ async function handleUpload() {
     const formData = new FormData()
     formData.append('file', selectedFile.value)
 
-    const response = await axios.post('/api/import/bookmarks', formData, {
+    const response = await apiClient.post('/import/bookmarks', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
