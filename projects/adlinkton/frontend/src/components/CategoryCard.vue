@@ -72,17 +72,33 @@
 
       <!-- Content: Mixed Links and Subcategories -->
       <div class="card-content">
-        <CategoryContentItem
-          v-for="item in categoryContent"
-          :key="item.type + '-' + item.id"
-          :item="item"
-          :category-map="categoryMap"
-          :expanded-ids="expandedSubcategoryIds"
-          @toggle-subcategory="handleToggleSubcategory"
-          @link-click="handleLinkClick"
-          @toggle-favorite="handleToggleFavorite"
-          @link-menu="handleLinkMenu"
-        />
+        <!-- Render content items in order -->
+        <template v-for="item in categoryContent" :key="item.type + '-' + item.id">
+          <!-- Subcategory -->
+          <div v-if="item.type === 'category'" class="content-item">
+            <SubcategoryItem
+              :subcategory="item.data"
+              :depth="0"
+              :expanded-ids="expandedSubcategoryIds"
+              @toggle="handleToggleSubcategory"
+              @edit="handleEditSubcategory"
+              @delete="handleDeleteSubcategory"
+              @link-click="handleLinkClick"
+              @toggle-favorite="handleToggleFavorite"
+            />
+          </div>
+
+          <!-- Link -->
+          <div v-else-if="item.type === 'link'" class="content-item">
+            <LinkItem
+              :link="item.data"
+              :depth="0"
+              @click="handleLinkClick(item.data)"
+              @toggle-favorite="handleToggleFavorite(item.data)"
+              @menu="handleLinkMenu(item.data)"
+            />
+          </div>
+        </template>
 
         <!-- Empty state -->
         <div v-if="categoryContent.length === 0" class="text-sm text-gray-500 py-2 px-3">
@@ -95,7 +111,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import CategoryContentItem from './CategoryContentItem.vue'
+import SubcategoryItem from './SubcategoryItem.vue'
+import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
 
 const props = defineProps({
@@ -127,8 +144,18 @@ const categoryIcon = computed(() => {
   return props.category.icon || '📁'
 })
 
+// Recursive link count (includes subcategories)
 const totalLinkCount = computed(() => {
-  return props.category.link_count || 0
+  function countLinks(cat) {
+    let count = cat.link_count || 0
+    if (cat.children && cat.children.length > 0) {
+      cat.children.forEach(child => {
+        count += countLinks(child)
+      })
+    }
+    return count
+  }
+  return countLinks(props.category)
 })
 
 // Build mixed content array of links and subcategories in their original order
@@ -232,6 +259,14 @@ function handleLinkMenu(event) {
   // TODO: Implement link context menu
 }
 
+function handleEditSubcategory(subcategory) {
+  emit('edit', subcategory)
+}
+
+function handleDeleteSubcategory(subcategory) {
+  emit('delete', subcategory)
+}
+
 async function loadCategoryLinks() {
   if (loading.value) return
 
@@ -265,6 +300,8 @@ onMounted(() => {
   border-radius: 8px;
   transition: all 0.2s;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 .category-card:hover {
@@ -370,6 +407,13 @@ onMounted(() => {
 /* Content Area */
 .card-content {
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
+  width: 100%;
+}
+
+.content-item {
+  width: 100%;
+  max-width: 100%;
 }
 </style>
