@@ -119,20 +119,27 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
         return;
     }
 
+    $nodesToSkip = [];
+
     foreach ($dlElement->childNodes as $node) {
         // Skip text nodes
         if ($node->nodeType !== XML_ELEMENT_NODE) {
             continue;
         }
 
+        // Skip if we already processed this node as a folder's DL
+        if (in_array(spl_object_id($node), $nodesToSkip, true)) {
+            continue;
+        }
+
         $tagName = strtolower($node->nodeName);
 
-        // DT contains either a folder (H3 + DL) or a link (A)
+        // DT contains either a folder (H3) or a link (A)
         if ($tagName === 'dt') {
-            // Look for H3 (folder), A (link), or DL (folder contents) within this DT
+            $isFolder = false;
             $folderCategoryId = null;
-            $folderDl = null;
 
+            // Check what's inside this DT
             foreach ($node->childNodes as $child) {
                 if ($child->nodeType !== XML_ELEMENT_NODE) {
                     continue;
@@ -142,6 +149,7 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
                 // H3 = Folder/Category
                 if ($childTag === 'h3') {
+                    $isFolder = true;
                     $folderName = trim($child->textContent);
                     if (!empty($folderName)) {
                         $folderCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
@@ -165,16 +173,22 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                         }
                     }
                 }
-
-                // DL = Folder contents (nested inside DT for folders)
-                elseif ($childTag === 'dl') {
-                    $folderDl = $child;
-                }
             }
 
-            // If we found both a folder and its DL, process the DL with the folder category
-            if ($folderCategoryId !== null && $folderDl !== null) {
-                processBookmarkList($folderDl, $userId, $db, $folderCategoryId, $stats);
+            // If this DT contained a folder (H3), the next sibling DL contains the folder's contents
+            if ($isFolder && $folderCategoryId !== null) {
+                // Find the next element sibling (skip text nodes)
+                $nextSibling = $node->nextSibling;
+                while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
+                    $nextSibling = $nextSibling->nextSibling;
+                }
+
+                // If next sibling is a DL, it contains the folder's contents
+                if ($nextSibling && strtolower($nextSibling->nodeName) === 'dl') {
+                    processBookmarkList($nextSibling, $userId, $db, $folderCategoryId, $stats);
+                    // Mark this DL to skip in the main loop
+                    $nodesToSkip[] = spl_object_id($nextSibling);
+                }
             }
         }
 
