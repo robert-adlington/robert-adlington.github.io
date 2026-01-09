@@ -140,6 +140,7 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
             $hasLink = false;
             $folderCategoryId = null;
             $folderDl = null;
+            $nestedFolderCategoryId = null;
 
             // Check what's inside this DT
             foreach ($node->childNodes as $child) {
@@ -181,6 +182,21 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 if ($childTag === 'dl') {
                     $folderDl = $child;
                 }
+
+                // Nested DT - DOMDocument creates this when DT tags aren't properly closed
+                // If a nested DT contains an H3, its folder DL is the parent DT's nextSibling
+                if ($childTag === 'dt') {
+                    foreach ($child->childNodes as $grandchild) {
+                        if ($grandchild->nodeType === XML_ELEMENT_NODE && strtolower($grandchild->nodeName) === 'h3') {
+                            $nestedFolderName = trim($grandchild->textContent);
+                            if (!empty($nestedFolderName)) {
+                                $nestedFolderCategoryId = getOrCreateCategory($userId, $db, $nestedFolderName, $parentCategoryId);
+                                $stats['folders']++;
+                            }
+                            break;
+                        }
+                    }
+                }
             }
 
             // If we found a folder and its DL as a child, process it
@@ -199,6 +215,18 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 if ($nextSibling && strtolower($nextSibling->nodeName) === 'dl') {
                     processBookmarkList($nextSibling, $userId, $db, $folderCategoryId, $stats);
                     // Mark this DL to skip in the main loop
+                    $nodesToSkip[] = spl_object_id($nextSibling);
+                }
+            }
+            // Special case: if we have a link AND a nested folder, the nextSibling DL belongs to the nested folder
+            elseif ($hasLink && $nestedFolderCategoryId !== null) {
+                $nextSibling = $node->nextSibling;
+                while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
+                    $nextSibling = $nextSibling->nextSibling;
+                }
+
+                if ($nextSibling && strtolower($nextSibling->nodeName) === 'dl') {
+                    processBookmarkList($nextSibling, $userId, $db, $nestedFolderCategoryId, $stats);
                     $nodesToSkip[] = spl_object_id($nextSibling);
                 }
             }
