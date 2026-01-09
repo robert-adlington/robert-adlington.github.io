@@ -136,6 +136,8 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
         // DT contains either a folder (H3) or a link (A)
         if ($tagName === 'dt') {
+            $hasFolder = false;
+            $hasLink = false;
             $folderCategoryId = null;
             $folderDl = null;
 
@@ -149,6 +151,7 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
                 // H3 = Folder/Category
                 if ($childTag === 'h3') {
+                    $hasFolder = true;
                     $folderName = trim($child->textContent);
                     if (!empty($folderName)) {
                         $folderCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
@@ -157,7 +160,8 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 }
 
                 // A = Bookmark/Link
-                elseif ($childTag === 'a') {
+                if ($childTag === 'a') {
+                    $hasLink = true;
                     $url = $child->getAttribute('href');
                     $name = trim($child->textContent);
                     $addDate = $child->getAttribute('add_date');
@@ -174,17 +178,17 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 }
 
                 // DL = Folder contents (may be child of DT in some parsings)
-                elseif ($childTag === 'dl') {
+                if ($childTag === 'dl') {
                     $folderDl = $child;
                 }
             }
 
             // If we found a folder and its DL as a child, process it
-            if ($folderCategoryId !== null && $folderDl !== null) {
+            if ($hasFolder && $folderCategoryId !== null && $folderDl !== null) {
                 processBookmarkList($folderDl, $userId, $db, $folderCategoryId, $stats);
             }
             // Otherwise, if we found a folder, check for sibling DL
-            elseif ($folderCategoryId !== null) {
+            elseif ($hasFolder && $folderCategoryId !== null) {
                 // Find the next element sibling (skip text nodes)
                 $nextSibling = $node->nextSibling;
                 while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
