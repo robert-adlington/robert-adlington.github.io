@@ -119,8 +119,7 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
         return;
     }
 
-    // Track the category for the next DL element (used when we find a folder)
-    $nextDlCategoryId = null;
+    $skipNextDl = false;
 
     foreach ($dlElement->childNodes as $node) {
         // Skip text nodes
@@ -132,6 +131,7 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
         // DT contains either a folder (H3) or a link (A)
         if ($tagName === 'dt') {
+            // Check what's inside this DT
             foreach ($node->childNodes as $child) {
                 if ($child->nodeType !== XML_ELEMENT_NODE) {
                     continue;
@@ -143,9 +143,21 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                 if ($childTag === 'h3') {
                     $folderName = trim($child->textContent);
                     if (!empty($folderName)) {
-                        // Create category, but store it for the next DL we encounter
-                        $nextDlCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
+                        $folderCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
                         $stats['folders']++;
+
+                        // In Chrome bookmark format, the DL (folder contents) is the NEXT SIBLING of this DT
+                        // Skip text nodes to find the next element
+                        $nextSibling = $node->nextSibling;
+                        while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
+                            $nextSibling = $nextSibling->nextSibling;
+                        }
+
+                        // If the next sibling is a DL, it contains this folder's contents
+                        if ($nextSibling && strtolower($nextSibling->nodeName) === 'dl') {
+                            processBookmarkList($nextSibling, $userId, $db, $folderCategoryId, $stats);
+                            $skipNextDl = true; // Mark this DL as processed so we don't process it again
+                        }
                     }
                 }
 
@@ -158,7 +170,6 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
                     if (!empty($url) && !empty($name)) {
                         try {
-                            // Links go in the parent category
                             createBookmarkLink($userId, $db, $url, $name, $parentCategoryId, $addDate, $icon, $stats);
                             $stats['links']++;
                         } catch (Exception $e) {
@@ -170,15 +181,15 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
             }
         }
 
-        // DL = Nested list (subfolder contents)
+        // DL = Nested list
         elseif ($tagName === 'dl') {
-            // If we just saw a folder (H3), use its category ID
-            // Otherwise, use the parent category
-            $categoryForThisDl = $nextDlCategoryId !== null ? $nextDlCategoryId : $parentCategoryId;
-            processBookmarkList($node, $userId, $db, $categoryForThisDl, $stats);
-
-            // Reset for next iteration
-            $nextDlCategoryId = null;
+            // Skip if we already processed this DL as part of a folder
+            if ($skipNextDl) {
+                $skipNextDl = false;
+                continue;
+            }
+            // Otherwise process it (shouldn't normally happen in Chrome format)
+            processBookmarkList($node, $userId, $db, $parentCategoryId, $stats);
         }
     }
 }
