@@ -3,7 +3,7 @@
     <!-- Category item -->
     <div
       class="group flex items-center px-3 py-2 rounded hover:bg-gray-200 cursor-pointer"
-      :class="{ 'bg-gray-200': isSelected }"
+      :class="{ 'bg-gray-200 font-medium': isHighlighted || isSelected }"
       @click="handleClick"
     >
       <!-- Expand/collapse icon -->
@@ -54,6 +54,7 @@
         :key="child.id"
         :category="child"
         :selected-id="selectedId"
+        :highlighted-id="highlightedId"
         :expanded-ids="expandedIds"
         @select="$emit('select', $event)"
         @toggle-expand="$emit('toggle-expand', $event)"
@@ -76,6 +77,10 @@ const props = defineProps({
     type: Number,
     default: null
   },
+  highlightedId: {
+    type: [Number, String],
+    default: null
+  },
   expandedIds: {
     type: Set,
     default: () => new Set()
@@ -85,6 +90,7 @@ const props = defineProps({
 const emit = defineEmits(['select', 'toggle-expand', 'edit', 'delete'])
 
 const isSelected = computed(() => props.category.id === props.selectedId)
+const isHighlighted = computed(() => props.category.id === props.highlightedId)
 const isExpanded = computed(() => props.expandedIds.has(props.category.id))
 
 function handleClick() {

@@ -17,6 +17,7 @@
         :key="category.id"
         :category="category"
         :selected-id="selectedCategoryId"
+        :highlighted-id="highlightedId"
         :expanded-ids="expandedCategoryIds"
         @select="handleSelect"
         @toggle-expand="handleToggleExpand"
@@ -31,6 +32,13 @@
 import { ref, onMounted } from 'vue'
 import CategoryNode from './CategoryNode.vue'
 import { categoriesApi } from '@/api/categories'
+
+const props = defineProps({
+  highlightedId: {
+    type: [Number, String],
+    default: null
+  }
+})
 
 const emit = defineEmits(['select-category', 'edit-category', 'delete-category'])
 

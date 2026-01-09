@@ -3,7 +3,14 @@
     <!-- Header -->
     <header class="flex items-center justify-between px-6 py-3 border-b bg-white shadow-sm">
       <div class="flex items-center gap-4">
-        <h1 class="text-2xl font-bold text-primary-600">Adlinkton</h1>
+        <button
+          class="p-2 hover:bg-gray-100 rounded transition-colors"
+          @click="toggleSidebar"
+          title="Toggle sidebar"
+        >
+          ☰
+        </button>
+        <h1 class="text-2xl font-bold text-primary-600">adlinkton</h1>
       </div>
 
       <div class="flex items-center gap-4">
@@ -31,100 +38,74 @@
     </header>
 
     <!-- Main Layout -->
-    <div class="flex-1 flex overflow-hidden">
-      <!-- Sidebar -->
-      <aside class="w-64 border-r bg-gray-50 overflow-y-auto">
-        <div class="p-4">
-          <h2 class="text-xs font-semibold text-gray-500 uppercase mb-2">System</h2>
-          <nav class="space-y-1">
-            <a
-              href="#"
-              class="block px-3 py-2 rounded hover:bg-gray-200"
-              :class="{ 'bg-gray-200': currentView === 'inbox' }"
-              @click.prevent="selectView('inbox')"
-            >
-              📥 Inbox
-            </a>
-            <a
-              href="#"
-              class="block px-3 py-2 rounded hover:bg-gray-200"
-              :class="{ 'bg-gray-200': currentView === 'favorites' }"
-              @click.prevent="selectView('favorites')"
-            >
-              ⭐ Favorites
-            </a>
-            <a
-              href="#"
-              class="block px-3 py-2 rounded hover:bg-gray-200"
-              :class="{ 'bg-gray-200': currentView === 'all' }"
-              @click.prevent="selectView('all')"
-            >
-              📚 All Links
-            </a>
-          </nav>
+    <div class="flex-1 flex overflow-hidden relative">
+      <!-- Sidebar Overlay -->
+      <transition name="sidebar">
+        <div v-if="sidebarVisible" class="sidebar-overlay-container">
+          <!-- Backdrop -->
+          <div class="sidebar-backdrop" @click="closeSidebar"></div>
 
-          <div class="flex items-center justify-between mt-6 mb-2">
-            <h2 class="text-xs font-semibold text-gray-500 uppercase">Categories</h2>
-            <button
-              class="text-xs text-primary-600 hover:text-primary-700 font-medium"
-              @click="showAddCategoryModal = true"
-              title="Add new category"
-            >
-              + Add
-            </button>
-          </div>
-          <CategoryTree
-            ref="categoryTree"
-            @select-category="handleCategorySelect"
-            @edit-category="handleEditCategory"
-            @delete-category="handleDeleteCategory"
-          />
-        </div>
-      </aside>
+          <!-- Sidebar Panel -->
+          <aside class="sidebar-panel">
+            <div class="p-4">
+              <h2 class="text-xs font-semibold text-gray-500 uppercase mb-2">System Views</h2>
+              <nav class="space-y-1">
+                <a
+                  href="#"
+                  class="block px-3 py-2 rounded hover:bg-gray-200 transition-colors"
+                  :class="{ 'bg-gray-200 font-medium': highlightedCategoryId === 'inbox' }"
+                  @click.prevent="handleSidebarCategoryClick('inbox')"
+                >
+                  📥 Inbox
+                </a>
+                <a
+                  href="#"
+                  class="block px-3 py-2 rounded hover:bg-gray-200 transition-colors"
+                  :class="{ 'bg-gray-200 font-medium': highlightedCategoryId === 'favorites' }"
+                  @click.prevent="handleSidebarCategoryClick('favorites')"
+                >
+                  ⭐ Favorites
+                </a>
+                <a
+                  href="#"
+                  class="block px-3 py-2 rounded hover:bg-gray-200 transition-colors"
+                  :class="{ 'bg-gray-200 font-medium': highlightedCategoryId === 'all' }"
+                  @click.prevent="handleSidebarCategoryClick('all')"
+                >
+                  🔗 All Links
+                </a>
+              </nav>
 
-      <!-- Main Content Area -->
-      <main class="flex-1 overflow-hidden">
-        <div class="h-full flex flex-col">
-          <!-- Pane Header -->
-          <div class="pane-header">
-            <h2 class="font-semibold">{{ currentViewTitle }}</h2>
-            <div class="flex gap-2">
-              <select
-                v-model="sortMode"
-                class="px-2 py-1 border rounded text-sm"
-                @change="handleSortChange"
-              >
-                <option value="created">Sort: Created</option>
-                <option value="name">Sort: Name</option>
-                <option value="accessed">Sort: Accessed</option>
-                <option value="frequency">Sort: Frequency</option>
-              </select>
-              <select
-                v-model="sortOrder"
-                class="px-2 py-1 border rounded text-sm"
-                @change="handleSortChange"
-              >
-                <option value="desc">Descending</option>
-                <option value="asc">Ascending</option>
-              </select>
+              <div class="flex items-center justify-between mt-6 mb-2">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase">Categories</h2>
+                <button
+                  class="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  @click="showAddCategoryModal = true"
+                  title="Add new category"
+                >
+                  + Add
+                </button>
+              </div>
+              <CategoryTree
+                ref="categoryTree"
+                :highlighted-id="highlightedCategoryId"
+                @select-category="handleSidebarCategorySelect"
+                @edit-category="handleEditCategory"
+                @delete-category="handleDeleteCategory"
+              />
             </div>
-          </div>
-
-          <!-- Link List -->
-          <div class="pane-content">
-            <LinkList
-              ref="linkList"
-              :category-id="selectedCategoryId"
-              :favorite="favoriteFilter"
-              :search="searchQuery"
-              :sort="sortMode"
-              :order="sortOrder"
-              :empty-message="emptyMessage"
-              @link-click="handleLinkClick"
-              @link-updated="handleLinkUpdated"
-            />
-          </div>
+          </aside>
         </div>
+      </transition>
+
+      <!-- Main Content Area - Category Grid -->
+      <main class="flex-1 overflow-hidden">
+        <CategoryGrid
+          ref="categoryGrid"
+          @edit-category="handleEditCategory"
+          @delete-category="handleDeleteCategory"
+          @link-updated="handleLinkUpdated"
+        />
       </main>
     </div>
 
@@ -154,8 +135,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import LinkList from './components/LinkList.vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import CategoryGrid from './components/CategoryGrid.vue'
 import CategoryTree from './components/CategoryTree.vue'
 import AddLinkModal from './components/AddLinkModal.vue'
 import AddCategoryModal from './components/AddCategoryModal.vue'
@@ -163,20 +144,18 @@ import ImportBookmarksModal from './components/ImportBookmarksModal.vue'
 import { categoriesApi } from './api/categories'
 
 // Refs
-const linkList = ref(null)
+const categoryGrid = ref(null)
 const categoryTree = ref(null)
 
 // State
-const currentView = ref('all')
-const selectedCategoryId = ref(null)
+const sidebarVisible = ref(false)
+const highlightedCategoryId = ref(null)
 const showAddLinkModal = ref(false)
 const showAddCategoryModal = ref(false)
 const showImportModal = ref(false)
 const editingCategory = ref(null)
 const categories = ref([])
 const searchQuery = ref('')
-const sortMode = ref('created')
-const sortOrder = ref('desc')
 
 // Load categories on mount
 onMounted(async () => {
@@ -192,89 +171,57 @@ async function loadCategories() {
   }
 }
 
-// Computed
-const favoriteFilter = computed(() => {
-  return currentView.value === 'favorites' ? true : null
-})
-
-const currentViewTitle = computed(() => {
-  if (searchQuery.value) {
-    return `Search: "${searchQuery.value}"`
-  }
-
-  switch (currentView.value) {
-    case 'inbox':
-      return 'Inbox'
-    case 'favorites':
-      return 'Favorites'
-    case 'category':
-      return 'Category'
-    default:
-      return 'All Links'
-  }
-})
-
-const emptyMessage = computed(() => {
-  if (searchQuery.value) {
-    return 'No links found matching your search'
-  }
-
-  switch (currentView.value) {
-    case 'inbox':
-      return 'No uncategorized links'
-    case 'favorites':
-      return 'No favorite links yet'
-    case 'category':
-      return 'No links in this category'
-    default:
-      return 'Add your first link to get started'
-  }
-})
-
-// Methods
-function selectView(view) {
-  currentView.value = view
-  selectedCategoryId.value = null
-  if (linkList.value) {
-    linkList.value.loadLinks()
-  }
+// Sidebar methods
+function toggleSidebar() {
+  sidebarVisible.value = !sidebarVisible.value
 }
 
-function handleCategorySelect(category) {
-  currentView.value = 'category'
-  selectedCategoryId.value = category.id
-  if (linkList.value) {
-    linkList.value.loadLinks()
+function closeSidebar() {
+  sidebarVisible.value = false
+}
+
+function handleSidebarCategoryClick(viewId) {
+  highlightedCategoryId.value = viewId
+  scrollToCard(viewId)
+}
+
+function handleSidebarCategorySelect(category) {
+  highlightedCategoryId.value = category.id
+  scrollToCard(category.id)
+}
+
+async function scrollToCard(cardId) {
+  // Wait for next tick to ensure DOM is updated
+  await nextTick()
+
+  // Find the card element and scroll to it
+  const cardElement = document.querySelector(`[data-card-id="${cardId}"]`)
+  if (cardElement) {
+    cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 }
 
 function handleSearch() {
-  if (linkList.value) {
-    linkList.value.loadLinks()
-  }
-}
-
-function handleSortChange() {
-  if (linkList.value) {
-    linkList.value.loadLinks()
-  }
-}
-
-function handleLinkClick(link) {
-  console.log('Link clicked:', link)
+  // TODO: Implement search functionality in grid view
+  console.log('Search:', searchQuery.value)
 }
 
 function handleLinkUpdated(link) {
   console.log('Link updated:', link)
+  // Reload categories to update counts
+  if (categoryGrid.value) {
+    categoryGrid.value.loadSystemViewCounts()
+  }
 }
 
 function handleLinkAdded(link) {
   console.log('Link added:', link)
-  // Reload the link list
-  if (linkList.value) {
-    linkList.value.loadLinks()
+  // Reload the grid
+  if (categoryGrid.value) {
+    categoryGrid.value.loadCategories()
+    categoryGrid.value.loadSystemViewCounts()
   }
-  // Reload categories in case the link was categorized
+  // Reload sidebar categories
   if (categoryTree.value) {
     categoryTree.value.loadCategories()
   }
@@ -293,15 +240,14 @@ async function handleDeleteCategory(category) {
 
   try {
     await categoriesApi.deleteCategory(category.id)
-    // Reload categories
+    // Reload categories in grid and sidebar
+    if (categoryGrid.value) {
+      categoryGrid.value.loadCategories()
+    }
     if (categoryTree.value) {
       categoryTree.value.loadCategories()
     }
     loadCategories()
-    // If we were viewing this category, go back to all links
-    if (selectedCategoryId.value === category.id) {
-      selectView('all')
-    }
   } catch (error) {
     console.error('Failed to delete category:', error)
     alert('Failed to delete category. Please try again.')
@@ -311,6 +257,9 @@ async function handleDeleteCategory(category) {
 function handleCategorySaved(category) {
   console.log('Category saved:', category)
   // Reload categories
+  if (categoryGrid.value) {
+    categoryGrid.value.loadCategories()
+  }
   if (categoryTree.value) {
     categoryTree.value.loadCategories()
   }
@@ -324,9 +273,10 @@ function closeAddCategoryModal() {
 
 function handleImportCompleted(result) {
   console.log('Import completed:', result)
-  // Reload links and categories
-  if (linkList.value) {
-    linkList.value.loadLinks()
+  // Reload grid and categories
+  if (categoryGrid.value) {
+    categoryGrid.value.loadCategories()
+    categoryGrid.value.loadSystemViewCounts()
   }
   if (categoryTree.value) {
     categoryTree.value.loadCategories()
@@ -336,5 +286,57 @@ function handleImportCompleted(result) {
 </script>
 
 <style scoped>
-/* Component-specific styles */
+/* Sidebar Overlay */
+.sidebar-overlay-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+}
+
+.sidebar-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-panel {
+  position: relative;
+  width: 16rem; /* 64 * 4px = 256px = w-64 */
+  background-color: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  overflow-y: auto;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+  max-height: 100vh;
+}
+
+/* Sidebar transition */
+.sidebar-enter-active,
+.sidebar-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-enter-active .sidebar-panel,
+.sidebar-leave-active .sidebar-panel {
+  transition: transform 0.3s ease;
+}
+
+.sidebar-enter-from,
+.sidebar-leave-to {
+  opacity: 0;
+}
+
+.sidebar-enter-from .sidebar-panel {
+  transform: translateX(-100%);
+}
+
+.sidebar-leave-to .sidebar-panel {
+  transform: translateX(-100%);
+}
 </style>
