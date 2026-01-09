@@ -136,8 +136,8 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
         // DT contains either a folder (H3) or a link (A)
         if ($tagName === 'dt') {
-            $isFolder = false;
             $folderCategoryId = null;
+            $folderDl = null;
 
             // Check what's inside this DT
             foreach ($node->childNodes as $child) {
@@ -149,7 +149,6 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
 
                 // H3 = Folder/Category
                 if ($childTag === 'h3') {
-                    $isFolder = true;
                     $folderName = trim($child->textContent);
                     if (!empty($folderName)) {
                         $folderCategoryId = getOrCreateCategory($userId, $db, $folderName, $parentCategoryId);
@@ -173,10 +172,19 @@ function processBookmarkList($dlElement, $userId, $db, $parentCategoryId, &$stat
                         }
                     }
                 }
+
+                // DL = Folder contents (may be child of DT in some parsings)
+                elseif ($childTag === 'dl') {
+                    $folderDl = $child;
+                }
             }
 
-            // If this DT contained a folder (H3), the next sibling DL contains the folder's contents
-            if ($isFolder && $folderCategoryId !== null) {
+            // If we found a folder and its DL as a child, process it
+            if ($folderCategoryId !== null && $folderDl !== null) {
+                processBookmarkList($folderDl, $userId, $db, $folderCategoryId, $stats);
+            }
+            // Otherwise, if we found a folder, check for sibling DL
+            elseif ($folderCategoryId !== null) {
                 // Find the next element sibling (skip text nodes)
                 $nextSibling = $node->nextSibling;
                 while ($nextSibling && $nextSibling->nodeType !== XML_ELEMENT_NODE) {
