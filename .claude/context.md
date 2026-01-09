@@ -438,6 +438,39 @@ grep -r "/adlington/" . --exclude-dir=".git" --exclude-dir="node_modules"
 - Reference in HTML: `<link rel="icon" href="/favicon-32x32.png">`
 - Do NOT include old `adlington/` path prefix
 
+### Issue: Using axios Instead of apiClient (Adlinkton)
+
+**Problem:** Direct axios usage bypasses the routing interceptor needed for Hostinger's shared hosting environment.
+
+**Background:**
+- Adlinkton uses query parameter routing (`?endpoint=/path`) instead of traditional path routing
+- The `apiClient` in `frontend/src/api/client.js` has interceptors that convert paths to query parameters
+- Using `axios` directly bypasses these interceptors, causing network errors
+
+**❌ WRONG:**
+```javascript
+import axios from 'axios'
+
+// This will fail - bypasses routing interceptor
+const response = await axios.post('/api/import/bookmarks', formData)
+```
+
+**✅ CORRECT:**
+```javascript
+import apiClient from '@/api/client'
+
+// This works - uses configured routing
+const response = await apiClient.post('/import/bookmarks', formData)
+```
+
+**Rule:** In Adlinkton frontend components, **ALWAYS use `apiClient`**, never `axios` directly.
+
+**Why this matters:**
+- The hosting environment doesn't support `.htaccess` URL rewriting reliably
+- Query parameter routing is the workaround: `index.php?endpoint=/links`
+- The `apiClient` handles this conversion automatically
+- Direct axios calls result in `ERR_HTTP2_PROTOCOL_ERROR` or 404s
+
 ---
 
 ## Development Workflow
@@ -486,4 +519,4 @@ npm run dev
 
 ---
 
-**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines)
+**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines + Adlinkton apiClient requirement)
