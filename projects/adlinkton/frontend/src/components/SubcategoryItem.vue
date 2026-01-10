@@ -199,6 +199,7 @@ function handleDelete() {
 
 // Drag and Drop handlers
 function handleDragStart(event) {
+  console.log('SubcategoryItem: handleDragStart called for', props.subcategory.name)
   event.stopPropagation()
 
   // Collect all descendant IDs to prevent dropping into them
@@ -226,10 +227,12 @@ function handleDragStart(event) {
   event.target.style.opacity = '0.5'
 
   // Notify parent that dragging started
+  console.log('SubcategoryItem: Emitting drag-start')
   emit('drag-start')
 }
 
 function handleDragEnd(event) {
+  console.log('SubcategoryItem: handleDragEnd called')
   event.target.style.opacity = '1'
   isDragOver.value = false
 

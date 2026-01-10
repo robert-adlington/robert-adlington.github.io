@@ -286,9 +286,12 @@ function handleDeleteSubcategory(subcategory) {
 
 // Drag and Drop handlers
 function handleDragStart(event) {
+  console.log('CategoryCard: handleDragStart called for', props.category.name)
+
   // Don't allow dragging system views
   if (props.category.is_system) {
     event.preventDefault()
+    console.log('CategoryCard: Prevented drag of system view')
     return
   }
 
@@ -317,10 +320,12 @@ function handleDragStart(event) {
   event.target.style.opacity = '0.5'
 
   // Notify parent that dragging started
+  console.log('CategoryCard: Emitting drag-start')
   emit('drag-start')
 }
 
 function handleDragEnd(event) {
+  console.log('CategoryCard: handleDragEnd called')
   event.target.style.opacity = '1'
   isDragOver.value = false
 
