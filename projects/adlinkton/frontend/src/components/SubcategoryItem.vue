@@ -339,14 +339,19 @@ watch(isExpanded, (newVal) => {
   align-items: center;
   padding: 0.5rem 0.75rem;
   gap: 0.5rem;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
   min-height: 36px;
   min-width: 0;
   max-width: 100%;
+  cursor: grab;
 }
 
 .subcategory-header:hover {
   background-color: #f9fafb;
+}
+
+.subcategory-header:active {
+  cursor: grabbing;
 }
 
 .expand-btn {

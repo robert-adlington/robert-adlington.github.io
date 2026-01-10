@@ -6,9 +6,6 @@
       'drag-over': isDragOver && !category.is_system
     }"
     :data-card-id="category.id"
-    :draggable="!category.is_system"
-    @dragstart="handleDragStart"
-    @dragend="handleDragEnd"
     @dragover.prevent="handleDragOver"
     @dragleave="handleDragLeave"
     @drop.prevent="handleDrop"
@@ -17,6 +14,9 @@
     <div
       v-if="!isExpanded"
       class="card-collapsed"
+      :draggable="!category.is_system"
+      @dragstart="handleDragStart"
+      @dragend="handleDragEnd"
       @click="handleExpand"
     >
       <div class="card-icon">{{ categoryIcon }}</div>
@@ -26,7 +26,12 @@
     <!-- Expanded State -->
     <div v-else class="card-expanded">
       <!-- Header -->
-      <div class="card-expanded-header">
+      <div
+        class="card-expanded-header"
+        :draggable="!category.is_system"
+        @dragstart="handleDragStart"
+        @dragend="handleDragEnd"
+      >
         <div class="flex items-center gap-2 flex-1 min-w-0" style="max-width: 100%; overflow: hidden;">
           <span class="text-sm flex-shrink-0">▼</span>
           <span class="card-icon flex-shrink-0">{{ categoryIcon }}</span>
@@ -453,14 +458,18 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  cursor: grab;
   padding: 1rem;
   gap: 0.5rem;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
 }
 
 .card-collapsed:hover {
   background-color: #f9fafb;
+}
+
+.card-collapsed:active {
+  cursor: grabbing;
 }
 
 .card-icon {
@@ -495,6 +504,12 @@ onMounted(() => {
   gap: 0.5rem;
   min-width: 0;
   max-width: 100%;
+  cursor: grab;
+  transition: all 0.2s;
+}
+
+.card-expanded-header:active {
+  cursor: grabbing;
 }
 
 .action-btn {
