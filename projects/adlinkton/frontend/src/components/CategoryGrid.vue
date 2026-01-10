@@ -1,7 +1,16 @@
 <template>
   <div class="category-grid-container">
+    <div v-if="loading" class="text-center py-8 text-gray-500">
+      Loading categories...
+    </div>
+
+    <div v-else-if="allCards.length === 0" class="text-center py-8 text-gray-500">
+      No categories found. (Debug: categories={{ categories.length }}, systemViews={{ systemViews.length }})
+    </div>
+
     <!-- Grid with 4 columns - using CSS grid auto-flow -->
     <draggable
+      v-else
       v-model="allCards"
       class="category-grid"
       item-key="id"
@@ -31,10 +40,13 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { VueDraggableNext as draggable } from 'vue-draggable-next'
+import { VueDraggableNext } from 'vue-draggable-next'
 import CategoryCard from './CategoryCard.vue'
 import { categoriesApi } from '@/api/categories'
 import { linksApi } from '@/api/links'
+
+// Register draggable component
+const draggable = VueDraggableNext
 
 const emit = defineEmits(['category-selected', 'edit-category', 'delete-category', 'link-updated'])
 
@@ -129,6 +141,7 @@ const allCards = ref([])
 
 // Watch categories and system views, then rebuild allCards
 watch([categories, systemViews], () => {
+  console.log('CategoryGrid: Watcher fired, categories:', categories.value.length, 'systemViews:', systemViews.value.length)
   const cards = []
 
   // Add system views
@@ -152,6 +165,7 @@ watch([categories, systemViews], () => {
   })
 
   allCards.value = cards
+  console.log('CategoryGrid: allCards updated, total cards:', allCards.value.length)
 }, { immediate: true })
 
 // Methods
