@@ -312,10 +312,13 @@ function handleLinkUpdated(link) {
 
 // Drag state tracking from child components
 function handleDragStart() {
+  console.log('CategoryGrid: handleDragStart called')
   isDragging.value = true
+  console.log('CategoryGrid: isDragging set to', isDragging.value)
 }
 
 function handleDragEnd() {
+  console.log('CategoryGrid: handleDragEnd called')
   isDragging.value = false
   columnDragOver.value = null
 }
