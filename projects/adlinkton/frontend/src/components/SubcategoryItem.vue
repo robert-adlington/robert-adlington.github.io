@@ -8,7 +8,11 @@
       >
         {{ isExpanded ? '▼' : '▶' }}
       </button>
-      <span class="subcategory-name" @click="toggleExpand">
+      <span
+        class="subcategory-name"
+        @click="toggleExpand"
+        :title="subcategory.name + ' (' + recursiveLinkCount + ')'"
+      >
         {{ subcategory.name }} ({{ recursiveLinkCount }})
       </span>
       <button
@@ -204,6 +208,8 @@ watch(isExpanded, (newVal) => {
 <style scoped>
 .subcategory-item {
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .subcategory-header {
@@ -213,6 +219,8 @@ watch(isExpanded, (newVal) => {
   gap: 0.5rem;
   transition: background-color 0.2s;
   min-height: 36px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .subcategory-header:hover {
@@ -238,6 +246,7 @@ watch(isExpanded, (newVal) => {
   color: #374151;
   cursor: pointer;
   min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -270,6 +279,9 @@ watch(isExpanded, (newVal) => {
   padding: 0.5rem 0.75rem;
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 
 .info-panel-header {

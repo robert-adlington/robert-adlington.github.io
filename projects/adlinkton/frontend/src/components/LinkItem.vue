@@ -142,6 +142,9 @@ function getExtraCategoriesTitle() {
   padding: 0.5rem 0.75rem;
   min-height: 36px;
   transition: background-color 0.2s;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .link-item:hover {

@@ -14,10 +14,10 @@
     <div v-else class="card-expanded">
       <!-- Header -->
       <div class="card-expanded-header">
-        <div class="flex items-center gap-2 flex-1 min-w-0">
-          <span class="text-sm">▼</span>
-          <span class="card-icon">{{ categoryIcon }}</span>
-          <span class="card-title truncate">{{ category.name }} ({{ totalLinkCount }})</span>
+        <div class="flex items-center gap-2 flex-1 min-w-0" style="max-width: 100%; overflow: hidden;">
+          <span class="text-sm flex-shrink-0">▼</span>
+          <span class="card-icon flex-shrink-0">{{ categoryIcon }}</span>
+          <span class="flex-1 min-w-0 truncate text-sm font-medium" :title="category.name + ' (' + totalLinkCount + ')'">{{ category.name }} ({{ totalLinkCount }})</span>
         </div>
         <div class="flex items-center gap-2">
           <button
@@ -334,6 +334,10 @@ onMounted(() => {
   font-weight: 500;
   text-align: center;
   color: #374151;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* Expanded State */
@@ -351,6 +355,8 @@ onMounted(() => {
   border-bottom: 1px solid #e5e7eb;
   background-color: #f9fafb;
   gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .action-btn {
@@ -374,6 +380,9 @@ onMounted(() => {
   background-color: #fffbeb;
   border-bottom: 1px solid #fcd34d;
   padding: 0.75rem 1rem;
+  max-width: 100%;
+  overflow: hidden;
+  word-wrap: break-word;
 }
 
 .info-panel-header {

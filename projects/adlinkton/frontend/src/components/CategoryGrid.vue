@@ -254,6 +254,8 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Responsive adjustments */
