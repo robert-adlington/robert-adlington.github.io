@@ -8,33 +8,22 @@
       No categories found. (Debug: categories={{ categories.length }}, systemViews={{ systemViews.length }})
     </div>
 
-    <!-- Grid with 4 columns - using CSS grid auto-flow -->
-    <draggable
-      v-else
-      v-model="allCards"
-      class="category-grid"
-      item-key="id"
-      :animation="200"
-      ghost-class="ghost-card"
-      chosen-class="chosen-card"
-      drag-class="drag-card"
-      @end="handleDragEnd"
-    >
-      <template #item="{element: card}">
-        <CategoryCard
-          :key="card.type + '-' + card.id"
-          :category="card.data"
-          :is-expanded="expandedIds.has(card.id)"
-          :category-map="categoryMap"
-          @expand="handleExpand(card.id)"
-          @collapse="handleCollapse(card.id)"
-          @edit="handleEdit"
-          @delete="handleDelete"
-          @link-updated="handleLinkUpdated"
-          @category-moved="handleCategoryMoved"
-        />
-      </template>
-    </draggable>
+    <!-- TEMPORARY: Direct rendering without draggable to test -->
+    <div v-else class="category-grid">
+      <CategoryCard
+        v-for="card in allCards"
+        :key="card.type + '-' + card.id"
+        :category="card.data"
+        :is-expanded="expandedIds.has(card.id)"
+        :category-map="categoryMap"
+        @expand="handleExpand(card.id)"
+        @collapse="handleCollapse(card.id)"
+        @edit="handleEdit"
+        @delete="handleDelete"
+        @link-updated="handleLinkUpdated"
+        @category-moved="handleCategoryMoved"
+      />
+    </div>
   </div>
 </template>
 
