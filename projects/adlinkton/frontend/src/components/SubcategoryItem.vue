@@ -224,7 +224,7 @@ function handleDragStart(event) {
   }))
 
   // Add a visual indicator
-  event.target.style.opacity = '0.5'
+  event.currentTarget.style.opacity = '0.5'
 
   // Notify parent that dragging started
   console.log('SubcategoryItem: Emitting drag-start')
@@ -233,7 +233,7 @@ function handleDragStart(event) {
 
 function handleDragEnd(event) {
   console.log('SubcategoryItem: handleDragEnd called')
-  event.target.style.opacity = '1'
+  event.currentTarget.style.opacity = '1'
   isDragOver.value = false
 
   // Notify parent that dragging ended
