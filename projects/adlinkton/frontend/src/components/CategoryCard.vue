@@ -99,6 +99,8 @@
               @link-click="handleLinkClick"
               @toggle-favorite="handleToggleFavorite"
               @category-moved="$emit('category-moved', $event)"
+              @drag-start="$emit('drag-start')"
+              @drag-end="$emit('drag-end')"
             />
           </div>
 

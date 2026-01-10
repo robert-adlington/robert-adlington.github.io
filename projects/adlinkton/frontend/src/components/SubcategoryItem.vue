@@ -73,6 +73,8 @@
           @link-click="$emit('link-click', $event)"
           @toggle-favorite="$emit('toggle-favorite', $event)"
           @category-moved="$emit('category-moved', $event)"
+          @drag-start="$emit('drag-start')"
+          @drag-end="$emit('drag-end')"
         />
 
         <!-- Link -->
@@ -118,7 +120,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['toggle', 'edit', 'delete', 'link-click', 'toggle-favorite', 'category-moved'])
+const emit = defineEmits(['toggle', 'edit', 'delete', 'link-click', 'toggle-favorite', 'category-moved', 'drag-start', 'drag-end'])
 
 // State
 const showInfoPanel = ref(false)
@@ -222,11 +224,17 @@ function handleDragStart(event) {
 
   // Add a visual indicator
   event.target.style.opacity = '0.5'
+
+  // Notify parent that dragging started
+  emit('drag-start')
 }
 
 function handleDragEnd(event) {
   event.target.style.opacity = '1'
   isDragOver.value = false
+
+  // Notify parent that dragging ended
+  emit('drag-end')
 }
 
 function handleDragOver(event) {
