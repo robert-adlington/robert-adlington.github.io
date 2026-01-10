@@ -198,12 +198,26 @@ function handleDelete() {
 // Drag and Drop handlers
 function handleDragStart(event) {
   event.stopPropagation()
+
+  // Collect all descendant IDs to prevent dropping into them
+  const descendantIds = []
+  function collectDescendants(cat) {
+    if (cat.children && cat.children.length > 0) {
+      cat.children.forEach(child => {
+        descendantIds.push(child.id)
+        collectDescendants(child)
+      })
+    }
+  }
+  collectDescendants(props.subcategory)
+
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('application/json', JSON.stringify({
     type: 'category',
     id: props.subcategory.id,
     name: props.subcategory.name,
-    currentParentId: props.subcategory.parent_id || null
+    currentParentId: props.subcategory.parent_id || null,
+    descendantIds: descendantIds
   }))
 
   // Add a visual indicator
@@ -244,7 +258,8 @@ async function handleDrop(event) {
     }
 
     // Don't drop a parent onto its own descendant
-    if (isDescendant(props.subcategory, data.id)) {
+    // Check if the drop target (this subcategory) is in the dragged category's descendant list
+    if (data.descendantIds && data.descendantIds.includes(props.subcategory.id)) {
       alert('Cannot move a category into its own descendant')
       return
     }

@@ -20,6 +20,8 @@
           @delete="handleDelete"
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
+          @drag-start="handleDragStart"
+          @drag-end="handleDragEnd"
         />
         <!-- Drop zone for moving to root -->
         <div
@@ -54,6 +56,8 @@
           @delete="handleDelete"
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
+          @drag-start="handleDragStart"
+          @drag-end="handleDragEnd"
         />
         <!-- Drop zone for moving to root -->
         <div
@@ -88,6 +92,8 @@
           @delete="handleDelete"
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
+          @drag-start="handleDragStart"
+          @drag-end="handleDragEnd"
         />
         <!-- Drop zone for moving to root -->
         <div
@@ -122,6 +128,8 @@
           @delete="handleDelete"
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
+          @drag-start="handleDragStart"
+          @drag-end="handleDragEnd"
         />
         <!-- Drop zone for moving to root -->
         <div
@@ -142,7 +150,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import CategoryCard from './CategoryCard.vue'
 import { categoriesApi } from '@/api/categories'
 import { linksApi } from '@/api/links'
@@ -164,16 +172,6 @@ onMounted(async () => {
     loadCategories(),
     loadSystemViewCounts()
   ])
-
-  // Listen for drag events to track dragging state
-  document.addEventListener('dragstart', handleGlobalDragStart)
-  document.addEventListener('dragend', handleGlobalDragEnd)
-})
-
-// Cleanup listeners on unmount
-onUnmounted(() => {
-  document.removeEventListener('dragstart', handleGlobalDragStart)
-  document.removeEventListener('dragend', handleGlobalDragEnd)
 })
 
 // Load categories
@@ -312,16 +310,12 @@ function handleLinkUpdated(link) {
   emit('link-updated', link)
 }
 
-// Global drag state tracking
-function handleGlobalDragStart(event) {
-  // Only track if it's a category drag
-  const data = event.dataTransfer.types.includes('application/json')
-  if (data) {
-    isDragging.value = true
-  }
+// Drag state tracking from child components
+function handleDragStart() {
+  isDragging.value = true
 }
 
-function handleGlobalDragEnd(event) {
+function handleDragEnd() {
   isDragging.value = false
   columnDragOver.value = null
 }
