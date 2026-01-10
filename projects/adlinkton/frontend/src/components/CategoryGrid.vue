@@ -5,10 +5,8 @@
       <!-- Column 1 -->
       <div
         class="grid-column"
-        :class="{ 'column-drag-over': columnDragOver === 1 }"
         @dragover.prevent="handleColumnDragOver($event, 1)"
         @dragleave="handleColumnDragLeave"
-        @drop.prevent="handleColumnDrop($event, 1)"
       >
         <CategoryCard
           v-for="card in column1Cards"
@@ -23,15 +21,26 @@
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
         />
+        <!-- Drop zone for moving to root -->
+        <div
+          v-show="isDragging"
+          class="drop-zone"
+          :class="{ 'drop-zone-active': columnDragOver === 1 }"
+          @dragover.prevent="handleDropZoneDragOver($event, 1)"
+          @dragleave="handleDropZoneDragLeave"
+          @drop.prevent="handleDropZoneDrop($event, 1)"
+        >
+          <div class="drop-zone-content">
+            Drop here to move to root level
+          </div>
+        </div>
       </div>
 
       <!-- Column 2 -->
       <div
         class="grid-column"
-        :class="{ 'column-drag-over': columnDragOver === 2 }"
         @dragover.prevent="handleColumnDragOver($event, 2)"
         @dragleave="handleColumnDragLeave"
-        @drop.prevent="handleColumnDrop($event, 2)"
       >
         <CategoryCard
           v-for="card in column2Cards"
@@ -46,15 +55,26 @@
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
         />
+        <!-- Drop zone for moving to root -->
+        <div
+          v-show="isDragging"
+          class="drop-zone"
+          :class="{ 'drop-zone-active': columnDragOver === 2 }"
+          @dragover.prevent="handleDropZoneDragOver($event, 2)"
+          @dragleave="handleDropZoneDragLeave"
+          @drop.prevent="handleDropZoneDrop($event, 2)"
+        >
+          <div class="drop-zone-content">
+            Drop here to move to root level
+          </div>
+        </div>
       </div>
 
       <!-- Column 3 -->
       <div
         class="grid-column"
-        :class="{ 'column-drag-over': columnDragOver === 3 }"
         @dragover.prevent="handleColumnDragOver($event, 3)"
         @dragleave="handleColumnDragLeave"
-        @drop.prevent="handleColumnDrop($event, 3)"
       >
         <CategoryCard
           v-for="card in column3Cards"
@@ -69,15 +89,26 @@
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
         />
+        <!-- Drop zone for moving to root -->
+        <div
+          v-show="isDragging"
+          class="drop-zone"
+          :class="{ 'drop-zone-active': columnDragOver === 3 }"
+          @dragover.prevent="handleDropZoneDragOver($event, 3)"
+          @dragleave="handleDropZoneDragLeave"
+          @drop.prevent="handleDropZoneDrop($event, 3)"
+        >
+          <div class="drop-zone-content">
+            Drop here to move to root level
+          </div>
+        </div>
       </div>
 
       <!-- Column 4 -->
       <div
         class="grid-column"
-        :class="{ 'column-drag-over': columnDragOver === 4 }"
         @dragover.prevent="handleColumnDragOver($event, 4)"
         @dragleave="handleColumnDragLeave"
-        @drop.prevent="handleColumnDrop($event, 4)"
       >
         <CategoryCard
           v-for="card in column4Cards"
@@ -92,13 +123,26 @@
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
         />
+        <!-- Drop zone for moving to root -->
+        <div
+          v-show="isDragging"
+          class="drop-zone"
+          :class="{ 'drop-zone-active': columnDragOver === 4 }"
+          @dragover.prevent="handleDropZoneDragOver($event, 4)"
+          @dragleave="handleDropZoneDragLeave"
+          @drop.prevent="handleDropZoneDrop($event, 4)"
+        >
+          <div class="drop-zone-content">
+            Drop here to move to root level
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import CategoryCard from './CategoryCard.vue'
 import { categoriesApi } from '@/api/categories'
 import { linksApi } from '@/api/links'
@@ -112,6 +156,7 @@ const expandedIds = ref(new Set())
 const categoryMap = ref({})
 const loading = ref(true)
 const columnDragOver = ref(null)
+const isDragging = ref(false)
 
 // Load data on mount
 onMounted(async () => {
@@ -119,6 +164,16 @@ onMounted(async () => {
     loadCategories(),
     loadSystemViewCounts()
   ])
+
+  // Listen for drag events to track dragging state
+  document.addEventListener('dragstart', handleGlobalDragStart)
+  document.addEventListener('dragend', handleGlobalDragEnd)
+})
+
+// Cleanup listeners on unmount
+onUnmounted(() => {
+  document.removeEventListener('dragstart', handleGlobalDragStart)
+  document.removeEventListener('dragend', handleGlobalDragEnd)
 })
 
 // Load categories
@@ -257,31 +312,42 @@ function handleLinkUpdated(link) {
   emit('link-updated', link)
 }
 
-// Drag and Drop handlers for columns (to move to root)
-function handleColumnDragOver(event, columnNumber) {
-  // Check if we're dragging over empty space (not over a card)
-  const target = event.target
-  if (target.classList.contains('grid-column')) {
-    columnDragOver.value = columnNumber
-    event.dataTransfer.dropEffect = 'move'
+// Global drag state tracking
+function handleGlobalDragStart(event) {
+  // Only track if it's a category drag
+  const data = event.dataTransfer.types.includes('application/json')
+  if (data) {
+    isDragging.value = true
   }
+}
+
+function handleGlobalDragEnd(event) {
+  isDragging.value = false
+  columnDragOver.value = null
+}
+
+// Drag and Drop handlers for columns (general column drag over)
+function handleColumnDragOver(event, columnNumber) {
+  // This runs for the entire column area
+  event.dataTransfer.dropEffect = 'move'
 }
 
 function handleColumnDragLeave(event) {
-  const target = event.target
-  if (target.classList.contains('grid-column')) {
-    columnDragOver.value = null
-  }
+  // Handle at drop zone level
 }
 
-async function handleColumnDrop(event, columnNumber) {
-  columnDragOver.value = null
+// Drop zone specific handlers
+function handleDropZoneDragOver(event, columnNumber) {
+  columnDragOver.value = columnNumber
+  event.dataTransfer.dropEffect = 'move'
+}
 
-  // Only handle if dropped directly on the column (not on a card)
-  const target = event.target
-  if (!target.classList.contains('grid-column')) {
-    return
-  }
+function handleDropZoneDragLeave(event) {
+  columnDragOver.value = null
+}
+
+async function handleDropZoneDrop(event, columnNumber) {
+  columnDragOver.value = null
 
   try {
     const data = JSON.parse(event.dataTransfer.getData('application/json'))
@@ -293,7 +359,7 @@ async function handleColumnDrop(event, columnNumber) {
       oldParentId: data.currentParentId
     })
   } catch (error) {
-    console.error('Error handling column drop:', error)
+    console.error('Error handling drop zone drop:', error)
   }
 }
 
@@ -362,11 +428,35 @@ defineExpose({
   }
 }
 
-/* Drag and Drop visual feedback for columns */
-.grid-column.column-drag-over {
-  background-color: #eff6ff;
+/* Drop Zone */
+.drop-zone {
+  min-height: 120px;
+  border: 2px dashed #d1d5db;
   border-radius: 8px;
-  box-shadow: inset 0 0 0 2px #3b82f6;
-  opacity: 0.8;
+  background-color: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.drop-zone-content {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+  padding: 1rem;
+  pointer-events: none;
+}
+
+.drop-zone-active {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.drop-zone-active .drop-zone-content {
+  color: #3b82f6;
 }
 </style>
