@@ -8,8 +8,15 @@
       No categories found. (Debug: categories={{ categories.length }}, systemViews={{ systemViews.length }})
     </div>
 
-    <!-- TEMPORARY: Direct rendering without draggable to test -->
-    <div v-else class="category-grid">
+    <!-- Grid with draggable cards -->
+    <VueDraggableNext
+      v-else
+      v-model="allCards"
+      class="category-grid"
+      :animation="200"
+      ghost-class="ghost-card"
+      @change="handleDragChange"
+    >
       <CategoryCard
         v-for="card in allCards"
         :key="card.type + '-' + card.id"
@@ -23,7 +30,7 @@
         @link-updated="handleLinkUpdated"
         @category-moved="handleCategoryMoved"
       />
-    </div>
+    </VueDraggableNext>
   </div>
 </template>
 
@@ -33,9 +40,6 @@ import { VueDraggableNext } from 'vue-draggable-next'
 import CategoryCard from './CategoryCard.vue'
 import { categoriesApi } from '@/api/categories'
 import { linksApi } from '@/api/links'
-
-// Register draggable component
-const draggable = VueDraggableNext
 
 const emit = defineEmits(['category-selected', 'edit-category', 'delete-category', 'link-updated'])
 
@@ -178,11 +182,11 @@ function handleLinkUpdated(link) {
   emit('link-updated', link)
 }
 
-// Handle drag end - for now just reorder, no parent changes at root level
-function handleDragEnd(event) {
-  // Draggable automatically updates allCards.value
+// Handle drag change
+function handleDragChange(event) {
+  console.log('Drag change:', event)
+  // allCards is automatically updated by v-model
   // We could save the new order to the database here if needed
-  console.log('Drag ended:', event)
 }
 
 // Handle category moved (from CategoryCard when dropping on another category)
