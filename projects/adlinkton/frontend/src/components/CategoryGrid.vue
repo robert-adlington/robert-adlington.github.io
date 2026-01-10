@@ -1,15 +1,18 @@
 <template>
   <div class="category-grid-container">
-    <!-- Grid with 4 columns -->
-    <div class="category-grid">
-      <!-- Column 1 -->
-      <div
-        class="grid-column"
-        @dragover.prevent="handleColumnDragOver($event, 1)"
-        @dragleave="handleColumnDragLeave"
-      >
+    <!-- Grid with 4 columns - using CSS grid auto-flow -->
+    <draggable
+      v-model="allCards"
+      class="category-grid"
+      item-key="id"
+      :animation="200"
+      ghost-class="ghost-card"
+      chosen-class="chosen-card"
+      drag-class="drag-card"
+      @end="handleDragEnd"
+    >
+      <template #item="{element: card}">
         <CategoryCard
-          v-for="card in column1Cards"
           :key="card.type + '-' + card.id"
           :category="card.data"
           :is-expanded="expandedIds.has(card.id)"
@@ -20,137 +23,15 @@
           @delete="handleDelete"
           @link-updated="handleLinkUpdated"
           @category-moved="handleCategoryMoved"
-          @drag-start="handleDragStart"
-          @drag-end="handleDragEnd"
         />
-        <!-- Drop zone for moving to root -->
-        <div
-          v-show="isDragging"
-          class="drop-zone"
-          :class="{ 'drop-zone-active': columnDragOver === 1 }"
-          @dragover.prevent="handleDropZoneDragOver($event, 1)"
-          @dragleave="handleDropZoneDragLeave"
-          @drop.prevent="handleDropZoneDrop($event, 1)"
-        >
-          <div class="drop-zone-content">
-            Drop here to move to root level
-          </div>
-        </div>
-      </div>
-
-      <!-- Column 2 -->
-      <div
-        class="grid-column"
-        @dragover.prevent="handleColumnDragOver($event, 2)"
-        @dragleave="handleColumnDragLeave"
-      >
-        <CategoryCard
-          v-for="card in column2Cards"
-          :key="card.type + '-' + card.id"
-          :category="card.data"
-          :is-expanded="expandedIds.has(card.id)"
-          :category-map="categoryMap"
-          @expand="handleExpand(card.id)"
-          @collapse="handleCollapse(card.id)"
-          @edit="handleEdit"
-          @delete="handleDelete"
-          @link-updated="handleLinkUpdated"
-          @category-moved="handleCategoryMoved"
-          @drag-start="handleDragStart"
-          @drag-end="handleDragEnd"
-        />
-        <!-- Drop zone for moving to root -->
-        <div
-          v-show="isDragging"
-          class="drop-zone"
-          :class="{ 'drop-zone-active': columnDragOver === 2 }"
-          @dragover.prevent="handleDropZoneDragOver($event, 2)"
-          @dragleave="handleDropZoneDragLeave"
-          @drop.prevent="handleDropZoneDrop($event, 2)"
-        >
-          <div class="drop-zone-content">
-            Drop here to move to root level
-          </div>
-        </div>
-      </div>
-
-      <!-- Column 3 -->
-      <div
-        class="grid-column"
-        @dragover.prevent="handleColumnDragOver($event, 3)"
-        @dragleave="handleColumnDragLeave"
-      >
-        <CategoryCard
-          v-for="card in column3Cards"
-          :key="card.type + '-' + card.id"
-          :category="card.data"
-          :is-expanded="expandedIds.has(card.id)"
-          :category-map="categoryMap"
-          @expand="handleExpand(card.id)"
-          @collapse="handleCollapse(card.id)"
-          @edit="handleEdit"
-          @delete="handleDelete"
-          @link-updated="handleLinkUpdated"
-          @category-moved="handleCategoryMoved"
-          @drag-start="handleDragStart"
-          @drag-end="handleDragEnd"
-        />
-        <!-- Drop zone for moving to root -->
-        <div
-          v-show="isDragging"
-          class="drop-zone"
-          :class="{ 'drop-zone-active': columnDragOver === 3 }"
-          @dragover.prevent="handleDropZoneDragOver($event, 3)"
-          @dragleave="handleDropZoneDragLeave"
-          @drop.prevent="handleDropZoneDrop($event, 3)"
-        >
-          <div class="drop-zone-content">
-            Drop here to move to root level
-          </div>
-        </div>
-      </div>
-
-      <!-- Column 4 -->
-      <div
-        class="grid-column"
-        @dragover.prevent="handleColumnDragOver($event, 4)"
-        @dragleave="handleColumnDragLeave"
-      >
-        <CategoryCard
-          v-for="card in column4Cards"
-          :key="card.type + '-' + card.id"
-          :category="card.data"
-          :is-expanded="expandedIds.has(card.id)"
-          :category-map="categoryMap"
-          @expand="handleExpand(card.id)"
-          @collapse="handleCollapse(card.id)"
-          @edit="handleEdit"
-          @delete="handleDelete"
-          @link-updated="handleLinkUpdated"
-          @category-moved="handleCategoryMoved"
-          @drag-start="handleDragStart"
-          @drag-end="handleDragEnd"
-        />
-        <!-- Drop zone for moving to root -->
-        <div
-          v-show="isDragging"
-          class="drop-zone"
-          :class="{ 'drop-zone-active': columnDragOver === 4 }"
-          @dragover.prevent="handleDropZoneDragOver($event, 4)"
-          @dragleave="handleDropZoneDragLeave"
-          @drop.prevent="handleDropZoneDrop($event, 4)"
-        >
-          <div class="drop-zone-content">
-            Drop here to move to root level
-          </div>
-        </div>
-      </div>
-    </div>
+      </template>
+    </draggable>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { VueDraggableNext as draggable } from 'vue-draggable-next'
 import CategoryCard from './CategoryCard.vue'
 import { categoriesApi } from '@/api/categories'
 import { linksApi } from '@/api/links'
@@ -163,8 +44,6 @@ const systemViews = ref([])
 const expandedIds = ref(new Set())
 const categoryMap = ref({})
 const loading = ref(true)
-const columnDragOver = ref(null)
-const isDragging = ref(false)
 
 // Load data on mount
 onMounted(async () => {
@@ -218,7 +97,8 @@ async function loadSystemViewCounts() {
         name: 'Inbox',
         icon: '📥',
         link_count: inboxRes.links?.length || 0,
-        description: 'Uncategorized links'
+        description: 'Uncategorized links',
+        is_system: true
       },
       {
         id: 'favorites',
@@ -226,7 +106,8 @@ async function loadSystemViewCounts() {
         name: 'Favorites',
         icon: '⭐',
         link_count: favoritesRes.links?.length || 0,
-        description: 'Your favorite links'
+        description: 'Your favorite links',
+        is_system: true
       },
       {
         id: 'all',
@@ -234,7 +115,8 @@ async function loadSystemViewCounts() {
         name: 'All Links',
         icon: '🔗',
         link_count: allLinksRes.links?.length || 0,
-        description: 'All your links'
+        description: 'All your links',
+        is_system: true
       }
     ]
   } catch (error) {
@@ -242,8 +124,11 @@ async function loadSystemViewCounts() {
   }
 }
 
-// Combine system views and categories into cards
-const allCards = computed(() => {
+// Combine system views and categories into cards (now a ref, not computed)
+const allCards = ref([])
+
+// Watch categories and system views, then rebuild allCards
+watch([categories, systemViews], () => {
   const cards = []
 
   // Add system views
@@ -266,28 +151,8 @@ const allCards = computed(() => {
     })
   })
 
-  return cards
-})
-
-// Number of columns (can be made reactive based on screen size)
-const numColumns = ref(4)
-
-// Distribute cards across columns
-const column1Cards = computed(() => {
-  return allCards.value.filter((_, index) => index % numColumns.value === 0)
-})
-
-const column2Cards = computed(() => {
-  return allCards.value.filter((_, index) => index % numColumns.value === 1)
-})
-
-const column3Cards = computed(() => {
-  return allCards.value.filter((_, index) => index % numColumns.value === 2)
-})
-
-const column4Cards = computed(() => {
-  return allCards.value.filter((_, index) => index % numColumns.value === 3)
-})
+  allCards.value = cards
+}, { immediate: true })
 
 // Methods
 function handleExpand(cardId) {
@@ -310,56 +175,14 @@ function handleLinkUpdated(link) {
   emit('link-updated', link)
 }
 
-// Drag state tracking from child components
-function handleDragStart() {
-  console.log('CategoryGrid: handleDragStart called')
-  isDragging.value = true
-  console.log('CategoryGrid: isDragging set to', isDragging.value)
+// Handle drag end - for now just reorder, no parent changes at root level
+function handleDragEnd(event) {
+  // Draggable automatically updates allCards.value
+  // We could save the new order to the database here if needed
+  console.log('Drag ended:', event)
 }
 
-function handleDragEnd() {
-  console.log('CategoryGrid: handleDragEnd called')
-  isDragging.value = false
-  columnDragOver.value = null
-}
-
-// Drag and Drop handlers for columns (general column drag over)
-function handleColumnDragOver(event, columnNumber) {
-  // This runs for the entire column area
-  event.dataTransfer.dropEffect = 'move'
-}
-
-function handleColumnDragLeave(event) {
-  // Handle at drop zone level
-}
-
-// Drop zone specific handlers
-function handleDropZoneDragOver(event, columnNumber) {
-  columnDragOver.value = columnNumber
-  event.dataTransfer.dropEffect = 'move'
-}
-
-function handleDropZoneDragLeave(event) {
-  columnDragOver.value = null
-}
-
-async function handleDropZoneDrop(event, columnNumber) {
-  columnDragOver.value = null
-
-  try {
-    const data = JSON.parse(event.dataTransfer.getData('application/json'))
-
-    // Move to root (null parent)
-    await handleCategoryMoved({
-      categoryId: data.id,
-      newParentId: null,
-      oldParentId: data.currentParentId
-    })
-  } catch (error) {
-    console.error('Error handling drop zone drop:', error)
-  }
-}
-
+// Handle category moved (from CategoryCard when dropping on another category)
 async function handleCategoryMoved({ categoryId, newParentId, oldParentId }) {
   try {
     // Update category parent via API
@@ -398,14 +221,6 @@ defineExpose({
   align-items: start;
 }
 
-.grid-column {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  min-width: 0;
-  max-width: 100%;
-}
-
 /* Responsive adjustments */
 @media (max-width: 1280px) {
   .category-grid {
@@ -425,35 +240,19 @@ defineExpose({
   }
 }
 
-/* Drop Zone */
-.drop-zone {
-  min-height: 120px;
-  border: 2px dashed #d1d5db;
-  border-radius: 8px;
-  background-color: #f9fafb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  cursor: pointer;
+/* Draggable ghost/chosen/drag states */
+.ghost-card {
+  opacity: 0.4;
+  background-color: #e0e7ff;
 }
 
-.drop-zone-content {
-  color: #9ca3af;
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-align: center;
-  padding: 1rem;
-  pointer-events: none;
+.chosen-card {
+  opacity: 0.9;
+  border: 2px solid #3b82f6;
 }
 
-.drop-zone-active {
-  border-color: #3b82f6;
-  background-color: #eff6ff;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.drop-zone-active .drop-zone-content {
-  color: #3b82f6;
+.drag-card {
+  opacity: 0.5;
+  transform: rotate(2deg);
 }
 </style>

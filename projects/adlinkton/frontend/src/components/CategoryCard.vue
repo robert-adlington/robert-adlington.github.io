@@ -2,21 +2,14 @@
   <div
     class="category-card"
     :class="{
-      'expanded': isExpanded,
-      'drag-over': isDragOver && !category.is_system
+      'expanded': isExpanded
     }"
     :data-card-id="category.id"
-    @dragover.prevent="handleDragOver"
-    @dragleave="handleDragLeave"
-    @drop.prevent="handleDrop"
   >
     <!-- Collapsed State -->
     <div
       v-if="!isExpanded"
       class="card-collapsed"
-      :draggable="!category.is_system"
-      @dragstart="handleDragStart"
-      @dragend="handleDragEnd"
       @click="handleExpand"
     >
       <div class="card-icon">{{ categoryIcon }}</div>
@@ -26,12 +19,7 @@
     <!-- Expanded State -->
     <div v-else class="card-expanded">
       <!-- Header -->
-      <div
-        class="card-expanded-header"
-        :draggable="!category.is_system"
-        @dragstart="handleDragStart"
-        @dragend="handleDragEnd"
-      >
+      <div class="card-expanded-header">
         <div class="flex items-center gap-2 flex-1 min-w-0" style="max-width: 100%; overflow: hidden;">
           <span class="text-sm flex-shrink-0">▼</span>
           <span class="card-icon flex-shrink-0">{{ categoryIcon }}</span>
@@ -104,8 +92,6 @@
               @link-click="handleLinkClick"
               @toggle-favorite="handleToggleFavorite"
               @category-moved="$emit('category-moved', $event)"
-              @drag-start="$emit('drag-start')"
-              @drag-end="$emit('drag-end')"
             />
           </div>
 
@@ -151,14 +137,13 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['expand', 'collapse', 'edit', 'delete', 'link-updated', 'category-moved', 'drag-start', 'drag-end'])
+const emit = defineEmits(['expand', 'collapse', 'edit', 'delete', 'link-updated', 'category-moved'])
 
 // State
 const showInfoPanel = ref(false)
 const categoryLinks = ref([])
 const expandedSubcategoryIds = ref(new Set())
 const loading = ref(false)
-const isDragOver = ref(false)
 
 // Computed
 const categoryIcon = computed(() => {
@@ -289,127 +274,6 @@ function handleDeleteSubcategory(subcategory) {
   emit('delete', subcategory)
 }
 
-// Drag and Drop handlers
-function handleDragStart(event) {
-  console.log('CategoryCard: handleDragStart called for', props.category.name)
-
-  // Don't allow dragging system views
-  if (props.category.is_system) {
-    event.preventDefault()
-    console.log('CategoryCard: Prevented drag of system view')
-    return
-  }
-
-  // Collect all descendant IDs to prevent dropping into them
-  const descendantIds = []
-  function collectDescendants(cat) {
-    if (cat.children && cat.children.length > 0) {
-      cat.children.forEach(child => {
-        descendantIds.push(child.id)
-        collectDescendants(child)
-      })
-    }
-  }
-  collectDescendants(props.category)
-
-  event.dataTransfer.effectAllowed = 'move'
-  event.dataTransfer.setData('application/json', JSON.stringify({
-    type: 'category',
-    id: props.category.id,
-    name: props.category.name,
-    currentParentId: props.category.parent_id || null,
-    descendantIds: descendantIds
-  }))
-
-  // Add a visual indicator
-  event.currentTarget.style.opacity = '0.5'
-
-  // Notify parent that dragging started
-  console.log('CategoryCard: Emitting drag-start')
-  emit('drag-start')
-}
-
-function handleDragEnd(event) {
-  console.log('CategoryCard: handleDragEnd called')
-  event.currentTarget.style.opacity = '1'
-  isDragOver.value = false
-
-  // Notify parent that dragging ended
-  emit('drag-end')
-}
-
-function handleDragOver(event) {
-  // Don't allow dropping on system views
-  if (props.category.is_system) {
-    event.dataTransfer.dropEffect = 'none'
-    return
-  }
-
-  const data = event.dataTransfer.types.includes('application/json')
-  if (data) {
-    event.dataTransfer.dropEffect = 'move'
-    isDragOver.value = true
-  }
-}
-
-function handleDragLeave(event) {
-  // Only clear if we're actually leaving the card
-  if (event.target === event.currentTarget) {
-    isDragOver.value = false
-  }
-}
-
-async function handleDrop(event) {
-  isDragOver.value = false
-
-  // Don't allow dropping on system views
-  if (props.category.is_system) {
-    return
-  }
-
-  try {
-    const data = JSON.parse(event.dataTransfer.getData('application/json'))
-
-    // Don't drop on itself
-    if (data.id === props.category.id) {
-      return
-    }
-
-    // Don't drop a parent onto its own descendant
-    // Check if the drop target (this category) is in the dragged category's descendant list
-    if (data.descendantIds && data.descendantIds.includes(props.category.id)) {
-      alert('Cannot move a category into its own descendant')
-      return
-    }
-
-    // Emit event to parent to handle the API call
-    emit('category-moved', {
-      categoryId: data.id,
-      newParentId: props.category.id,
-      oldParentId: data.currentParentId
-    })
-  } catch (error) {
-    console.error('Error handling drop:', error)
-  }
-}
-
-function isDescendant(category, targetId) {
-  if (!category.children || category.children.length === 0) {
-    return false
-  }
-
-  for (const child of category.children) {
-    if (child.id === targetId) {
-      return true
-    }
-    if (isDescendant(child, targetId)) {
-      return true
-    }
-  }
-
-  return false
-}
-
 async function loadCategoryLinks() {
   if (loading.value) return
 
@@ -458,7 +322,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  cursor: grab;
+  cursor: pointer;
   padding: 1rem;
   gap: 0.5rem;
   transition: all 0.2s;
@@ -466,10 +330,6 @@ onMounted(() => {
 
 .card-collapsed:hover {
   background-color: #f9fafb;
-}
-
-.card-collapsed:active {
-  cursor: grabbing;
 }
 
 .card-icon {
@@ -504,12 +364,6 @@ onMounted(() => {
   gap: 0.5rem;
   min-width: 0;
   max-width: 100%;
-  cursor: grab;
-  transition: all 0.2s;
-}
-
-.card-expanded-header:active {
-  cursor: grabbing;
 }
 
 .action-btn {
@@ -579,18 +433,4 @@ onMounted(() => {
   max-width: 100%;
 }
 
-/* Drag and Drop */
-.category-card[draggable="true"] {
-  cursor: grab;
-}
-
-.category-card[draggable="true"]:active {
-  cursor: grabbing;
-}
-
-.category-card.drag-over {
-  border: 2px dashed #3b82f6;
-  background-color: #eff6ff;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
 </style>

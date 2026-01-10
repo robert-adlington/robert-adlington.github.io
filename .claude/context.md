@@ -79,6 +79,71 @@ adlington/
 - Projects requiring auth should use: `require_once __DIR__ . '/../../api/auth.php';`
 - Sessions managed via PHP sessions with secure cookies
 
+### Drag and Drop Implementation in Adlinkton (January 2025)
+
+**Decision:** Use `vue-draggable-next` library instead of custom HTML5 drag and drop implementation.
+
+**Context:**
+The Adlinkton UI redesign required drag and drop functionality for reorganizing categories:
+- Drag categories onto other categories (make it a child)
+- Drag categories onto subcategories (make it a child)
+- Drag categories to empty space (move to root level)
+- Prevent circular references (can't move parent into its own descendant)
+
+**Initial Approach (Failed):**
+Custom implementation using native HTML5 Drag and Drop API with Vue event emitters:
+- Made elements draggable with `draggable="true"`
+- Used custom event chain: `SubcategoryItem → CategoryCard → CategoryGrid`
+- Manual `isDragging` state management with `ref()` for drop zone visibility
+- Custom drop handlers and visual feedback with CSS classes
+
+**Problems Identified:**
+1. **Fragile event propagation:** Nested re-emits through multiple component levels failed silently
+2. **Vue reactivity issues:** Console showed `isDragging = true` but drop zones didn't render
+3. **Drag ending immediately:** Events fired in rapid succession (dragstart → dragend), preventing proper drag operation
+4. **Complex nested scenarios:** `event.stopPropagation()` in SubcategoryItem blocked native events from bubbling
+5. **Conflicting targets:** Same elements were both draggable AND drop targets, confusing browser
+6. **Timing issues:** Drag operations cancelled before user could complete them
+
+**Root Cause:**
+The custom implementation had fundamental architectural flaws:
+- Too complex: ~200 lines of drag/drop code across 3 components
+- Brittle: Event chain broke with nested categories (3+ levels deep)
+- Browser conflicts: Native drag API + Vue's virtual DOM caused race conditions
+- Maintenance burden: Every edge case required custom handling
+
+**Solution Chosen:**
+Refactor to use **`vue-draggable-next`** (SortableJS wrapper for Vue 3):
+- Already installed as project dependency
+- Battle-tested library handling all edge cases
+- Built-in visual feedback and ghost elements
+- Automatic drop zone management
+- Group-based drag/drop (move items between multiple lists)
+- Works reliably with nested structures
+- 10x less code than custom implementation
+
+**Benefits:**
+- ✅ Reliable drag operations with proper visual feedback
+- ✅ Drop zones that actually appear and work
+- ✅ Handles nested draggables correctly
+- ✅ Prevents circular references with built-in validation
+- ✅ Smooth animations and transitions
+- ✅ Much simpler codebase (less custom code to maintain)
+- ✅ Well-documented API with TypeScript support
+
+**Trade-offs:**
+- External dependency (but already installed)
+- Library-specific API to learn
+- Some customization limitations compared to full custom solution
+
+**Reasoning:**
+After multiple debugging attempts and architectural analysis, it became clear that building a robust custom drag and drop solution from scratch was not cost-effective. The native HTML5 Drag and Drop API has known issues with complex Vue component trees, and `vue-draggable-next` solves all identified problems with a proven, maintained solution.
+
+**Implementation Pattern:**
+See `projects/adlinkton/frontend/src/components/` for usage examples with hierarchical category trees.
+
+---
+
 ### Frontend Build Process
 
 For projects using Vue/Vite (e.g., Adlinkton):
