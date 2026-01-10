@@ -144,7 +144,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['expand', 'collapse', 'edit', 'delete', 'link-updated', 'category-moved'])
+const emit = defineEmits(['expand', 'collapse', 'edit', 'delete', 'link-updated', 'category-moved', 'drag-start', 'drag-end'])
 
 // State
 const showInfoPanel = ref(false)
@@ -290,21 +290,40 @@ function handleDragStart(event) {
     return
   }
 
+  // Collect all descendant IDs to prevent dropping into them
+  const descendantIds = []
+  function collectDescendants(cat) {
+    if (cat.children && cat.children.length > 0) {
+      cat.children.forEach(child => {
+        descendantIds.push(child.id)
+        collectDescendants(child)
+      })
+    }
+  }
+  collectDescendants(props.category)
+
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('application/json', JSON.stringify({
     type: 'category',
     id: props.category.id,
     name: props.category.name,
-    currentParentId: props.category.parent_id || null
+    currentParentId: props.category.parent_id || null,
+    descendantIds: descendantIds
   }))
 
   // Add a visual indicator
   event.target.style.opacity = '0.5'
+
+  // Notify parent that dragging started
+  emit('drag-start')
 }
 
 function handleDragEnd(event) {
   event.target.style.opacity = '1'
   isDragOver.value = false
+
+  // Notify parent that dragging ended
+  emit('drag-end')
 }
 
 function handleDragOver(event) {
@@ -345,7 +364,8 @@ async function handleDrop(event) {
     }
 
     // Don't drop a parent onto its own descendant
-    if (isDescendant(props.category, data.id)) {
+    // Check if the drop target (this category) is in the dragged category's descendant list
+    if (data.descendantIds && data.descendantIds.includes(props.category.id)) {
       alert('Cannot move a category into its own descendant')
       return
     }
