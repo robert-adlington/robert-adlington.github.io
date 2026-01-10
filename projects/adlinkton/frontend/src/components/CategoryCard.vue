@@ -1,5 +1,18 @@
 <template>
-  <div class="category-card" :class="{ 'expanded': isExpanded }" :data-card-id="category.id">
+  <div
+    class="category-card"
+    :class="{
+      'expanded': isExpanded,
+      'drag-over': isDragOver && !category.is_system
+    }"
+    :data-card-id="category.id"
+    :draggable="!category.is_system"
+    @dragstart="handleDragStart"
+    @dragend="handleDragEnd"
+    @dragover.prevent="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop.prevent="handleDrop"
+  >
     <!-- Collapsed State -->
     <div
       v-if="!isExpanded"
@@ -85,6 +98,7 @@
               @delete="handleDeleteSubcategory"
               @link-click="handleLinkClick"
               @toggle-favorite="handleToggleFavorite"
+              @category-moved="$emit('category-moved', $event)"
             />
           </div>
 
@@ -130,13 +144,14 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['expand', 'collapse', 'edit', 'delete', 'link-updated'])
+const emit = defineEmits(['expand', 'collapse', 'edit', 'delete', 'link-updated', 'category-moved'])
 
 // State
 const showInfoPanel = ref(false)
 const categoryLinks = ref([])
 const expandedSubcategoryIds = ref(new Set())
 const loading = ref(false)
+const isDragOver = ref(false)
 
 // Computed
 const categoryIcon = computed(() => {
@@ -265,6 +280,102 @@ function handleEditSubcategory(subcategory) {
 
 function handleDeleteSubcategory(subcategory) {
   emit('delete', subcategory)
+}
+
+// Drag and Drop handlers
+function handleDragStart(event) {
+  // Don't allow dragging system views
+  if (props.category.is_system) {
+    event.preventDefault()
+    return
+  }
+
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('application/json', JSON.stringify({
+    type: 'category',
+    id: props.category.id,
+    name: props.category.name,
+    currentParentId: props.category.parent_id || null
+  }))
+
+  // Add a visual indicator
+  event.target.style.opacity = '0.5'
+}
+
+function handleDragEnd(event) {
+  event.target.style.opacity = '1'
+  isDragOver.value = false
+}
+
+function handleDragOver(event) {
+  // Don't allow dropping on system views
+  if (props.category.is_system) {
+    event.dataTransfer.dropEffect = 'none'
+    return
+  }
+
+  const data = event.dataTransfer.types.includes('application/json')
+  if (data) {
+    event.dataTransfer.dropEffect = 'move'
+    isDragOver.value = true
+  }
+}
+
+function handleDragLeave(event) {
+  // Only clear if we're actually leaving the card
+  if (event.target === event.currentTarget) {
+    isDragOver.value = false
+  }
+}
+
+async function handleDrop(event) {
+  isDragOver.value = false
+
+  // Don't allow dropping on system views
+  if (props.category.is_system) {
+    return
+  }
+
+  try {
+    const data = JSON.parse(event.dataTransfer.getData('application/json'))
+
+    // Don't drop on itself
+    if (data.id === props.category.id) {
+      return
+    }
+
+    // Don't drop a parent onto its own descendant
+    if (isDescendant(props.category, data.id)) {
+      alert('Cannot move a category into its own descendant')
+      return
+    }
+
+    // Emit event to parent to handle the API call
+    emit('category-moved', {
+      categoryId: data.id,
+      newParentId: props.category.id,
+      oldParentId: data.currentParentId
+    })
+  } catch (error) {
+    console.error('Error handling drop:', error)
+  }
+}
+
+function isDescendant(category, targetId) {
+  if (!category.children || category.children.length === 0) {
+    return false
+  }
+
+  for (const child of category.children) {
+    if (child.id === targetId) {
+      return true
+    }
+    if (isDescendant(child, targetId)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 async function loadCategoryLinks() {
@@ -424,5 +535,20 @@ onMounted(() => {
 .content-item {
   width: 100%;
   max-width: 100%;
+}
+
+/* Drag and Drop */
+.category-card[draggable="true"] {
+  cursor: grab;
+}
+
+.category-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.category-card.drag-over {
+  border: 2px dashed #3b82f6;
+  background-color: #eff6ff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 </style>

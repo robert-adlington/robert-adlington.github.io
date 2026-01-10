@@ -1,7 +1,19 @@
 <template>
-  <div class="subcategory-item">
+  <div
+    class="subcategory-item"
+    :class="{ 'drag-over': isDragOver }"
+  >
     <!-- Subcategory Header -->
-    <div class="subcategory-header" :style="{ paddingLeft: `${depth * 1}rem` }">
+    <div
+      class="subcategory-header"
+      :style="{ paddingLeft: `${depth * 1}rem` }"
+      :draggable="true"
+      @dragstart="handleDragStart"
+      @dragend="handleDragEnd"
+      @dragover.prevent="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop.prevent="handleDrop"
+    >
       <button
         class="expand-btn"
         @click.stop="toggleExpand"
@@ -60,6 +72,7 @@
           @delete="$emit('delete', $event)"
           @link-click="$emit('link-click', $event)"
           @toggle-favorite="$emit('toggle-favorite', $event)"
+          @category-moved="$emit('category-moved', $event)"
         />
 
         <!-- Link -->
@@ -105,12 +118,13 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['toggle', 'edit', 'delete', 'link-click', 'toggle-favorite'])
+const emit = defineEmits(['toggle', 'edit', 'delete', 'link-click', 'toggle-favorite', 'category-moved'])
 
 // State
 const showInfoPanel = ref(false)
 const links = ref([])
 const loading = ref(false)
+const isDragOver = ref(false)
 
 // Computed
 const isExpanded = computed(() => {
@@ -179,6 +193,88 @@ function handleEdit() {
 
 function handleDelete() {
   emit('delete', props.subcategory)
+}
+
+// Drag and Drop handlers
+function handleDragStart(event) {
+  event.stopPropagation()
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('application/json', JSON.stringify({
+    type: 'category',
+    id: props.subcategory.id,
+    name: props.subcategory.name,
+    currentParentId: props.subcategory.parent_id || null
+  }))
+
+  // Add a visual indicator
+  event.target.style.opacity = '0.5'
+}
+
+function handleDragEnd(event) {
+  event.target.style.opacity = '1'
+  isDragOver.value = false
+}
+
+function handleDragOver(event) {
+  event.stopPropagation()
+
+  const data = event.dataTransfer.types.includes('application/json')
+  if (data) {
+    event.dataTransfer.dropEffect = 'move'
+    isDragOver.value = true
+  }
+}
+
+function handleDragLeave(event) {
+  if (event.target === event.currentTarget) {
+    isDragOver.value = false
+  }
+}
+
+async function handleDrop(event) {
+  event.stopPropagation()
+  isDragOver.value = false
+
+  try {
+    const data = JSON.parse(event.dataTransfer.getData('application/json'))
+
+    // Don't drop on itself
+    if (data.id === props.subcategory.id) {
+      return
+    }
+
+    // Don't drop a parent onto its own descendant
+    if (isDescendant(props.subcategory, data.id)) {
+      alert('Cannot move a category into its own descendant')
+      return
+    }
+
+    // Emit event to parent
+    emit('category-moved', {
+      categoryId: data.id,
+      newParentId: props.subcategory.id,
+      oldParentId: data.currentParentId
+    })
+  } catch (error) {
+    console.error('Error handling drop:', error)
+  }
+}
+
+function isDescendant(category, targetId) {
+  if (!category.children || category.children.length === 0) {
+    return false
+  }
+
+  for (const child of category.children) {
+    if (child.id === targetId) {
+      return true
+    }
+    if (isDescendant(child, targetId)) {
+      return true
+    }
+  }
+
+  return false
 }
 
 async function loadLinks() {
@@ -310,5 +406,20 @@ watch(isExpanded, (newVal) => {
 
 .subcategory-content {
   width: 100%;
+}
+
+/* Drag and Drop */
+.subcategory-header[draggable="true"] {
+  cursor: grab;
+}
+
+.subcategory-header[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.subcategory-item.drag-over > .subcategory-header {
+  background-color: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  box-shadow: inset 0 0 0 1px #3b82f6;
 }
 </style>
