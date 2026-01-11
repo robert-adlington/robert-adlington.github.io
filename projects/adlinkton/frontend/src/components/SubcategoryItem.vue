@@ -226,8 +226,22 @@ function isDescendantOf(sourceCategoryId, targetCategoryId) {
 
 // Validate move to prevent circular references
 function validateMove(evt) {
+  console.log('Validate move (SubcategoryItem):', evt)
+
+  if (!evt || !evt.draggedContext || !evt.relatedContext) {
+    console.warn('Invalid move event structure')
+    return true
+  }
+
   const draggedItem = evt.draggedContext.element
   const relatedItem = evt.relatedContext.element
+
+  if (!draggedItem || !relatedItem) {
+    console.warn('Dragged or related item is undefined')
+    return true
+  }
+
+  console.log('Dragged item:', draggedItem, 'Related item:', relatedItem)
 
   // If dragging a category onto another category, prevent circular reference
   if (draggedItem.type === 'category' && relatedItem.type === 'category') {
@@ -249,7 +263,13 @@ async function handleContentChange(event) {
     // Handle item added to this subcategory (from another category)
     if (event.added) {
       const item = event.added.element
+      console.log('Added item:', item)
       const newIndex = event.added.newIndex
+
+      if (!item) {
+        console.warn('Added element is undefined')
+        return
+      }
 
       if (item.type === 'category') {
         // Update category parent_id and order_position
@@ -269,7 +289,13 @@ async function handleContentChange(event) {
     // Handle item moved within this subcategory (reorder)
     if (event.moved) {
       const item = event.moved.element
+      console.log('Moved item:', item)
       const newIndex = event.moved.newIndex
+
+      if (!item) {
+        console.warn('Moved element is undefined')
+        return
+      }
 
       if (item.type === 'category') {
         await categoriesApi.reorderCategory(item.id, {
