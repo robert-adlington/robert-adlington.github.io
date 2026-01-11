@@ -309,7 +309,7 @@ async function handleContentChange(event) {
 
     // Reload to get fresh data from server
     await loadLinks()
-    emit('link-click') // Trigger parent reload
+    // Note: vue-draggable-next handles UI updates via v-model, no parent reload needed
   } catch (error) {
     console.error('Failed to update item position:', error)
     alert('Failed to update item position. Please refresh the page.')
