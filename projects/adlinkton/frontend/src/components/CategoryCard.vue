@@ -78,34 +78,42 @@
 
       <!-- Content: Mixed Links and Subcategories -->
       <div class="card-content">
-        <!-- Render content items in order -->
-        <template v-for="item in categoryContent" :key="item.type + '-' + item.id">
-          <!-- Subcategory -->
-          <div v-if="item.type === 'category'" class="content-item">
-            <SubcategoryItem
-              :subcategory="item.data"
-              :depth="0"
-              :expanded-ids="expandedSubcategoryIds"
-              @toggle="handleToggleSubcategory"
-              @edit="handleEditSubcategory"
-              @delete="handleDeleteSubcategory"
-              @link-click="handleLinkClick"
-              @toggle-favorite="handleToggleFavorite"
-              @category-moved="$emit('category-moved', $event)"
-            />
-          </div>
+        <VueDraggableNext
+          v-model="categoryContent"
+          group="items"
+          :animation="200"
+          :move="validateMove"
+          @change="handleContentChange"
+        >
+          <template v-for="item in categoryContent" :key="item.type + '-' + item.id">
+            <!-- Subcategory -->
+            <div v-if="item.type === 'category'" class="content-item">
+              <SubcategoryItem
+                :subcategory="item.data"
+                :depth="0"
+                :expanded-ids="expandedSubcategoryIds"
+                :category-map="categoryMap"
+                @toggle="handleToggleSubcategory"
+                @edit="handleEditSubcategory"
+                @delete="handleDeleteSubcategory"
+                @link-click="handleLinkClick"
+                @toggle-favorite="handleToggleFavorite"
+                @category-moved="$emit('category-moved', $event)"
+              />
+            </div>
 
-          <!-- Link -->
-          <div v-else-if="item.type === 'link'" class="content-item">
-            <LinkItem
-              :link="item.data"
-              :depth="0"
-              @click="handleLinkClick(item.data)"
-              @toggle-favorite="handleToggleFavorite(item.data)"
-              @menu="handleLinkMenu(item.data)"
-            />
-          </div>
-        </template>
+            <!-- Link -->
+            <div v-else-if="item.type === 'link'" class="content-item">
+              <LinkItem
+                :link="item.data"
+                :depth="0"
+                @click="handleLinkClick(item.data)"
+                @toggle-favorite="handleToggleFavorite(item.data)"
+                @menu="handleLinkMenu(item.data)"
+              />
+            </div>
+          </template>
+        </VueDraggableNext>
 
         <!-- Empty state -->
         <div v-if="categoryContent.length === 0" class="text-sm text-gray-500 py-2 px-3">
@@ -117,10 +125,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { VueDraggableNext } from 'vue-draggable-next'
 import SubcategoryItem from './SubcategoryItem.vue'
 import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
+import { categoriesApi } from '@/api/categories'
 
 const props = defineProps({
   category: {
@@ -165,8 +175,11 @@ const totalLinkCount = computed(() => {
   return countLinks(props.category)
 })
 
-// Build mixed content array of links and subcategories in their original order
-const categoryContent = computed(() => {
+// Build mixed content array of links and subcategories (now a ref for draggable)
+const categoryContent = ref([])
+
+// Watch category.children and categoryLinks to rebuild content
+watch([() => props.category.children, categoryLinks], () => {
   const content = []
 
   // Add subcategories
@@ -194,8 +207,8 @@ const categoryContent = computed(() => {
   // Sort by order_position if available, otherwise maintain array order
   content.sort((a, b) => a.order - b.order)
 
-  return content
-})
+  categoryContent.value = content
+}, { immediate: true, deep: true })
 
 // Methods
 function handleExpand() {
@@ -272,6 +285,97 @@ function handleEditSubcategory(subcategory) {
 
 function handleDeleteSubcategory(subcategory) {
   emit('delete', subcategory)
+}
+
+// Check if targetCategory is a descendant of sourceCategory
+function isDescendantOf(sourceCategoryId, targetCategoryId) {
+  if (!targetCategoryId) return false
+
+  const targetCategory = props.categoryMap[targetCategoryId]
+  if (!targetCategory) return false
+
+  // Check all children recursively
+  if (targetCategory.children) {
+    for (const child of targetCategory.children) {
+      if (child.id === sourceCategoryId) {
+        return true
+      }
+      if (isDescendantOf(sourceCategoryId, child.id)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+// Validate move to prevent circular references
+function validateMove(evt) {
+  const draggedItem = evt.draggedContext.element
+  const relatedItem = evt.relatedContext.element
+
+  // If dragging a category onto another category, prevent circular reference
+  if (draggedItem.type === 'category' && relatedItem.type === 'category') {
+    // Can't move a category into its own descendant
+    if (isDescendantOf(draggedItem.id, relatedItem.id)) {
+      console.warn('Cannot move category into its own descendant')
+      return false
+    }
+  }
+
+  return true
+}
+
+// Handle drag and drop changes within this category
+async function handleContentChange(event) {
+  console.log('Category content changed:', event, 'in category:', props.category.name)
+
+  try {
+    // Handle item added to this category (from another category)
+    if (event.added) {
+      const item = event.added.element
+      const newIndex = event.added.newIndex
+
+      if (item.type === 'category') {
+        // Update category parent_id and order_position
+        await categoriesApi.updateCategory(item.id, {
+          parent_id: props.category.id,
+          order_position: newIndex
+        })
+      } else if (item.type === 'link') {
+        // Update link category_id and order_position
+        await linksApi.updateLink(item.id, {
+          category_id: props.category.id,
+          order_position: newIndex
+        })
+      }
+    }
+
+    // Handle item moved within this category (reorder)
+    if (event.moved) {
+      const item = event.moved.element
+      const newIndex = event.moved.newIndex
+
+      if (item.type === 'category') {
+        await categoriesApi.reorderCategory(item.id, {
+          parent_id: props.category.id,
+          order_position: newIndex
+        })
+      } else if (item.type === 'link') {
+        await linksApi.reorderLink(item.id, {
+          category_id: props.category.id,
+          order_position: newIndex
+        })
+      }
+    }
+
+    // Reload to get fresh data from server
+    await loadCategoryLinks()
+    emit('link-updated')
+  } catch (error) {
+    console.error('Failed to update item position:', error)
+    alert('Failed to update item position. Please refresh the page.')
+  }
 }
 
 async function loadCategoryLinks() {
