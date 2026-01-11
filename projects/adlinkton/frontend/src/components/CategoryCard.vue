@@ -358,11 +358,15 @@ async function handleContentChange(event) {
           parent_id: props.category.id,
           sort_order: newIndex
         })
-        await categoriesApi.updateCategory(item.id, {
+        const updateResult = await categoriesApi.updateCategory(item.id, {
           parent_id: props.category.id,
           sort_order: newIndex
         })
-        debugStore.addLog('api', `CategoryCard: updateCategory succeeded`)
+        debugStore.addLog('api', `CategoryCard: updateCategory response`, {
+          success: updateResult?.success,
+          category: updateResult?.category,
+          fullResponse: updateResult
+        })
         updated = true
       } else if (item.type === 'link') {
         // TODO: Link reordering not yet supported by backend
