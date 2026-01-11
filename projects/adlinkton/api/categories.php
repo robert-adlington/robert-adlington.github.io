@@ -290,8 +290,19 @@ function updateCategory($categoryId, $data, $userId) {
     try {
         $query = "UPDATE categories SET " . implode(', ', $updates) . "
                  WHERE id = :id AND user_id = :user_id";
+
+        error_log("UpdateCategory - Query: $query");
+        error_log("UpdateCategory - Params: " . json_encode($params));
+
         $stmt = $db->prepare($query);
         $stmt->execute($params);
+
+        $rowCount = $stmt->rowCount();
+        error_log("UpdateCategory - Rows affected: $rowCount");
+
+        if ($rowCount === 0) {
+            error_log("UpdateCategory - WARNING: No rows were updated for category $categoryId");
+        }
 
         // Fetch and return the updated category
         getCategoryById($categoryId, $userId);
