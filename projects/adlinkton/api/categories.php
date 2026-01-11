@@ -347,12 +347,13 @@ function deleteCategory($categoryId, $userId) {
 
 /**
  * Reorder a category
+ * Properly renumbers all siblings to avoid sort_order collisions
  */
 function reorderCategory($categoryId, $data, $userId) {
     $db = getDB();
 
     // Verify ownership
-    $stmt = $db->prepare("SELECT user_id FROM categories WHERE id = :id");
+    $stmt = $db->prepare("SELECT * FROM categories WHERE id = :id");
     $stmt->execute([':id' => $categoryId]);
     $existingCategory = $stmt->fetch();
 
@@ -367,27 +368,64 @@ function reorderCategory($categoryId, $data, $userId) {
         jsonError('sort_order is required', 400);
     }
 
-    try {
-        $updates = ['sort_order = :sort_order'];
-        $params = [
-            ':id' => $categoryId,
-            ':user_id' => $userId,
-            ':sort_order' => (int)$data['sort_order']
-        ];
+    $newSortOrder = (int)$data['sort_order'];
 
-        // Optionally update parent_id
-        if (isset($data['parent_id'])) {
-            $updates[] = 'parent_id = :parent_id';
-            $params[':parent_id'] = $data['parent_id'];
+    // Determine parent_id (from data if provided, else keep existing)
+    $parentId = array_key_exists('parent_id', $data) ? $data['parent_id'] : $existingCategory['parent_id'];
+
+    try {
+        $db->beginTransaction();
+
+        // Fetch all siblings (same parent_id) ordered by current sort_order
+        $stmt = $db->prepare("
+            SELECT id, sort_order
+            FROM categories
+            WHERE user_id = :user_id
+              AND " . ($parentId === null ? "parent_id IS NULL" : "parent_id = :parent_id") . "
+            ORDER BY sort_order, name
+        ");
+
+        $params = [':user_id' => $userId];
+        if ($parentId !== null) {
+            $params[':parent_id'] = $parentId;
         }
 
-        $query = "UPDATE categories SET " . implode(', ', $updates) . "
-                 WHERE id = :id AND user_id = :user_id";
-        $stmt = $db->prepare($query);
         $stmt->execute($params);
+        $siblings = $stmt->fetchAll();
+
+        // Build new order: remove current item, insert at new position
+        $orderedIds = [];
+        foreach ($siblings as $sibling) {
+            if ($sibling['id'] != $categoryId) {
+                $orderedIds[] = $sibling['id'];
+            }
+        }
+
+        // Insert at new position (clamp to valid range)
+        $newSortOrder = max(0, min($newSortOrder, count($orderedIds)));
+        array_splice($orderedIds, $newSortOrder, 0, [$categoryId]);
+
+        // Update sort_order for all siblings
+        $updateStmt = $db->prepare("
+            UPDATE categories
+            SET sort_order = :sort_order, parent_id = :parent_id
+            WHERE id = :id AND user_id = :user_id
+        ");
+
+        foreach ($orderedIds as $index => $id) {
+            $updateStmt->execute([
+                ':id' => $id,
+                ':user_id' => $userId,
+                ':sort_order' => $index,
+                ':parent_id' => $parentId
+            ]);
+        }
+
+        $db->commit();
 
         jsonSuccess(['message' => 'Category reordered successfully']);
     } catch (Exception $e) {
+        $db->rollBack();
         error_log("Error reordering category: " . $e->getMessage());
         jsonError('Failed to reorder category', 500);
     }
