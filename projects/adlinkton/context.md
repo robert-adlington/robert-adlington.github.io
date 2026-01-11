@@ -127,6 +127,70 @@ This is the same fundamental error repeated three times: **implementing one side
 
 ---
 
+### Understand Language Quirks When Handling Null Values
+
+**Date**: 2026-01-11
+**Context**: Debugging why categories disappeared when dragged to root level
+
+**What Happened**:
+- Frontend sent `{ parent_id: null, sort_order: 6 }` to move category to root
+- Backend appeared to succeed (no error thrown)
+- Server reload showed category still had old parent_id - it hadn't moved to root
+- Only `sort_order` was updated, `parent_id` remained unchanged
+- Categories became orphaned - not in original parent, not at root
+
+**The Root Cause - PHP isset() Quirk**:
+```php
+if (isset($data['parent_id'])) {  // This is FALSE when parent_id is null!
+    $updates[] = "parent_id = :parent_id";
+    $params[':parent_id'] = $data['parent_id'];
+}
+```
+
+In PHP, **`isset()` returns `false` when a value is `null`**, even if the key exists in the array. So when frontend sent `parent_id: null`, the entire if-block was skipped.
+
+**What Should Have Been Done**:
+1. **First**: Check PHP manual for `isset()` behavior with null values
+2. **Second**: Use `array_key_exists()` which returns true even when value is null
+3. **Third**: Test with null values during development
+
+**The Fix**:
+```php
+if (array_key_exists('parent_id', $data)) {  // TRUE even when null!
+    $updates[] = "parent_id = :parent_id";
+    $params[':parent_id'] = $data['parent_id'];
+}
+```
+
+**How We Found It**:
+- Added comprehensive debug logging to track drag operations
+- Frontend logs showed API call with `parent_id: null`
+- Frontend logs showed API response with `parent_id: 304` (unchanged!)
+- This proved backend wasn't updating the field
+- Backend logging showed the UPDATE query was missing the parent_id field
+- Traced to `isset()` returning false for null values
+
+**Impact**:
+- Data loss - categories disappeared into limbo
+- Required deep debugging with frontend and backend logging
+- Another example of not understanding interface contracts (PHP's type system in this case)
+
+**Pattern Identified**: This is the **fourth occurrence** of interface contract issues:
+1. First: Backend API field names (`order_position` vs `sort_order`)
+2. Second: Event handler parameters (emitted without arguments)
+3. Third: Library API behavior (`:move` callback contract)
+4. Fourth: **Language semantics** (`isset()` behavior with null)
+
+**Lesson**: When working across interfaces or language boundaries:
+1. **Know the language quirks** - especially around null, undefined, empty values
+2. **Test edge cases** - null, 0, empty string, false all behave differently
+3. **Use logging extensively** - see actual values being sent/received
+4. **Read the manual** - don't assume functions work how you expect
+
+The fundamental lesson remains: **Always verify both sides of any interface**. This includes not just APIs and libraries, but also language semantics and type systems.
+
+---
+
 ## Architecture Decisions
 
 ### Drag-and-Drop Implementation: vue-draggable-next vs Custom HTML5
