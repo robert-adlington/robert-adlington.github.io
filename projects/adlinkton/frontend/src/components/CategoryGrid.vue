@@ -4,34 +4,42 @@
       Loading categories...
     </div>
 
-    <div v-else-if="allCards.length === 0" class="text-center py-8 text-gray-500">
+    <div v-else-if="getTotalCardCount() === 0" class="text-center py-8 text-gray-500">
       No categories found. (Debug: categories={{ categories.length }}, systemViews={{ systemViews.length }})
     </div>
 
-    <!-- Grid with draggable cards -->
-    <VueDraggableNext
-      v-else
-      v-model="allCards"
-      group="items"
-      class="category-grid"
-      :animation="200"
-      ghost-class="ghost-card"
-      @change="handleDragChange"
-    >
-      <CategoryCard
-        v-for="card in allCards"
-        :key="card.type + '-' + card.id"
-        :category="card.data"
-        :is-expanded="expandedIds.has(card.id)"
-        :category-map="categoryMap"
-        @expand="handleExpand(card.id)"
-        @collapse="handleCollapse(card.id)"
-        @edit="handleEdit"
-        @delete="handleDelete"
-        @link-updated="handleLinkUpdated"
-        @category-moved="handleCategoryMoved"
-      />
-    </VueDraggableNext>
+    <!-- 4 Column Layout with independent draggable containers -->
+    <div v-else class="column-container">
+      <div
+        v-for="columnNum in 4"
+        :key="columnNum"
+        class="column"
+      >
+        <VueDraggableNext
+          :model-value="getColumnCards(columnNum)"
+          @update:model-value="updateColumn(columnNum, $event)"
+          group="items"
+          class="column-drop-zone"
+          :animation="200"
+          ghost-class="ghost-card"
+          @change="handleDragChange($event, columnNum)"
+        >
+          <CategoryCard
+            v-for="card in getColumnCards(columnNum)"
+            :key="card.type + '-' + card.id"
+            :category="card.data"
+            :is-expanded="expandedIds.has(card.id)"
+            :category-map="categoryMap"
+            @expand="handleExpand(card.id)"
+            @collapse="handleCollapse(card.id)"
+            @edit="handleEdit"
+            @delete="handleDelete"
+            @link-updated="handleLinkUpdated"
+            @category-moved="handleCategoryMoved"
+          />
+        </VueDraggableNext>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -138,45 +146,79 @@ async function loadSystemViewCounts() {
   }
 }
 
-// Combine system views and categories into cards (now a ref, not computed)
-const allCards = ref([])
+// Column-based organization (4 columns)
+const columnCards = ref({
+  1: [],
+  2: [],
+  3: [],
+  4: []
+})
 
-// Watch categories and system views, then rebuild allCards
+// Watch categories and system views, then distribute into columns
 watch([categories, systemViews], () => {
   console.log('CategoryGrid: Watcher fired, categories:', categories.value.length, 'systemViews:', systemViews.value.length)
-  debugStore.addLog('watcher', 'CategoryGrid: Rebuilding allCards', {
+  debugStore.addLog('watcher', 'CategoryGrid: Rebuilding column cards', {
     categoriesCount: categories.value.length,
     systemViewsCount: systemViews.value.length
   })
-  const cards = []
 
-  // Add system views
+  // Reset all columns
+  const newColumns = {
+    1: [],
+    2: [],
+    3: [],
+    4: []
+  }
+
+  // Add system views to column 1
   systemViews.value.forEach((view, index) => {
-    cards.push({
+    newColumns[1].push({
       id: view.id,
       type: 'system',
       data: view,
-      order: index
+      order: index,
+      column_id: 1
     })
   })
 
-  // Add categories (flatten to just root categories)
-  categories.value.forEach((cat, index) => {
-    cards.push({
-      id: cat.id,
-      type: 'category',
-      data: cat,
-      order: systemViews.value.length + index
-    })
+  // Add root categories to their respective columns
+  categories.value.forEach((cat) => {
+    const columnId = cat.column_id || 1 // Default to column 1 if not set
+    if (columnId >= 1 && columnId <= 4) {
+      newColumns[columnId].push({
+        id: cat.id,
+        type: 'category',
+        data: cat,
+        order: cat.sort_order || 0,
+        column_id: columnId
+      })
+    }
   })
 
-  allCards.value = cards
-  console.log('CategoryGrid: allCards updated, total cards:', allCards.value.length)
-  debugStore.addLog('watcher', 'CategoryGrid: allCards updated', {
-    totalCards: allCards.value.length,
-    cardTypes: allCards.value.map(c => ({ id: c.id, type: c.type, name: c.data.name }))
+  columnCards.value = newColumns
+  console.log('CategoryGrid: Column cards updated', newColumns)
+  debugStore.addLog('watcher', 'CategoryGrid: Column cards updated', {
+    column1Count: newColumns[1].length,
+    column2Count: newColumns[2].length,
+    column3Count: newColumns[3].length,
+    column4Count: newColumns[4].length
   })
 }, { immediate: true })
+
+// Get cards for a specific column
+function getColumnCards(columnNum) {
+  return columnCards.value[columnNum] || []
+}
+
+// Update a specific column after drag
+function updateColumn(columnNum, newCards) {
+  columnCards.value[columnNum] = newCards
+}
+
+// Get total card count across all columns
+function getTotalCardCount() {
+  return Object.values(columnCards.value).reduce((sum, cards) => sum + cards.length, 0)
+}
 
 // Methods
 function handleExpand(cardId) {
@@ -216,21 +258,22 @@ function hasDescendant(categoryId, potentialDescendantId) {
   return false
 }
 
-// Handle drag change
-async function handleDragChange(event) {
-  debugStore.addLog('drag', 'CategoryGrid: handleDragChange fired', { event })
-  console.log('Drag change:', event)
+// Handle drag change (column-aware)
+async function handleDragChange(event, columnNum) {
+  debugStore.addLog('drag', 'CategoryGrid: handleDragChange fired', { event, columnNum })
+  console.log('Drag change in column', columnNum, ':', event)
 
   try {
     let updated = false
 
-    // Handle item added to root level (from a category)
+    // Handle item added to column (from another column or from within category)
     if (event.added) {
       const item = event.added.element
-      console.log('Added item:', item)
+      console.log('Added item to column', columnNum, ':', item)
       const newIndex = event.added.newIndex
-      debugStore.addLog('drag', 'CategoryGrid: Item added to root', {
+      debugStore.addLog('drag', 'CategoryGrid: Item added to column', {
         item: item ? { id: item.id, type: item.type, name: item.data?.name } : null,
+        columnNum,
         newIndex
       })
 
@@ -241,14 +284,16 @@ async function handleDragChange(event) {
       }
 
       if (item.type === 'category') {
-        // Moving to root level - no circular reference possible
-        debugStore.addLog('api', 'CategoryGrid: Calling updateCategory to move to root', {
+        // Moving to this column at root level - no circular reference possible
+        debugStore.addLog('api', 'CategoryGrid: Calling updateCategory to move to column', {
           categoryId: item.id,
           parent_id: null,
+          column_id: columnNum,
           sort_order: newIndex
         })
         const updateResult = await categoriesApi.updateCategory(item.id, {
           parent_id: null,
+          column_id: columnNum,
           sort_order: newIndex
         })
         debugStore.addLog('api', 'CategoryGrid: updateCategory response', {
@@ -258,16 +303,17 @@ async function handleDragChange(event) {
         })
         updated = true
       }
-      // Note: Links cannot exist at root level per our architecture decision
+      // Note: Links and system views cannot be moved to root level
     }
 
-    // Handle item moved within root level (reorder)
+    // Handle item moved within same column (reorder)
     if (event.moved) {
       const item = event.moved.element
-      console.log('Moved item:', item)
+      console.log('Moved item within column', columnNum, ':', item)
       const newIndex = event.moved.newIndex
-      debugStore.addLog('drag', 'CategoryGrid: Item moved within root', {
+      debugStore.addLog('drag', 'CategoryGrid: Item moved within column', {
         item: item ? { id: item.id, type: item.type, name: item.data?.name } : null,
+        columnNum,
         newIndex
       })
 
@@ -278,13 +324,15 @@ async function handleDragChange(event) {
       }
 
       if (item.type === 'category') {
-        debugStore.addLog('api', 'CategoryGrid: Calling reorderCategory within root', {
+        debugStore.addLog('api', 'CategoryGrid: Calling reorderCategory within column', {
           categoryId: item.id,
           parent_id: null,
+          column_id: columnNum,
           sort_order: newIndex
         })
         await categoriesApi.reorderCategory(item.id, {
           parent_id: null,
+          column_id: columnNum,
           sort_order: newIndex
         })
         debugStore.addLog('api', 'CategoryGrid: reorderCategory succeeded')
@@ -292,11 +340,12 @@ async function handleDragChange(event) {
       }
     }
 
-    // Handle item removed from root level
+    // Handle item removed from column
     if (event.removed) {
       const item = event.removed.element
-      debugStore.addLog('drag', 'CategoryGrid: Item removed from root', {
+      debugStore.addLog('drag', 'CategoryGrid: Item removed from column', {
         item: item ? { id: item.id, type: item.type, name: item.data?.name } : null,
+        columnNum,
         oldIndex: event.removed.oldIndex
       })
     }
@@ -358,29 +407,43 @@ defineExpose({
   background-color: #f9fafb;
 }
 
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+/* 4 Column Layout */
+.column-container {
+  display: flex;
   gap: 1.5rem;
-  align-items: start;
+  height: 100%;
+  align-items: stretch;
+}
+
+.column {
+  flex: 1;
+  min-width: 0; /* Prevent flex items from overflowing */
+  display: flex;
+  flex-direction: column;
+}
+
+.column-drop-zone {
+  flex: 1;
+  min-height: 200px; /* Ensure columns are droppable even when empty */
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 /* Responsive adjustments */
 @media (max-width: 1280px) {
-  .category-grid {
-    grid-template-columns: repeat(3, 1fr);
+  .column-container {
+    gap: 1rem;
   }
 }
 
 @media (max-width: 960px) {
-  .category-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .column-container {
+    flex-direction: column;
   }
-}
 
-@media (max-width: 640px) {
-  .category-grid {
-    grid-template-columns: 1fr;
+  .column {
+    width: 100%;
   }
 }
 
