@@ -62,7 +62,7 @@ function getCategories($userId) {
     $db = getDB();
 
     // Get all categories for the user
-    $query = "SELECT * FROM categories WHERE user_id = :user_id ORDER BY sort_order, name";
+    $query = "SELECT * FROM categories WHERE user_id = :user_id ORDER BY column_id, sort_order, name";
     $stmt = $db->prepare($query);
     $stmt->execute([':user_id' => $userId]);
     $categories = $stmt->fetchAll();
@@ -186,11 +186,17 @@ function createCategory($data, $userId) {
     $name = sanitizeHtml(trim($data['name']));
     $defaultCount = isset($data['default_count']) ? (int)$data['default_count'] : 10;
     $sortOrder = isset($data['sort_order']) ? (int)$data['sort_order'] : 0;
+    $columnId = isset($data['column_id']) ? (int)$data['column_id'] : 1;
+
+    // Validate column_id
+    if ($columnId < 1 || $columnId > 4) {
+        jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+    }
 
     try {
         // Insert category
-        $query = "INSERT INTO categories (user_id, parent_id, name, display_mode, default_count, sort_order)
-                  VALUES (:user_id, :parent_id, :name, :display_mode, :default_count, :sort_order)";
+        $query = "INSERT INTO categories (user_id, parent_id, name, display_mode, default_count, sort_order, column_id)
+                  VALUES (:user_id, :parent_id, :name, :display_mode, :default_count, :sort_order, :column_id)";
         $stmt = $db->prepare($query);
         $stmt->execute([
             ':user_id' => $userId,
@@ -198,7 +204,8 @@ function createCategory($data, $userId) {
             ':name' => $name,
             ':display_mode' => $displayMode,
             ':default_count' => $defaultCount,
-            ':sort_order' => $sortOrder
+            ':sort_order' => $sortOrder,
+            ':column_id' => $columnId
         ]);
 
         $categoryId = $db->lastInsertId();
@@ -282,6 +289,15 @@ function updateCategory($categoryId, $data, $userId) {
     if (isset($data['sort_order'])) {
         $updates[] = "sort_order = :sort_order";
         $params[':sort_order'] = (int)$data['sort_order'];
+    }
+
+    if (isset($data['column_id'])) {
+        $columnId = (int)$data['column_id'];
+        if ($columnId < 1 || $columnId > 4) {
+            jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+        }
+        $updates[] = "column_id = :column_id";
+        $params[':column_id'] = $columnId;
     }
 
     if (empty($updates)) {
@@ -373,21 +389,37 @@ function reorderCategory($categoryId, $data, $userId) {
     // Determine parent_id (from data if provided, else keep existing)
     $parentId = array_key_exists('parent_id', $data) ? $data['parent_id'] : $existingCategory['parent_id'];
 
+    // Determine column_id (from data if provided, else keep existing)
+    $columnId = isset($data['column_id']) ? (int)$data['column_id'] : $existingCategory['column_id'];
+
+    // Validate column_id
+    if ($columnId < 1 || $columnId > 4) {
+        jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+    }
+
     try {
         $db->beginTransaction();
 
-        // Fetch all siblings (same parent_id) ordered by current sort_order
+        // Fetch all siblings (same parent_id and column_id for root categories) ordered by current sort_order
+        $whereClause = "user_id = :user_id";
+        if ($parentId === null) {
+            $whereClause .= " AND parent_id IS NULL AND column_id = :column_id";
+        } else {
+            $whereClause .= " AND parent_id = :parent_id";
+        }
+
         $stmt = $db->prepare("
             SELECT id, sort_order
             FROM categories
-            WHERE user_id = :user_id
-              AND " . ($parentId === null ? "parent_id IS NULL" : "parent_id = :parent_id") . "
+            WHERE $whereClause
             ORDER BY sort_order, name
         ");
 
         $params = [':user_id' => $userId];
         if ($parentId !== null) {
             $params[':parent_id'] = $parentId;
+        } else {
+            $params[':column_id'] = $columnId;
         }
 
         $stmt->execute($params);
@@ -408,7 +440,7 @@ function reorderCategory($categoryId, $data, $userId) {
         // Update sort_order for all siblings
         $updateStmt = $db->prepare("
             UPDATE categories
-            SET sort_order = :sort_order, parent_id = :parent_id
+            SET sort_order = :sort_order, parent_id = :parent_id, column_id = :column_id
             WHERE id = :id AND user_id = :user_id
         ");
 
@@ -417,7 +449,8 @@ function reorderCategory($categoryId, $data, $userId) {
                 ':id' => $id,
                 ':user_id' => $userId,
                 ':sort_order' => $index,
-                ':parent_id' => $parentId
+                ':parent_id' => $parentId,
+                ':column_id' => $columnId
             ]);
         }
 
