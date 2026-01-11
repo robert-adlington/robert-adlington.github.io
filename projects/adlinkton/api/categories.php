@@ -62,7 +62,14 @@ function getCategories($userId) {
     $db = getDB();
 
     // Get all categories for the user
-    $query = "SELECT * FROM categories WHERE user_id = :user_id ORDER BY column_id, sort_order, name";
+    // Order: root categories by column_id first, then all children grouped by parent_id and sorted by sort_order
+    $query = "SELECT * FROM categories
+              WHERE user_id = :user_id
+              ORDER BY
+                CASE WHEN parent_id IS NULL THEN column_id ELSE 999 END,
+                parent_id,
+                sort_order,
+                name";
     $stmt = $db->prepare($query);
     $stmt->execute([':user_id' => $userId]);
     $categories = $stmt->fetchAll();
@@ -186,11 +193,16 @@ function createCategory($data, $userId) {
     $name = sanitizeHtml(trim($data['name']));
     $defaultCount = isset($data['default_count']) ? (int)$data['default_count'] : 10;
     $sortOrder = isset($data['sort_order']) ? (int)$data['sort_order'] : 0;
-    $columnId = isset($data['column_id']) ? (int)$data['column_id'] : 1;
 
-    // Validate column_id
-    if ($columnId < 1 || $columnId > 4) {
-        jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+    // column_id is ONLY for root categories (parent_id IS NULL)
+    // Subcategories inherit position from parent and should have column_id = NULL
+    $columnId = null;
+    if ($parentId === null) {
+        $columnId = isset($data['column_id']) ? (int)$data['column_id'] : 1;
+        // Validate column_id for root categories
+        if ($columnId < 1 || $columnId > 4) {
+            jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+        }
     }
 
     try {
@@ -271,6 +283,37 @@ function updateCategory($categoryId, $data, $userId) {
 
         $updates[] = "parent_id = :parent_id";
         $params[':parent_id'] = $data['parent_id'];
+
+        // column_id MUST be synced with parent_id:
+        // - parent_id = NULL (root) => column_id must be 1-4
+        // - parent_id != NULL (subcategory) => column_id must be NULL
+        if ($data['parent_id'] === null) {
+            // Moving to root: column_id is required
+            if (!isset($data['column_id'])) {
+                jsonValidationError(['column_id' => 'column_id is required when moving category to root']);
+            }
+            $columnId = (int)$data['column_id'];
+            if ($columnId < 1 || $columnId > 4) {
+                jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+            }
+            $updates[] = "column_id = :column_id";
+            $params[':column_id'] = $columnId;
+        } else {
+            // Moving to subcategory: column_id must be NULL
+            $updates[] = "column_id = :column_id";
+            $params[':column_id'] = null;
+        }
+    } elseif (isset($data['column_id'])) {
+        // Updating column_id without changing parent_id: only allowed for root categories
+        if ($existingCategory['parent_id'] !== null) {
+            jsonValidationError(['column_id' => 'column_id can only be set for root categories (parent_id IS NULL)']);
+        }
+        $columnId = (int)$data['column_id'];
+        if ($columnId < 1 || $columnId > 4) {
+            jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+        }
+        $updates[] = "column_id = :column_id";
+        $params[':column_id'] = $columnId;
     }
 
     if (array_key_exists('display_mode', $data)) {
@@ -289,15 +332,6 @@ function updateCategory($categoryId, $data, $userId) {
     if (isset($data['sort_order'])) {
         $updates[] = "sort_order = :sort_order";
         $params[':sort_order'] = (int)$data['sort_order'];
-    }
-
-    if (isset($data['column_id'])) {
-        $columnId = (int)$data['column_id'];
-        if ($columnId < 1 || $columnId > 4) {
-            jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
-        }
-        $updates[] = "column_id = :column_id";
-        $params[':column_id'] = $columnId;
     }
 
     if (empty($updates)) {

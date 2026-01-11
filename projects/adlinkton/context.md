@@ -226,15 +226,32 @@ The fundamental lesson remains: **Always verify both sides of any interface**. T
 
 ---
 
-### Hierarchical Category System
+### Hierarchical Category System with 4-Column Layout
 
 **Architecture**: Categories can nest infinitely deep with mixed content (subcategories and links)
 
 **Key Design Decisions**:
-1. **Columns are purely visual** (CSS grid), not semantic containers
-2. **Root level**: Only categories, no standalone links
+1. **4 semantic columns** - Root categories are organized into 4 independent vertical columns (column_id 1-4)
+   - Each column is a semantic container (position persists across sessions)
+   - User explicitly assigns categories to columns via drag-and-drop
+   - Expanding a category in one column doesn't affect other columns
+   - Only root categories have column_id; subcategories inherit position from parent
+2. **Root level**: Only categories and system views, no standalone links
 3. **Drag groups**: All draggable containers share same group for free movement
 4. **Circular reference prevention**: Can't drag category into its own descendant
-5. **Database persistence**: Updates `parent_id` and `sort_order` on every move
+5. **Database persistence**: Updates `parent_id`, `column_id`, and `sort_order` on every move
+
+**Database Schema**:
+- `column_id` field (TINYINT 1-4, nullable) on categories table
+- Root categories (parent_id IS NULL) must have column_id set (1-4)
+- Subcategories (parent_id IS NOT NULL) must have column_id = NULL
+- SQL ordering: `ORDER BY CASE WHEN parent_id IS NULL THEN column_id ELSE 999 END, parent_id, sort_order, name`
+
+**Drag Behavior**:
+- Drag between columns: Updates column_id, sets parent_id = NULL, moves to root of target column
+- Drag within column: Updates sort_order within that column only
+- Drag onto category: Sets parent_id, clears column_id, creates parent-child relationship
+- Drag to empty space in column: Adds to end of that column
 
 **Documented**: 2026-01-11
+**Updated**: 2026-01-11 (changed from "purely visual" to semantic columns per user requirement)
