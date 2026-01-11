@@ -54,7 +54,6 @@
         v-model="contentItems"
         group="items"
         :animation="200"
-        :move="validateMove"
         @change="handleContentChange"
       >
         <template v-for="item in contentItems" :key="item.type + '-' + item.id">
@@ -202,57 +201,21 @@ function handleDelete() {
   emit('delete', props.subcategory)
 }
 
-// Check if targetCategory is a descendant of sourceCategory
-function isDescendantOf(sourceCategoryId, targetCategoryId) {
-  if (!targetCategoryId) return false
+// Check if a category has another category in its descendant tree
+function hasDescendant(categoryId, potentialDescendantId) {
+  const category = props.categoryMap[categoryId]
+  if (!category || !category.children) return false
 
-  const targetCategory = props.categoryMap[targetCategoryId]
-  if (!targetCategory) return false
-
-  // Check all children recursively
-  if (targetCategory.children) {
-    for (const child of targetCategory.children) {
-      if (child.id === sourceCategoryId) {
-        return true
-      }
-      if (isDescendantOf(sourceCategoryId, child.id)) {
-        return true
-      }
+  for (const child of category.children) {
+    if (child.id === potentialDescendantId) {
+      return true
+    }
+    if (hasDescendant(child.id, potentialDescendantId)) {
+      return true
     }
   }
 
   return false
-}
-
-// Validate move to prevent circular references
-function validateMove(evt) {
-  console.log('Validate move (SubcategoryItem):', evt)
-
-  if (!evt || !evt.draggedContext || !evt.relatedContext) {
-    console.warn('Invalid move event structure')
-    return true
-  }
-
-  const draggedItem = evt.draggedContext.element
-  const relatedItem = evt.relatedContext.element
-
-  if (!draggedItem || !relatedItem) {
-    console.warn('Dragged or related item is undefined')
-    return true
-  }
-
-  console.log('Dragged item:', draggedItem, 'Related item:', relatedItem)
-
-  // If dragging a category onto another category, prevent circular reference
-  if (draggedItem.type === 'category' && relatedItem.type === 'category') {
-    // Can't move a category into its own descendant
-    if (isDescendantOf(draggedItem.id, relatedItem.id)) {
-      console.warn('Cannot move category into its own descendant')
-      return false
-    }
-  }
-
-  return true
 }
 
 // Handle drag and drop changes within this subcategory
@@ -260,6 +223,8 @@ async function handleContentChange(event) {
   console.log('Subcategory content changed:', event, 'in subcategory:', props.subcategory.name)
 
   try {
+    let updated = false
+
     // Handle item added to this subcategory (from another category)
     if (event.added) {
       const item = event.added.element
@@ -272,11 +237,20 @@ async function handleContentChange(event) {
       }
 
       if (item.type === 'category') {
+        // Check for circular reference: can't move category into its own descendant
+        if (hasDescendant(item.id, props.subcategory.id)) {
+          console.warn('Cannot move category into its own descendant')
+          alert('Cannot move a category into its own subcategory')
+          emit('category-moved') // Trigger reload to restore UI state
+          return
+        }
+
         // Update category parent_id and sort_order
         await categoriesApi.updateCategory(item.id, {
           parent_id: props.subcategory.id,
           sort_order: newIndex
         })
+        updated = true
       } else if (item.type === 'link') {
         // TODO: Link reordering not yet supported by backend
         console.warn('Link reordering not yet implemented in backend')
@@ -300,6 +274,7 @@ async function handleContentChange(event) {
           parent_id: props.subcategory.id,
           sort_order: newIndex
         })
+        updated = true
       } else if (item.type === 'link') {
         // TODO: Link reordering not yet supported by backend
         console.warn('Link reordering not yet implemented in backend')
@@ -307,12 +282,15 @@ async function handleContentChange(event) {
       }
     }
 
-    // Reload to get fresh data from server
-    await loadLinks()
-    // Note: vue-draggable-next handles UI updates via v-model, no parent reload needed
+    // Trigger parent to reload entire category tree
+    if (updated) {
+      emit('category-moved')
+    }
   } catch (error) {
     console.error('Failed to update item position:', error)
     alert('Failed to update item position. Please refresh the page.')
+    // Trigger reload to restore consistent state
+    emit('category-moved')
   }
 }
 

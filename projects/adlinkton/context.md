@@ -74,6 +74,59 @@ This applies to: backend APIs, event handlers, props, callbacks, and any other i
 
 ---
 
+### Understand Library APIs Before Using Them
+
+**Date**: 2026-01-11
+**Context**: Same drag-and-drop implementation - circular reference validation
+
+**What Happened**:
+- Implemented `:move` validation callback to prevent circular references
+- Assumed `:move` received the target parent container
+- Actually receives the item being hovered over for positioning (not the parent)
+- Validation logic was backwards and checking the wrong relationship
+- Caused false positives: blocked valid moves (e.g., subcategory to root)
+- Also failed to reload category tree after successful moves, causing UI desync
+
+**What the :move Callback Actually Does**:
+- Called when hovering over items during drag for sort positioning
+- Receives `draggedContext.element` (item being dragged) and `relatedContext.element` (item being hovered)
+- Purpose: Determine if item can be placed at that position in the list
+- **Does NOT** provide information about parent-child relationships
+- Parent is determined by which VueDraggableNext container you drop into, not which item you hover over
+
+**What Should Have Been Done**:
+1. **First**: Read vue-draggable-next documentation for `:move` callback contract
+2. **Second**: Understand that container determines parent, not hover target
+3. **Third**: Validate in `@change` handler where we know the parent container
+4. **Fourth**: Ensure tree reload after database updates
+
+**The Real Solution**:
+- Remove `:move` validation (can't properly check parent-child relationships)
+- Validate in `@change` handler: `hasDescendant(draggedItem.id, parentContainer.id)`
+- Emit `category-moved` event to trigger tree reload from server
+- This ensures both validation correctness and UI consistency
+
+**Impact**:
+- False circular reference warnings blocking valid operations
+- Items disappearing after page refresh (DB updated but UI not reloaded)
+- Another complete rewrite of validation logic
+- Yet another debugging cycle
+
+**Pattern Identified**: This is the **third occurrence** of not checking interface contracts:
+1. First: Didn't check backend API → wrong field name (`order_position` vs `sort_order`)
+2. Second: Didn't check event handler → wrong parameter (emitted without arguments)
+3. Third: Didn't check library API → wrong assumptions about `:move` callback
+
+**Lesson**: Before using ANY library feature or API:
+1. **Read the documentation** - what does this function/callback actually provide?
+2. **Understand the contract** - what data is available? What's its purpose?
+3. **Verify assumptions** - test your understanding before building on it
+4. **Consider side effects** - does the operation need follow-up actions (like reloading)?
+
+This is the same fundamental error repeated three times: **implementing one side of an interface without understanding what the other side provides**.
+
+---
+
 ## Architecture Decisions
 
 ### Drag-and-Drop Implementation: vue-draggable-next vs Custom HTML5
