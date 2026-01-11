@@ -56,20 +56,52 @@ function handleCategoriesRequest($method, $segments, $requestBody, $userId) {
 }
 
 /**
+ * Check if column_id field exists in categories table
+ * Cached to avoid repeated checks
+ */
+function hasColumnIdField() {
+    static $checked = null;
+    if ($checked !== null) {
+        return $checked;
+    }
+
+    try {
+        $db = getDB();
+        $stmt = $db->query("SHOW COLUMNS FROM categories LIKE 'column_id'");
+        $checked = $stmt->fetch() !== false;
+    } catch (Exception $e) {
+        $checked = false;
+    }
+
+    return $checked;
+}
+
+/**
  * Get all categories as a tree
  */
 function getCategories($userId) {
     $db = getDB();
 
+    // Check if column_id field exists (backwards compatibility)
+    $hasColumnId = hasColumnIdField();
+
     // Get all categories for the user
-    // Order: root categories by column_id first, then all children grouped by parent_id and sorted by sort_order
-    $query = "SELECT * FROM categories
-              WHERE user_id = :user_id
-              ORDER BY
-                CASE WHEN parent_id IS NULL THEN column_id ELSE 999 END,
-                parent_id,
-                sort_order,
-                name";
+    // Order: root categories by column_id first (if exists), then all children grouped by parent_id and sorted by sort_order
+    if ($hasColumnId) {
+        $query = "SELECT * FROM categories
+                  WHERE user_id = :user_id
+                  ORDER BY
+                    CASE WHEN parent_id IS NULL THEN COALESCE(column_id, 1) ELSE 999 END,
+                    parent_id,
+                    sort_order,
+                    name";
+    } else {
+        // Fallback for databases without column_id field
+        $query = "SELECT * FROM categories
+                  WHERE user_id = :user_id
+                  ORDER BY sort_order, name";
+    }
+
     $stmt = $db->prepare($query);
     $stmt->execute([':user_id' => $userId]);
     $categories = $stmt->fetchAll();
@@ -194,10 +226,11 @@ function createCategory($data, $userId) {
     $defaultCount = isset($data['default_count']) ? (int)$data['default_count'] : 10;
     $sortOrder = isset($data['sort_order']) ? (int)$data['sort_order'] : 0;
 
-    // column_id is ONLY for root categories (parent_id IS NULL)
+    // column_id is ONLY for root categories (parent_id IS NULL) and only if field exists
     // Subcategories inherit position from parent and should have column_id = NULL
+    $hasColumnId = hasColumnIdField();
     $columnId = null;
-    if ($parentId === null) {
+    if ($hasColumnId && $parentId === null) {
         $columnId = isset($data['column_id']) ? (int)$data['column_id'] : 1;
         // Validate column_id for root categories
         if ($columnId < 1 || $columnId > 4) {
@@ -206,19 +239,34 @@ function createCategory($data, $userId) {
     }
 
     try {
-        // Insert category
-        $query = "INSERT INTO categories (user_id, parent_id, name, display_mode, default_count, sort_order, column_id)
-                  VALUES (:user_id, :parent_id, :name, :display_mode, :default_count, :sort_order, :column_id)";
+        // Insert category (with or without column_id based on schema)
+        if ($hasColumnId) {
+            $query = "INSERT INTO categories (user_id, parent_id, name, display_mode, default_count, sort_order, column_id)
+                      VALUES (:user_id, :parent_id, :name, :display_mode, :default_count, :sort_order, :column_id)";
+            $params = [
+                ':user_id' => $userId,
+                ':parent_id' => $parentId,
+                ':name' => $name,
+                ':display_mode' => $displayMode,
+                ':default_count' => $defaultCount,
+                ':sort_order' => $sortOrder,
+                ':column_id' => $columnId
+            ];
+        } else {
+            $query = "INSERT INTO categories (user_id, parent_id, name, display_mode, default_count, sort_order)
+                      VALUES (:user_id, :parent_id, :name, :display_mode, :default_count, :sort_order)";
+            $params = [
+                ':user_id' => $userId,
+                ':parent_id' => $parentId,
+                ':name' => $name,
+                ':display_mode' => $displayMode,
+                ':default_count' => $defaultCount,
+                ':sort_order' => $sortOrder
+            ];
+        }
+
         $stmt = $db->prepare($query);
-        $stmt->execute([
-            ':user_id' => $userId,
-            ':parent_id' => $parentId,
-            ':name' => $name,
-            ':display_mode' => $displayMode,
-            ':default_count' => $defaultCount,
-            ':sort_order' => $sortOrder,
-            ':column_id' => $columnId
-        ]);
+        $stmt->execute($params);
 
         $categoryId = $db->lastInsertId();
 
@@ -259,6 +307,8 @@ function updateCategory($categoryId, $data, $userId) {
         $params[':name'] = sanitizeHtml(trim($data['name']));
     }
 
+    $hasColumnId = hasColumnIdField();
+
     // Use array_key_exists instead of isset to handle null values correctly
     if (array_key_exists('parent_id', $data)) {
         // Prevent setting self as parent
@@ -284,26 +334,28 @@ function updateCategory($categoryId, $data, $userId) {
         $updates[] = "parent_id = :parent_id";
         $params[':parent_id'] = $data['parent_id'];
 
-        // column_id MUST be synced with parent_id:
+        // column_id MUST be synced with parent_id (only if column_id field exists):
         // - parent_id = NULL (root) => column_id must be 1-4
         // - parent_id != NULL (subcategory) => column_id must be NULL
-        if ($data['parent_id'] === null) {
-            // Moving to root: column_id is required
-            if (!isset($data['column_id'])) {
-                jsonValidationError(['column_id' => 'column_id is required when moving category to root']);
+        if ($hasColumnId) {
+            if ($data['parent_id'] === null) {
+                // Moving to root: column_id is required
+                if (!isset($data['column_id'])) {
+                    jsonValidationError(['column_id' => 'column_id is required when moving category to root']);
+                }
+                $columnId = (int)$data['column_id'];
+                if ($columnId < 1 || $columnId > 4) {
+                    jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+                }
+                $updates[] = "column_id = :column_id";
+                $params[':column_id'] = $columnId;
+            } else {
+                // Moving to subcategory: column_id must be NULL
+                $updates[] = "column_id = :column_id";
+                $params[':column_id'] = null;
             }
-            $columnId = (int)$data['column_id'];
-            if ($columnId < 1 || $columnId > 4) {
-                jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
-            }
-            $updates[] = "column_id = :column_id";
-            $params[':column_id'] = $columnId;
-        } else {
-            // Moving to subcategory: column_id must be NULL
-            $updates[] = "column_id = :column_id";
-            $params[':column_id'] = null;
         }
-    } elseif (isset($data['column_id'])) {
+    } elseif ($hasColumnId && isset($data['column_id'])) {
         // Updating column_id without changing parent_id: only allowed for root categories
         if ($existingCategory['parent_id'] !== null) {
             jsonValidationError(['column_id' => 'column_id can only be set for root categories (parent_id IS NULL)']);
@@ -423,12 +475,16 @@ function reorderCategory($categoryId, $data, $userId) {
     // Determine parent_id (from data if provided, else keep existing)
     $parentId = array_key_exists('parent_id', $data) ? $data['parent_id'] : $existingCategory['parent_id'];
 
-    // Determine column_id (from data if provided, else keep existing)
-    $columnId = isset($data['column_id']) ? (int)$data['column_id'] : $existingCategory['column_id'];
+    // Determine column_id (from data if provided, else keep existing) - only if field exists
+    $hasColumnId = hasColumnIdField();
+    $columnId = null;
+    if ($hasColumnId) {
+        $columnId = isset($data['column_id']) ? (int)$data['column_id'] : ($existingCategory['column_id'] ?? 1);
 
-    // Validate column_id
-    if ($columnId < 1 || $columnId > 4) {
-        jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+        // Validate column_id for root categories
+        if ($parentId === null && ($columnId < 1 || $columnId > 4)) {
+            jsonValidationError(['column_id' => 'Column ID must be between 1 and 4']);
+        }
     }
 
     try {
@@ -437,7 +493,11 @@ function reorderCategory($categoryId, $data, $userId) {
         // Fetch all siblings (same parent_id and column_id for root categories) ordered by current sort_order
         $whereClause = "user_id = :user_id";
         if ($parentId === null) {
-            $whereClause .= " AND parent_id IS NULL AND column_id = :column_id";
+            if ($hasColumnId) {
+                $whereClause .= " AND parent_id IS NULL AND column_id = :column_id";
+            } else {
+                $whereClause .= " AND parent_id IS NULL";
+            }
         } else {
             $whereClause .= " AND parent_id = :parent_id";
         }
@@ -452,7 +512,7 @@ function reorderCategory($categoryId, $data, $userId) {
         $params = [':user_id' => $userId];
         if ($parentId !== null) {
             $params[':parent_id'] = $parentId;
-        } else {
+        } elseif ($hasColumnId) {
             $params[':column_id'] = $columnId;
         }
 
@@ -472,20 +532,37 @@ function reorderCategory($categoryId, $data, $userId) {
         array_splice($orderedIds, $newSortOrder, 0, [$categoryId]);
 
         // Update sort_order for all siblings
-        $updateStmt = $db->prepare("
-            UPDATE categories
-            SET sort_order = :sort_order, parent_id = :parent_id, column_id = :column_id
-            WHERE id = :id AND user_id = :user_id
-        ");
+        if ($hasColumnId) {
+            $updateStmt = $db->prepare("
+                UPDATE categories
+                SET sort_order = :sort_order, parent_id = :parent_id, column_id = :column_id
+                WHERE id = :id AND user_id = :user_id
+            ");
 
-        foreach ($orderedIds as $index => $id) {
-            $updateStmt->execute([
-                ':id' => $id,
-                ':user_id' => $userId,
-                ':sort_order' => $index,
-                ':parent_id' => $parentId,
-                ':column_id' => $columnId
-            ]);
+            foreach ($orderedIds as $index => $id) {
+                $updateStmt->execute([
+                    ':id' => $id,
+                    ':user_id' => $userId,
+                    ':sort_order' => $index,
+                    ':parent_id' => $parentId,
+                    ':column_id' => $columnId
+                ]);
+            }
+        } else {
+            $updateStmt = $db->prepare("
+                UPDATE categories
+                SET sort_order = :sort_order, parent_id = :parent_id
+                WHERE id = :id AND user_id = :user_id
+            ");
+
+            foreach ($orderedIds as $index => $id) {
+                $updateStmt->execute([
+                    ':id' => $id,
+                    ':user_id' => $userId,
+                    ':sort_order' => $index,
+                    ':parent_id' => $parentId
+                ]);
+            }
         }
 
         $db->commit();
