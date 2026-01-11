@@ -41,7 +41,9 @@ import { VueDraggableNext } from 'vue-draggable-next'
 import CategoryCard from './CategoryCard.vue'
 import { categoriesApi } from '@/api/categories'
 import { linksApi } from '@/api/links'
+import { useDebugStore } from '@/stores/debugStore'
 
+const debugStore = useDebugStore()
 const emit = defineEmits(['category-selected', 'edit-category', 'delete-category', 'link-updated'])
 
 // State
@@ -62,12 +64,18 @@ onMounted(async () => {
 // Load categories
 async function loadCategories() {
   loading.value = true
+  debugStore.addLog('api', 'CategoryGrid: Loading categories from server')
   try {
     const response = await categoriesApi.getCategories()
     categories.value = response.categories || []
     categoryMap.value = buildCategoryMap(response.categories || [])
+    debugStore.addLog('api', 'CategoryGrid: Loaded categories', {
+      count: categories.value.length,
+      rootCategories: categories.value.map(c => ({ id: c.id, name: c.name, childCount: c.children?.length || 0 }))
+    })
   } catch (error) {
     console.error('Failed to load categories:', error)
+    debugStore.addLog('error', 'CategoryGrid: Failed to load categories', { error: error.message })
   } finally {
     loading.value = false
   }
@@ -136,6 +144,10 @@ const allCards = ref([])
 // Watch categories and system views, then rebuild allCards
 watch([categories, systemViews], () => {
   console.log('CategoryGrid: Watcher fired, categories:', categories.value.length, 'systemViews:', systemViews.value.length)
+  debugStore.addLog('watcher', 'CategoryGrid: Rebuilding allCards', {
+    categoriesCount: categories.value.length,
+    systemViewsCount: systemViews.value.length
+  })
   const cards = []
 
   // Add system views
@@ -160,6 +172,10 @@ watch([categories, systemViews], () => {
 
   allCards.value = cards
   console.log('CategoryGrid: allCards updated, total cards:', allCards.value.length)
+  debugStore.addLog('watcher', 'CategoryGrid: allCards updated', {
+    totalCards: allCards.value.length,
+    cardTypes: allCards.value.map(c => ({ id: c.id, type: c.type, name: c.data.name }))
+  })
 }, { immediate: true })
 
 // Methods
@@ -202,6 +218,7 @@ function hasDescendant(categoryId, potentialDescendantId) {
 
 // Handle drag change
 async function handleDragChange(event) {
+  debugStore.addLog('drag', 'CategoryGrid: handleDragChange fired', { event })
   console.log('Drag change:', event)
 
   try {
@@ -212,18 +229,29 @@ async function handleDragChange(event) {
       const item = event.added.element
       console.log('Added item:', item)
       const newIndex = event.added.newIndex
+      debugStore.addLog('drag', 'CategoryGrid: Item added to root', {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name } : null,
+        newIndex
+      })
 
       if (!item) {
         console.warn('Added element is undefined')
+        debugStore.addLog('warn', 'CategoryGrid: Added element is undefined')
         return
       }
 
       if (item.type === 'category') {
         // Moving to root level - no circular reference possible
+        debugStore.addLog('api', 'CategoryGrid: Calling updateCategory to move to root', {
+          categoryId: item.id,
+          parent_id: null,
+          sort_order: newIndex
+        })
         await categoriesApi.updateCategory(item.id, {
           parent_id: null,
           sort_order: newIndex
         })
+        debugStore.addLog('api', 'CategoryGrid: updateCategory succeeded')
         updated = true
       }
       // Note: Links cannot exist at root level per our architecture decision
@@ -234,28 +262,50 @@ async function handleDragChange(event) {
       const item = event.moved.element
       console.log('Moved item:', item)
       const newIndex = event.moved.newIndex
+      debugStore.addLog('drag', 'CategoryGrid: Item moved within root', {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name } : null,
+        newIndex
+      })
 
       if (!item) {
         console.warn('Moved element is undefined')
+        debugStore.addLog('warn', 'CategoryGrid: Moved element is undefined')
         return
       }
 
       if (item.type === 'category') {
+        debugStore.addLog('api', 'CategoryGrid: Calling reorderCategory within root', {
+          categoryId: item.id,
+          parent_id: null,
+          sort_order: newIndex
+        })
         await categoriesApi.reorderCategory(item.id, {
           parent_id: null,
           sort_order: newIndex
         })
+        debugStore.addLog('api', 'CategoryGrid: reorderCategory succeeded')
         updated = true
       }
     }
 
+    // Handle item removed from root level
+    if (event.removed) {
+      const item = event.removed.element
+      debugStore.addLog('drag', 'CategoryGrid: Item removed from root', {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name } : null,
+        oldIndex: event.removed.oldIndex
+      })
+    }
+
     // Reload entire category tree to reflect changes
     if (updated) {
+      debugStore.addLog('api', 'CategoryGrid: Reloading categories after drag')
       await loadCategories()
       await loadSystemViewCounts()
     }
   } catch (error) {
     console.error('Failed to update category position:', error)
+    debugStore.addLog('error', 'CategoryGrid: Failed to update category position', { error: error.message })
     alert('Failed to update category position. Please refresh the page.')
     // Reload anyway to restore consistent state
     await loadCategories()
@@ -264,19 +314,27 @@ async function handleDragChange(event) {
 
 // Handle category moved (from CategoryCard/SubcategoryItem after drag operations)
 async function handleCategoryMoved(payload) {
+  debugStore.addLog('drag', 'CategoryGrid: handleCategoryMoved called', { payload })
   try {
     // If payload provided, update via API (legacy usage)
     if (payload && payload.categoryId) {
+      debugStore.addLog('api', 'CategoryGrid: Updating category via payload', {
+        categoryId: payload.categoryId,
+        newParentId: payload.newParentId
+      })
       await categoriesApi.updateCategory(payload.categoryId, {
         parent_id: payload.newParentId
       })
+      debugStore.addLog('api', 'CategoryGrid: Category update via payload succeeded')
     }
 
     // Always reload categories to reflect changes
+    debugStore.addLog('api', 'CategoryGrid: Reloading categories after category moved')
     await loadCategories()
     await loadSystemViewCounts()
   } catch (error) {
     console.error('Failed to reload categories:', error)
+    debugStore.addLog('error', 'CategoryGrid: Failed to reload categories', { error: error.message })
     alert('Failed to reload categories. Please refresh the page.')
   }
 }

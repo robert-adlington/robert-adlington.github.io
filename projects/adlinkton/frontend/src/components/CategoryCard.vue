@@ -130,6 +130,9 @@ import SubcategoryItem from './SubcategoryItem.vue'
 import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
 import { categoriesApi } from '@/api/categories'
+import { useDebugStore } from '@/stores/debugStore'
+
+const debugStore = useDebugStore()
 
 const props = defineProps({
   category: {
@@ -179,6 +182,10 @@ const categoryContent = ref([])
 
 // Watch category.children and categoryLinks to rebuild content
 watch([() => props.category.children, categoryLinks], () => {
+  debugStore.addLog('watcher', `CategoryCard: Rebuilding content for "${props.category.name}"`, {
+    childrenCount: props.category.children?.length || 0,
+    linksCount: categoryLinks.value.length
+  })
   const content = []
 
   // Add subcategories
@@ -207,6 +214,10 @@ watch([() => props.category.children, categoryLinks], () => {
   content.sort((a, b) => a.order - b.order)
 
   categoryContent.value = content
+  debugStore.addLog('watcher', `CategoryCard: Content rebuilt for "${props.category.name}"`, {
+    totalItems: content.length,
+    items: content.map(c => ({ id: c.id, type: c.type, name: c.data.name || c.data.title }))
+  })
 }, { immediate: true, deep: true })
 
 // Methods
@@ -305,6 +316,7 @@ function hasDescendant(categoryId, potentialDescendantId) {
 
 // Handle drag and drop changes within this category
 async function handleContentChange(event) {
+  debugStore.addLog('drag', `CategoryCard: handleContentChange fired in "${props.category.name}"`, { event })
   console.log('Category content changed:', event, 'in category:', props.category.name)
 
   try {
@@ -315,9 +327,15 @@ async function handleContentChange(event) {
       const item = event.added.element
       console.log('Added item:', item)
       const newIndex = event.added.newIndex
+      debugStore.addLog('drag', `CategoryCard: Item added to "${props.category.name}"`, {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name || item.data?.title } : null,
+        newIndex,
+        parentCategoryId: props.category.id
+      })
 
       if (!item) {
         console.warn('Added element is undefined')
+        debugStore.addLog('warn', `CategoryCard: Added element is undefined in "${props.category.name}"`)
         return
       }
 
@@ -325,20 +343,31 @@ async function handleContentChange(event) {
         // Check for circular reference: can't move category into its own descendant
         if (hasDescendant(item.id, props.category.id)) {
           console.warn('Cannot move category into its own descendant')
+          debugStore.addLog('warn', `CategoryCard: Circular reference detected`, {
+            draggedId: item.id,
+            targetParentId: props.category.id
+          })
           alert('Cannot move a category into its own subcategory')
           emit('category-moved') // Trigger reload to restore UI state
           return
         }
 
         // Update category parent_id and sort_order
+        debugStore.addLog('api', `CategoryCard: Calling updateCategory to move into "${props.category.name}"`, {
+          categoryId: item.id,
+          parent_id: props.category.id,
+          sort_order: newIndex
+        })
         await categoriesApi.updateCategory(item.id, {
           parent_id: props.category.id,
           sort_order: newIndex
         })
+        debugStore.addLog('api', `CategoryCard: updateCategory succeeded`)
         updated = true
       } else if (item.type === 'link') {
         // TODO: Link reordering not yet supported by backend
         console.warn('Link reordering not yet implemented in backend')
+        debugStore.addLog('warn', `CategoryCard: Link reordering not yet implemented`)
         return
       }
     }
@@ -348,31 +377,54 @@ async function handleContentChange(event) {
       const item = event.moved.element
       console.log('Moved item:', item)
       const newIndex = event.moved.newIndex
+      debugStore.addLog('drag', `CategoryCard: Item moved within "${props.category.name}"`, {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name || item.data?.title } : null,
+        newIndex
+      })
 
       if (!item) {
         console.warn('Moved element is undefined')
+        debugStore.addLog('warn', `CategoryCard: Moved element is undefined in "${props.category.name}"`)
         return
       }
 
       if (item.type === 'category') {
+        debugStore.addLog('api', `CategoryCard: Calling reorderCategory within "${props.category.name}"`, {
+          categoryId: item.id,
+          parent_id: props.category.id,
+          sort_order: newIndex
+        })
         await categoriesApi.reorderCategory(item.id, {
           parent_id: props.category.id,
           sort_order: newIndex
         })
+        debugStore.addLog('api', `CategoryCard: reorderCategory succeeded`)
         updated = true
       } else if (item.type === 'link') {
         // TODO: Link reordering not yet supported by backend
         console.warn('Link reordering not yet implemented in backend')
+        debugStore.addLog('warn', `CategoryCard: Link reordering not yet implemented`)
         return
       }
     }
 
+    // Handle item removed from this category
+    if (event.removed) {
+      const item = event.removed.element
+      debugStore.addLog('drag', `CategoryCard: Item removed from "${props.category.name}"`, {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name || item.data?.title } : null,
+        oldIndex: event.removed.oldIndex
+      })
+    }
+
     // Trigger parent to reload entire category tree
     if (updated) {
+      debugStore.addLog('drag', `CategoryCard: Emitting category-moved to trigger reload`)
       emit('category-moved')
     }
   } catch (error) {
     console.error('Failed to update item position:', error)
+    debugStore.addLog('error', `CategoryCard: Failed to update item position in "${props.category.name}"`, { error: error.message })
     alert('Failed to update item position. Please refresh the page.')
     // Trigger reload to restore consistent state
     emit('category-moved')
@@ -383,6 +435,7 @@ async function loadCategoryLinks() {
   if (loading.value) return
 
   loading.value = true
+  debugStore.addLog('api', `CategoryCard: Loading links for "${props.category.name}"`)
   try {
     const response = await linksApi.getLinks({
       category_id: props.category.id,
@@ -390,8 +443,10 @@ async function loadCategoryLinks() {
       order: 'asc'
     })
     categoryLinks.value = response.links || []
+    debugStore.addLog('api', `CategoryCard: Loaded ${categoryLinks.value.length} links for "${props.category.name}"`)
   } catch (error) {
     console.error('Failed to load category links:', error)
+    debugStore.addLog('error', `CategoryCard: Failed to load links for "${props.category.name}"`, { error: error.message })
   } finally {
     loading.value = false
   }

@@ -131,6 +131,9 @@
       @close="showImportModal = false"
       @import-completed="handleImportCompleted"
     />
+
+    <!-- Debug Panel -->
+    <DebugPanel />
   </div>
 </template>
 
@@ -141,6 +144,7 @@ import CategoryTree from './components/CategoryTree.vue'
 import AddLinkModal from './components/AddLinkModal.vue'
 import AddCategoryModal from './components/AddCategoryModal.vue'
 import ImportBookmarksModal from './components/ImportBookmarksModal.vue'
+import DebugPanel from './components/DebugPanel.vue'
 import { categoriesApi } from './api/categories'
 
 // Refs

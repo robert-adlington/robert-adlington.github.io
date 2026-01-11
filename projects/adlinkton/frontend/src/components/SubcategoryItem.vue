@@ -102,6 +102,9 @@ import { VueDraggableNext } from 'vue-draggable-next'
 import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
 import { categoriesApi } from '@/api/categories'
+import { useDebugStore } from '@/stores/debugStore'
+
+const debugStore = useDebugStore()
 
 const props = defineProps({
   subcategory: {
@@ -153,6 +156,11 @@ const contentItems = ref([])
 
 // Watch subcategory.children and links to rebuild content
 watch([() => props.subcategory.children, links], () => {
+  debugStore.addLog('watcher', `SubcategoryItem: Rebuilding content for "${props.subcategory.name}"`, {
+    childrenCount: props.subcategory.children?.length || 0,
+    linksCount: links.value.length,
+    depth: props.depth
+  })
   const items = []
 
   // Add child subcategories
@@ -181,6 +189,10 @@ watch([() => props.subcategory.children, links], () => {
   items.sort((a, b) => a.order - b.order)
 
   contentItems.value = items
+  debugStore.addLog('watcher', `SubcategoryItem: Content rebuilt for "${props.subcategory.name}"`, {
+    totalItems: items.length,
+    items: items.map(i => ({ id: i.id, type: i.type, name: i.data.name || i.data.title }))
+  })
 }, { immediate: true, deep: true })
 
 // Methods
@@ -220,6 +232,7 @@ function hasDescendant(categoryId, potentialDescendantId) {
 
 // Handle drag and drop changes within this subcategory
 async function handleContentChange(event) {
+  debugStore.addLog('drag', `SubcategoryItem: handleContentChange fired in "${props.subcategory.name}"`, { event, depth: props.depth })
   console.log('Subcategory content changed:', event, 'in subcategory:', props.subcategory.name)
 
   try {
@@ -230,9 +243,16 @@ async function handleContentChange(event) {
       const item = event.added.element
       console.log('Added item:', item)
       const newIndex = event.added.newIndex
+      debugStore.addLog('drag', `SubcategoryItem: Item added to "${props.subcategory.name}"`, {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name || item.data?.title } : null,
+        newIndex,
+        parentSubcategoryId: props.subcategory.id,
+        depth: props.depth
+      })
 
       if (!item) {
         console.warn('Added element is undefined')
+        debugStore.addLog('warn', `SubcategoryItem: Added element is undefined in "${props.subcategory.name}"`)
         return
       }
 
@@ -240,20 +260,31 @@ async function handleContentChange(event) {
         // Check for circular reference: can't move category into its own descendant
         if (hasDescendant(item.id, props.subcategory.id)) {
           console.warn('Cannot move category into its own descendant')
+          debugStore.addLog('warn', `SubcategoryItem: Circular reference detected`, {
+            draggedId: item.id,
+            targetParentId: props.subcategory.id
+          })
           alert('Cannot move a category into its own subcategory')
           emit('category-moved') // Trigger reload to restore UI state
           return
         }
 
         // Update category parent_id and sort_order
+        debugStore.addLog('api', `SubcategoryItem: Calling updateCategory to move into "${props.subcategory.name}"`, {
+          categoryId: item.id,
+          parent_id: props.subcategory.id,
+          sort_order: newIndex
+        })
         await categoriesApi.updateCategory(item.id, {
           parent_id: props.subcategory.id,
           sort_order: newIndex
         })
+        debugStore.addLog('api', `SubcategoryItem: updateCategory succeeded`)
         updated = true
       } else if (item.type === 'link') {
         // TODO: Link reordering not yet supported by backend
         console.warn('Link reordering not yet implemented in backend')
+        debugStore.addLog('warn', `SubcategoryItem: Link reordering not yet implemented`)
         return
       }
     }
@@ -263,31 +294,54 @@ async function handleContentChange(event) {
       const item = event.moved.element
       console.log('Moved item:', item)
       const newIndex = event.moved.newIndex
+      debugStore.addLog('drag', `SubcategoryItem: Item moved within "${props.subcategory.name}"`, {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name || item.data?.title } : null,
+        newIndex
+      })
 
       if (!item) {
         console.warn('Moved element is undefined')
+        debugStore.addLog('warn', `SubcategoryItem: Moved element is undefined in "${props.subcategory.name}"`)
         return
       }
 
       if (item.type === 'category') {
+        debugStore.addLog('api', `SubcategoryItem: Calling reorderCategory within "${props.subcategory.name}"`, {
+          categoryId: item.id,
+          parent_id: props.subcategory.id,
+          sort_order: newIndex
+        })
         await categoriesApi.reorderCategory(item.id, {
           parent_id: props.subcategory.id,
           sort_order: newIndex
         })
+        debugStore.addLog('api', `SubcategoryItem: reorderCategory succeeded`)
         updated = true
       } else if (item.type === 'link') {
         // TODO: Link reordering not yet supported by backend
         console.warn('Link reordering not yet implemented in backend')
+        debugStore.addLog('warn', `SubcategoryItem: Link reordering not yet implemented`)
         return
       }
     }
 
+    // Handle item removed from this subcategory
+    if (event.removed) {
+      const item = event.removed.element
+      debugStore.addLog('drag', `SubcategoryItem: Item removed from "${props.subcategory.name}"`, {
+        item: item ? { id: item.id, type: item.type, name: item.data?.name || item.data?.title } : null,
+        oldIndex: event.removed.oldIndex
+      })
+    }
+
     // Trigger parent to reload entire category tree
     if (updated) {
+      debugStore.addLog('drag', `SubcategoryItem: Emitting category-moved to trigger reload`)
       emit('category-moved')
     }
   } catch (error) {
     console.error('Failed to update item position:', error)
+    debugStore.addLog('error', `SubcategoryItem: Failed to update item position in "${props.subcategory.name}"`, { error: error.message })
     alert('Failed to update item position. Please refresh the page.')
     // Trigger reload to restore consistent state
     emit('category-moved')
@@ -296,6 +350,7 @@ async function handleContentChange(event) {
 
 async function loadLinks() {
   loading.value = true
+  debugStore.addLog('api', `SubcategoryItem: Loading links for "${props.subcategory.name}"`)
   try {
     const response = await linksApi.getLinks({
       category_id: props.subcategory.id,
@@ -303,8 +358,10 @@ async function loadLinks() {
       order: 'asc'
     })
     links.value = response.links || []
+    debugStore.addLog('api', `SubcategoryItem: Loaded ${links.value.length} links for "${props.subcategory.name}"`)
   } catch (error) {
     console.error('Failed to load subcategory links:', error)
+    debugStore.addLog('error', `SubcategoryItem: Failed to load links for "${props.subcategory.name}"`, { error: error.message })
   } finally {
     loading.value = false
   }
