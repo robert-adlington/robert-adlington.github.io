@@ -1,18 +1,9 @@
 <template>
-  <div
-    class="subcategory-item"
-    :class="{ 'drag-over': isDragOver }"
-  >
+  <div class="subcategory-item">
     <!-- Subcategory Header -->
     <div
       class="subcategory-header"
       :style="{ paddingLeft: `${depth * 1}rem` }"
-      :draggable="true"
-      @dragstart="handleDragStart"
-      @dragend="handleDragEnd"
-      @dragover.prevent="handleDragOver"
-      @dragleave="handleDragLeave"
-      @drop.prevent="handleDrop"
     >
       <button
         class="expand-btn"
@@ -59,33 +50,37 @@
 
     <!-- Expanded Content -->
     <div v-if="isExpanded" class="subcategory-content">
-      <!-- Render child content -->
-      <template v-for="item in contentItems" :key="item.type + '-' + item.id">
-        <!-- Nested Subcategory -->
-        <SubcategoryItem
-          v-if="item.type === 'category'"
-          :subcategory="item.data"
-          :depth="depth + 1"
-          :expanded-ids="expandedIds"
-          @toggle="$emit('toggle', $event)"
-          @edit="$emit('edit', $event)"
-          @delete="$emit('delete', $event)"
-          @link-click="$emit('link-click', $event)"
-          @toggle-favorite="$emit('toggle-favorite', $event)"
-          @category-moved="$emit('category-moved', $event)"
-          @drag-start="$emit('drag-start')"
-          @drag-end="$emit('drag-end')"
-        />
+      <VueDraggableNext
+        v-model="contentItems"
+        group="items"
+        :animation="200"
+        @change="handleContentChange"
+      >
+        <template v-for="item in contentItems" :key="item.type + '-' + item.id">
+          <!-- Nested Subcategory -->
+          <SubcategoryItem
+            v-if="item.type === 'category'"
+            :subcategory="item.data"
+            :depth="depth + 1"
+            :expanded-ids="expandedIds"
+            @toggle="$emit('toggle', $event)"
+            @edit="$emit('edit', $event)"
+            @delete="$emit('delete', $event)"
+            @link-click="$emit('link-click', $event)"
+            @toggle-favorite="$emit('toggle-favorite', $event)"
+            @category-moved="$emit('category-moved', $event)"
+          />
 
-        <!-- Link -->
-        <LinkItem
-          v-else-if="item.type === 'link'"
-          :link="item.data"
-          :depth="depth + 1"
-          @click="$emit('link-click', item.data)"
-          @toggle-favorite="$emit('toggle-favorite', item.data)"
-        />
-      </template>
+          <!-- Link -->
+          <LinkItem
+            v-else-if="item.type === 'link'"
+            :link="item.data"
+            :depth="depth + 1"
+            @click="$emit('link-click', item.data)"
+            @toggle-favorite="$emit('toggle-favorite', item.data)"
+          />
+        </template>
+      </VueDraggableNext>
 
       <!-- Loading state -->
       <div v-if="loading" class="text-xs text-gray-500 py-1 px-3" :style="{ paddingLeft: `${(depth + 1) * 1}rem` }">
@@ -102,6 +97,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { VueDraggableNext } from 'vue-draggable-next'
 import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
 
@@ -120,13 +116,12 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['toggle', 'edit', 'delete', 'link-click', 'toggle-favorite', 'category-moved', 'drag-start', 'drag-end'])
+const emit = defineEmits(['toggle', 'edit', 'delete', 'link-click', 'toggle-favorite', 'category-moved'])
 
 // State
 const showInfoPanel = ref(false)
 const links = ref([])
 const loading = ref(false)
-const isDragOver = ref(false)
 
 // Computed
 const isExpanded = computed(() => {
@@ -147,8 +142,11 @@ const recursiveLinkCount = computed(() => {
   return countLinks(props.subcategory)
 })
 
-// Build content items (subcategories + links)
-const contentItems = computed(() => {
+// Build content items (subcategories + links) - now a ref for draggable
+const contentItems = ref([])
+
+// Watch subcategory.children and links to rebuild content
+watch([() => props.subcategory.children, links], () => {
   const items = []
 
   // Add child subcategories
@@ -176,8 +174,8 @@ const contentItems = computed(() => {
   // Sort by order
   items.sort((a, b) => a.order - b.order)
 
-  return items
-})
+  contentItems.value = items
+}, { immediate: true, deep: true })
 
 // Methods
 function toggleExpand() {
@@ -197,110 +195,11 @@ function handleDelete() {
   emit('delete', props.subcategory)
 }
 
-// Drag and Drop handlers
-function handleDragStart(event) {
-  console.log('SubcategoryItem: handleDragStart called for', props.subcategory.name)
-  event.stopPropagation()
-
-  // Collect all descendant IDs to prevent dropping into them
-  const descendantIds = []
-  function collectDescendants(cat) {
-    if (cat.children && cat.children.length > 0) {
-      cat.children.forEach(child => {
-        descendantIds.push(child.id)
-        collectDescendants(child)
-      })
-    }
-  }
-  collectDescendants(props.subcategory)
-
-  event.dataTransfer.effectAllowed = 'move'
-  event.dataTransfer.setData('application/json', JSON.stringify({
-    type: 'category',
-    id: props.subcategory.id,
-    name: props.subcategory.name,
-    currentParentId: props.subcategory.parent_id || null,
-    descendantIds: descendantIds
-  }))
-
-  // Add a visual indicator
-  event.currentTarget.style.opacity = '0.5'
-
-  // Notify parent that dragging started
-  console.log('SubcategoryItem: Emitting drag-start')
-  emit('drag-start')
-}
-
-function handleDragEnd(event) {
-  console.log('SubcategoryItem: handleDragEnd called')
-  event.currentTarget.style.opacity = '1'
-  isDragOver.value = false
-
-  // Notify parent that dragging ended
-  emit('drag-end')
-}
-
-function handleDragOver(event) {
-  event.stopPropagation()
-
-  const data = event.dataTransfer.types.includes('application/json')
-  if (data) {
-    event.dataTransfer.dropEffect = 'move'
-    isDragOver.value = true
-  }
-}
-
-function handleDragLeave(event) {
-  if (event.target === event.currentTarget) {
-    isDragOver.value = false
-  }
-}
-
-async function handleDrop(event) {
-  event.stopPropagation()
-  isDragOver.value = false
-
-  try {
-    const data = JSON.parse(event.dataTransfer.getData('application/json'))
-
-    // Don't drop on itself
-    if (data.id === props.subcategory.id) {
-      return
-    }
-
-    // Don't drop a parent onto its own descendant
-    // Check if the drop target (this subcategory) is in the dragged category's descendant list
-    if (data.descendantIds && data.descendantIds.includes(props.subcategory.id)) {
-      alert('Cannot move a category into its own descendant')
-      return
-    }
-
-    // Emit event to parent
-    emit('category-moved', {
-      categoryId: data.id,
-      newParentId: props.subcategory.id,
-      oldParentId: data.currentParentId
-    })
-  } catch (error) {
-    console.error('Error handling drop:', error)
-  }
-}
-
-function isDescendant(category, targetId) {
-  if (!category.children || category.children.length === 0) {
-    return false
-  }
-
-  for (const child of category.children) {
-    if (child.id === targetId) {
-      return true
-    }
-    if (isDescendant(child, targetId)) {
-      return true
-    }
-  }
-
-  return false
+// Handle drag and drop changes within this subcategory
+function handleContentChange(event) {
+  console.log('Subcategory content changed:', event, 'in subcategory:', props.subcategory.name)
+  // contentItems.value is automatically updated by v-model
+  // TODO: Update order_position and parent_id in database when items are moved
 }
 
 async function loadLinks() {

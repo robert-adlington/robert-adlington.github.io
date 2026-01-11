@@ -78,34 +78,40 @@
 
       <!-- Content: Mixed Links and Subcategories -->
       <div class="card-content">
-        <!-- Render content items in order -->
-        <template v-for="item in categoryContent" :key="item.type + '-' + item.id">
-          <!-- Subcategory -->
-          <div v-if="item.type === 'category'" class="content-item">
-            <SubcategoryItem
-              :subcategory="item.data"
-              :depth="0"
-              :expanded-ids="expandedSubcategoryIds"
-              @toggle="handleToggleSubcategory"
-              @edit="handleEditSubcategory"
-              @delete="handleDeleteSubcategory"
-              @link-click="handleLinkClick"
-              @toggle-favorite="handleToggleFavorite"
-              @category-moved="$emit('category-moved', $event)"
-            />
-          </div>
+        <VueDraggableNext
+          v-model="categoryContent"
+          group="items"
+          :animation="200"
+          @change="handleContentChange"
+        >
+          <template v-for="item in categoryContent" :key="item.type + '-' + item.id">
+            <!-- Subcategory -->
+            <div v-if="item.type === 'category'" class="content-item">
+              <SubcategoryItem
+                :subcategory="item.data"
+                :depth="0"
+                :expanded-ids="expandedSubcategoryIds"
+                @toggle="handleToggleSubcategory"
+                @edit="handleEditSubcategory"
+                @delete="handleDeleteSubcategory"
+                @link-click="handleLinkClick"
+                @toggle-favorite="handleToggleFavorite"
+                @category-moved="$emit('category-moved', $event)"
+              />
+            </div>
 
-          <!-- Link -->
-          <div v-else-if="item.type === 'link'" class="content-item">
-            <LinkItem
-              :link="item.data"
-              :depth="0"
-              @click="handleLinkClick(item.data)"
-              @toggle-favorite="handleToggleFavorite(item.data)"
-              @menu="handleLinkMenu(item.data)"
-            />
-          </div>
-        </template>
+            <!-- Link -->
+            <div v-else-if="item.type === 'link'" class="content-item">
+              <LinkItem
+                :link="item.data"
+                :depth="0"
+                @click="handleLinkClick(item.data)"
+                @toggle-favorite="handleToggleFavorite(item.data)"
+                @menu="handleLinkMenu(item.data)"
+              />
+            </div>
+          </template>
+        </VueDraggableNext>
 
         <!-- Empty state -->
         <div v-if="categoryContent.length === 0" class="text-sm text-gray-500 py-2 px-3">
@@ -117,7 +123,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { VueDraggableNext } from 'vue-draggable-next'
 import SubcategoryItem from './SubcategoryItem.vue'
 import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
@@ -165,8 +172,11 @@ const totalLinkCount = computed(() => {
   return countLinks(props.category)
 })
 
-// Build mixed content array of links and subcategories in their original order
-const categoryContent = computed(() => {
+// Build mixed content array of links and subcategories (now a ref for draggable)
+const categoryContent = ref([])
+
+// Watch category.children and categoryLinks to rebuild content
+watch([() => props.category.children, categoryLinks], () => {
   const content = []
 
   // Add subcategories
@@ -194,8 +204,8 @@ const categoryContent = computed(() => {
   // Sort by order_position if available, otherwise maintain array order
   content.sort((a, b) => a.order - b.order)
 
-  return content
-})
+  categoryContent.value = content
+}, { immediate: true, deep: true })
 
 // Methods
 function handleExpand() {
@@ -272,6 +282,13 @@ function handleEditSubcategory(subcategory) {
 
 function handleDeleteSubcategory(subcategory) {
   emit('delete', subcategory)
+}
+
+// Handle drag and drop changes within this category
+function handleContentChange(event) {
+  console.log('Category content changed:', event, 'in category:', props.category.name)
+  // categoryContent.value is automatically updated by v-model
+  // TODO: Update order_position and parent_id in database when items are moved
 }
 
 async function loadCategoryLinks() {

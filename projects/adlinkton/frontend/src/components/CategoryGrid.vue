@@ -12,6 +12,7 @@
     <VueDraggableNext
       v-else
       v-model="allCards"
+      group="items"
       class="category-grid"
       :animation="200"
       ghost-class="ghost-card"
