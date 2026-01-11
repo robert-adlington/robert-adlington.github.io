@@ -15,7 +15,6 @@
       group="items"
       class="category-grid"
       :animation="200"
-      :move="validateMove"
       ghost-class="ghost-card"
       @change="handleDragChange"
     >
@@ -184,57 +183,21 @@ function handleLinkUpdated(link) {
   emit('link-updated', link)
 }
 
-// Check if targetCategory is a descendant of sourceCategory
-function isDescendantOf(sourceCategoryId, targetCategoryId) {
-  if (!targetCategoryId) return false
+// Check if a category has another category in its descendant tree
+function hasDescendant(categoryId, potentialDescendantId) {
+  const category = categoryMap.value[categoryId]
+  if (!category || !category.children) return false
 
-  const targetCategory = categoryMap.value[targetCategoryId]
-  if (!targetCategory) return false
-
-  // Check all children recursively
-  if (targetCategory.children) {
-    for (const child of targetCategory.children) {
-      if (child.id === sourceCategoryId) {
-        return true
-      }
-      if (isDescendantOf(sourceCategoryId, child.id)) {
-        return true
-      }
+  for (const child of category.children) {
+    if (child.id === potentialDescendantId) {
+      return true
+    }
+    if (hasDescendant(child.id, potentialDescendantId)) {
+      return true
     }
   }
 
   return false
-}
-
-// Validate move to prevent circular references
-function validateMove(evt) {
-  console.log('Validate move:', evt)
-
-  if (!evt || !evt.draggedContext || !evt.relatedContext) {
-    console.warn('Invalid move event structure')
-    return true
-  }
-
-  const draggedItem = evt.draggedContext.element
-  const relatedItem = evt.relatedContext.element
-
-  if (!draggedItem || !relatedItem) {
-    console.warn('Dragged or related item is undefined')
-    return true
-  }
-
-  console.log('Dragged item:', draggedItem, 'Related item:', relatedItem)
-
-  // If dragging a category onto another category, prevent circular reference
-  if (draggedItem.type === 'category' && relatedItem.type === 'category') {
-    // Can't move a category into its own descendant
-    if (isDescendantOf(draggedItem.id, relatedItem.id)) {
-      console.warn('Cannot move category into its own descendant')
-      return false
-    }
-  }
-
-  return true
 }
 
 // Handle drag change
@@ -242,6 +205,8 @@ async function handleDragChange(event) {
   console.log('Drag change:', event)
 
   try {
+    let updated = false
+
     // Handle item added to root level (from a category)
     if (event.added) {
       const item = event.added.element
@@ -254,11 +219,12 @@ async function handleDragChange(event) {
       }
 
       if (item.type === 'category') {
-        // Update category to root level (parent_id = null)
+        // Moving to root level - no circular reference possible
         await categoriesApi.updateCategory(item.id, {
           parent_id: null,
           sort_order: newIndex
         })
+        updated = true
       }
       // Note: Links cannot exist at root level per our architecture decision
     }
@@ -279,32 +245,39 @@ async function handleDragChange(event) {
           parent_id: null,
           sort_order: newIndex
         })
+        updated = true
       }
     }
 
-    // Reload categories to get fresh data
-    await loadCategories()
-    await loadSystemViewCounts()
+    // Reload entire category tree to reflect changes
+    if (updated) {
+      await loadCategories()
+      await loadSystemViewCounts()
+    }
   } catch (error) {
     console.error('Failed to update category position:', error)
     alert('Failed to update category position. Please refresh the page.')
+    // Reload anyway to restore consistent state
+    await loadCategories()
   }
 }
 
-// Handle category moved (from CategoryCard when dropping on another category)
-async function handleCategoryMoved({ categoryId, newParentId, oldParentId }) {
+// Handle category moved (from CategoryCard/SubcategoryItem after drag operations)
+async function handleCategoryMoved(payload) {
   try {
-    // Update category parent via API
-    await categoriesApi.updateCategory(categoryId, {
-      parent_id: newParentId
-    })
+    // If payload provided, update via API (legacy usage)
+    if (payload && payload.categoryId) {
+      await categoriesApi.updateCategory(payload.categoryId, {
+        parent_id: payload.newParentId
+      })
+    }
 
-    // Reload categories to reflect the change
+    // Always reload categories to reflect changes
     await loadCategories()
     await loadSystemViewCounts()
   } catch (error) {
-    console.error('Failed to move category:', error)
-    alert('Failed to move category. Please try again.')
+    console.error('Failed to reload categories:', error)
+    alert('Failed to reload categories. Please refresh the page.')
   }
 }
 
