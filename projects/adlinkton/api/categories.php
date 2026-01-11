@@ -240,7 +240,8 @@ function updateCategory($categoryId, $data, $userId) {
         $params[':name'] = sanitizeHtml(trim($data['name']));
     }
 
-    if (isset($data['parent_id'])) {
+    // Use array_key_exists instead of isset to handle null values correctly
+    if (array_key_exists('parent_id', $data)) {
         // Prevent setting self as parent
         if ($data['parent_id'] == $categoryId) {
             jsonValidationError(['parent_id' => 'Category cannot be its own parent']);
@@ -265,7 +266,7 @@ function updateCategory($categoryId, $data, $userId) {
         $params[':parent_id'] = $data['parent_id'];
     }
 
-    if (isset($data['display_mode'])) {
+    if (array_key_exists('display_mode', $data)) {
         if ($data['display_mode'] !== null && !validateDisplayMode($data['display_mode'])) {
             jsonValidationError(['display_mode' => 'Invalid display mode']);
         }
