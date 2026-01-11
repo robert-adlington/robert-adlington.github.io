@@ -15,6 +15,7 @@
       group="items"
       class="category-grid"
       :animation="200"
+      :move="validateMove"
       ghost-class="ghost-card"
       @change="handleDragChange"
     >
@@ -183,11 +184,85 @@ function handleLinkUpdated(link) {
   emit('link-updated', link)
 }
 
+// Check if targetCategory is a descendant of sourceCategory
+function isDescendantOf(sourceCategoryId, targetCategoryId) {
+  if (!targetCategoryId) return false
+
+  const targetCategory = categoryMap.value[targetCategoryId]
+  if (!targetCategory) return false
+
+  // Check all children recursively
+  if (targetCategory.children) {
+    for (const child of targetCategory.children) {
+      if (child.id === sourceCategoryId) {
+        return true
+      }
+      if (isDescendantOf(sourceCategoryId, child.id)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+// Validate move to prevent circular references
+function validateMove(evt) {
+  const draggedItem = evt.draggedContext.element
+  const relatedItem = evt.relatedContext.element
+
+  // If dragging a category onto another category, prevent circular reference
+  if (draggedItem.type === 'category' && relatedItem.type === 'category') {
+    // Can't move a category into its own descendant
+    if (isDescendantOf(draggedItem.id, relatedItem.id)) {
+      console.warn('Cannot move category into its own descendant')
+      return false
+    }
+  }
+
+  return true
+}
+
 // Handle drag change
-function handleDragChange(event) {
+async function handleDragChange(event) {
   console.log('Drag change:', event)
-  // allCards is automatically updated by v-model
-  // We could save the new order to the database here if needed
+
+  try {
+    // Handle item added to root level (from a category)
+    if (event.added) {
+      const item = event.added.element
+      const newIndex = event.added.newIndex
+
+      if (item.type === 'category') {
+        // Update category to root level (parent_id = null)
+        await categoriesApi.updateCategory(item.id, {
+          parent_id: null,
+          order_position: newIndex
+        })
+      }
+      // Note: Links cannot exist at root level per our architecture decision
+    }
+
+    // Handle item moved within root level (reorder)
+    if (event.moved) {
+      const item = event.moved.element
+      const newIndex = event.moved.newIndex
+
+      if (item.type === 'category') {
+        await categoriesApi.reorderCategory(item.id, {
+          parent_id: null,
+          order_position: newIndex
+        })
+      }
+    }
+
+    // Reload categories to get fresh data
+    await loadCategories()
+    await loadSystemViewCounts()
+  } catch (error) {
+    console.error('Failed to update category position:', error)
+    alert('Failed to update category position. Please refresh the page.')
+  }
 }
 
 // Handle category moved (from CategoryCard when dropping on another category)

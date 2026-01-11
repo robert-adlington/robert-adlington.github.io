@@ -82,6 +82,7 @@
           v-model="categoryContent"
           group="items"
           :animation="200"
+          :move="validateMove"
           @change="handleContentChange"
         >
           <template v-for="item in categoryContent" :key="item.type + '-' + item.id">
@@ -91,6 +92,7 @@
                 :subcategory="item.data"
                 :depth="0"
                 :expanded-ids="expandedSubcategoryIds"
+                :category-map="categoryMap"
                 @toggle="handleToggleSubcategory"
                 @edit="handleEditSubcategory"
                 @delete="handleDeleteSubcategory"
@@ -128,6 +130,7 @@ import { VueDraggableNext } from 'vue-draggable-next'
 import SubcategoryItem from './SubcategoryItem.vue'
 import LinkItem from './LinkItem.vue'
 import { linksApi } from '@/api/links'
+import { categoriesApi } from '@/api/categories'
 
 const props = defineProps({
   category: {
@@ -284,11 +287,95 @@ function handleDeleteSubcategory(subcategory) {
   emit('delete', subcategory)
 }
 
+// Check if targetCategory is a descendant of sourceCategory
+function isDescendantOf(sourceCategoryId, targetCategoryId) {
+  if (!targetCategoryId) return false
+
+  const targetCategory = props.categoryMap[targetCategoryId]
+  if (!targetCategory) return false
+
+  // Check all children recursively
+  if (targetCategory.children) {
+    for (const child of targetCategory.children) {
+      if (child.id === sourceCategoryId) {
+        return true
+      }
+      if (isDescendantOf(sourceCategoryId, child.id)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+// Validate move to prevent circular references
+function validateMove(evt) {
+  const draggedItem = evt.draggedContext.element
+  const relatedItem = evt.relatedContext.element
+
+  // If dragging a category onto another category, prevent circular reference
+  if (draggedItem.type === 'category' && relatedItem.type === 'category') {
+    // Can't move a category into its own descendant
+    if (isDescendantOf(draggedItem.id, relatedItem.id)) {
+      console.warn('Cannot move category into its own descendant')
+      return false
+    }
+  }
+
+  return true
+}
+
 // Handle drag and drop changes within this category
-function handleContentChange(event) {
+async function handleContentChange(event) {
   console.log('Category content changed:', event, 'in category:', props.category.name)
-  // categoryContent.value is automatically updated by v-model
-  // TODO: Update order_position and parent_id in database when items are moved
+
+  try {
+    // Handle item added to this category (from another category)
+    if (event.added) {
+      const item = event.added.element
+      const newIndex = event.added.newIndex
+
+      if (item.type === 'category') {
+        // Update category parent_id and order_position
+        await categoriesApi.updateCategory(item.id, {
+          parent_id: props.category.id,
+          order_position: newIndex
+        })
+      } else if (item.type === 'link') {
+        // Update link category_id and order_position
+        await linksApi.updateLink(item.id, {
+          category_id: props.category.id,
+          order_position: newIndex
+        })
+      }
+    }
+
+    // Handle item moved within this category (reorder)
+    if (event.moved) {
+      const item = event.moved.element
+      const newIndex = event.moved.newIndex
+
+      if (item.type === 'category') {
+        await categoriesApi.reorderCategory(item.id, {
+          parent_id: props.category.id,
+          order_position: newIndex
+        })
+      } else if (item.type === 'link') {
+        await linksApi.reorderLink(item.id, {
+          category_id: props.category.id,
+          order_position: newIndex
+        })
+      }
+    }
+
+    // Reload to get fresh data from server
+    await loadCategoryLinks()
+    emit('link-updated')
+  } catch (error) {
+    console.error('Failed to update item position:', error)
+    alert('Failed to update item position. Please refresh the page.')
+  }
 }
 
 async function loadCategoryLinks() {
