@@ -208,8 +208,22 @@ function isDescendantOf(sourceCategoryId, targetCategoryId) {
 
 // Validate move to prevent circular references
 function validateMove(evt) {
+  console.log('Validate move:', evt)
+
+  if (!evt || !evt.draggedContext || !evt.relatedContext) {
+    console.warn('Invalid move event structure')
+    return true
+  }
+
   const draggedItem = evt.draggedContext.element
   const relatedItem = evt.relatedContext.element
+
+  if (!draggedItem || !relatedItem) {
+    console.warn('Dragged or related item is undefined')
+    return true
+  }
+
+  console.log('Dragged item:', draggedItem, 'Related item:', relatedItem)
 
   // If dragging a category onto another category, prevent circular reference
   if (draggedItem.type === 'category' && relatedItem.type === 'category') {
@@ -231,7 +245,13 @@ async function handleDragChange(event) {
     // Handle item added to root level (from a category)
     if (event.added) {
       const item = event.added.element
+      console.log('Added item:', item)
       const newIndex = event.added.newIndex
+
+      if (!item) {
+        console.warn('Added element is undefined')
+        return
+      }
 
       if (item.type === 'category') {
         // Update category to root level (parent_id = null)
@@ -246,7 +266,13 @@ async function handleDragChange(event) {
     // Handle item moved within root level (reorder)
     if (event.moved) {
       const item = event.moved.element
+      console.log('Moved item:', item)
       const newIndex = event.moved.newIndex
+
+      if (!item) {
+        console.warn('Moved element is undefined')
+        return
+      }
 
       if (item.type === 'category') {
         await categoriesApi.reorderCategory(item.id, {
