@@ -163,7 +163,7 @@ watch([() => props.subcategory.children, links], () => {
         type: 'category',
         id: child.id,
         data: child,
-        order: child.order_position || 0
+        order: child.sort_order || 0
       })
     })
   }
@@ -174,11 +174,11 @@ watch([() => props.subcategory.children, links], () => {
       type: 'link',
       id: link.id,
       data: link,
-      order: link.order_position || 0
+      order: link.sort_order || 0
     })
   })
 
-  // Sort by order
+  // Sort by sort_order
   items.sort((a, b) => a.order - b.order)
 
   contentItems.value = items
@@ -272,17 +272,15 @@ async function handleContentChange(event) {
       }
 
       if (item.type === 'category') {
-        // Update category parent_id and order_position
+        // Update category parent_id and sort_order
         await categoriesApi.updateCategory(item.id, {
           parent_id: props.subcategory.id,
-          order_position: newIndex
+          sort_order: newIndex
         })
       } else if (item.type === 'link') {
-        // Update link category_id and order_position
-        await linksApi.updateLink(item.id, {
-          category_id: props.subcategory.id,
-          order_position: newIndex
-        })
+        // TODO: Link reordering not yet supported by backend
+        console.warn('Link reordering not yet implemented in backend')
+        return
       }
     }
 
@@ -300,13 +298,12 @@ async function handleContentChange(event) {
       if (item.type === 'category') {
         await categoriesApi.reorderCategory(item.id, {
           parent_id: props.subcategory.id,
-          order_position: newIndex
+          sort_order: newIndex
         })
       } else if (item.type === 'link') {
-        await linksApi.reorderLink(item.id, {
-          category_id: props.subcategory.id,
-          order_position: newIndex
-        })
+        // TODO: Link reordering not yet supported by backend
+        console.warn('Link reordering not yet implemented in backend')
+        return
       }
     }
 
@@ -324,7 +321,7 @@ async function loadLinks() {
   try {
     const response = await linksApi.getLinks({
       category_id: props.subcategory.id,
-      sort: 'order_position',
+      sort: 'manual',
       order: 'asc'
     })
     links.value = response.links || []

@@ -257,7 +257,7 @@ async function handleDragChange(event) {
         // Update category to root level (parent_id = null)
         await categoriesApi.updateCategory(item.id, {
           parent_id: null,
-          order_position: newIndex
+          sort_order: newIndex
         })
       }
       // Note: Links cannot exist at root level per our architecture decision
@@ -277,7 +277,7 @@ async function handleDragChange(event) {
       if (item.type === 'category') {
         await categoriesApi.reorderCategory(item.id, {
           parent_id: null,
-          order_position: newIndex
+          sort_order: newIndex
         })
       }
     }
