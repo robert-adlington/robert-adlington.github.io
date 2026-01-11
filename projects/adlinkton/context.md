@@ -34,6 +34,46 @@ This document captures architectural decisions, lessons learned, and important i
 
 ---
 
+### Always Check Event Handler Signatures Before Emitting Events
+
+**Date**: 2026-01-11
+**Context**: Same drag-and-drop implementation - fixing SubcategoryItem reload logic
+
+**What Happened**:
+- After moving a category in SubcategoryItem, wanted to trigger parent reload
+- Emitted `emit('link-click')` with no argument, thinking it was a generic reload signal
+- CategoryCard's `handleLinkClick(link)` expects a link object parameter
+- Caused: `TypeError: Cannot read properties of undefined (reading 'id')`
+- Only discovered when testing the drag operation
+
+**What Should Have Been Done**:
+1. **First**: Check CategoryCard's `handleLinkClick` function to see what it expects
+2. **Second**: Verify if this event is meant for link clicks or generic reloads (it's for link clicks)
+3. **Third**: Question if a reload is even needed (vue-draggable-next handles UI updates via v-model)
+
+**The Real Solution**:
+- No emit needed at all - vue-draggable-next's v-model handles UI updates automatically
+- Database is updated asynchronously via API calls
+- Event was being misused as a generic "reload parent" signal
+
+**Impact**:
+- Runtime error that crashed the drag operation after it completed
+- Another debugging cycle that could have been avoided
+- Same pattern as the backend API error - didn't check the other side of the interface
+
+**Pattern Identified**: This is the **second occurrence** of not checking interface contracts:
+1. First: Didn't check backend API → wrong field name
+2. This: Didn't check event handler → wrong parameter
+
+**Lesson**: Before implementing any interface interaction (API calls, event emits, props, function calls):
+1. **Read the receiver first** - what does the other side expect?
+2. **Verify the contract** - what data/format is required?
+3. **Question the approach** - is this even the right way to solve the problem?
+
+This applies to: backend APIs, event handlers, props, callbacks, and any other interface boundary.
+
+---
+
 ## Architecture Decisions
 
 ### Drag-and-Drop Implementation: vue-draggable-next vs Custom HTML5
