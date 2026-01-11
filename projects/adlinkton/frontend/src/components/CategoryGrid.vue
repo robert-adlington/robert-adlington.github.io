@@ -247,11 +247,15 @@ async function handleDragChange(event) {
           parent_id: null,
           sort_order: newIndex
         })
-        await categoriesApi.updateCategory(item.id, {
+        const updateResult = await categoriesApi.updateCategory(item.id, {
           parent_id: null,
           sort_order: newIndex
         })
-        debugStore.addLog('api', 'CategoryGrid: updateCategory succeeded')
+        debugStore.addLog('api', 'CategoryGrid: updateCategory response', {
+          success: updateResult?.success,
+          category: updateResult?.category,
+          fullResponse: updateResult
+        })
         updated = true
       }
       // Note: Links cannot exist at root level per our architecture decision
