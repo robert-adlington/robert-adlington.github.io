@@ -3,10 +3,8 @@
     class="link-item group"
     :class="{ 'bg-primary-50': isFocused }"
     :style="indentStyle"
-    draggable="false"
     @click="handleClick"
     @contextmenu.prevent="$emit('contextmenu', $event)"
-    @dragstart.prevent
   >
     <!-- Favicon -->
     <div class="flex-shrink-0">

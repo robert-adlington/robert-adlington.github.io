@@ -286,10 +286,18 @@ async function handleContentChange(event) {
         })
         updated = true
       } else if (item.type === 'link') {
-        // TODO: Link reordering not yet supported by backend
-        console.warn('Link reordering not yet implemented in backend')
-        debugStore.addLog('warn', `SubcategoryItem: Link reordering not yet implemented`)
-        return
+        // Move link into this subcategory
+        debugStore.addLog('api', `SubcategoryItem: Calling reorderLink to move into "${props.subcategory.name}"`, {
+          linkId: item.id,
+          category_id: props.subcategory.id,
+          sort_order: newIndex
+        })
+        await linksApi.reorderLink(item.id, {
+          category_id: props.subcategory.id,
+          sort_order: newIndex
+        })
+        debugStore.addLog('api', `SubcategoryItem: reorderLink succeeded`)
+        updated = true
       }
     }
 
@@ -322,10 +330,18 @@ async function handleContentChange(event) {
         debugStore.addLog('api', `SubcategoryItem: reorderCategory succeeded`)
         updated = true
       } else if (item.type === 'link') {
-        // TODO: Link reordering not yet supported by backend
-        console.warn('Link reordering not yet implemented in backend')
-        debugStore.addLog('warn', `SubcategoryItem: Link reordering not yet implemented`)
-        return
+        // Reorder link within this subcategory
+        debugStore.addLog('api', `SubcategoryItem: Calling reorderLink within "${props.subcategory.name}"`, {
+          linkId: item.id,
+          category_id: props.subcategory.id,
+          sort_order: newIndex
+        })
+        await linksApi.reorderLink(item.id, {
+          category_id: props.subcategory.id,
+          sort_order: newIndex
+        })
+        debugStore.addLog('api', `SubcategoryItem: reorderLink succeeded`)
+        updated = true
       }
     }
 
