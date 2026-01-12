@@ -440,10 +440,123 @@ function recordLinkAccess($linkId, $userId) {
 
 /**
  * Reorder a link within/between categories
+ * Moves a link to a new category and/or position
+ *
+ * @param int $linkId The link to reorder
+ * @param array $data Must contain: category_id (target category), sort_order (target position)
+ * @param int $userId Current user ID
  */
 function reorderLink($linkId, $data, $userId) {
-    // TODO: Implement
-    jsonError('Not implemented yet', 501);
+    $db = getDB();
+
+    // Verify link ownership
+    $stmt = $db->prepare("SELECT * FROM links WHERE id = :id");
+    $stmt->execute([':id' => $linkId]);
+    $existingLink = $stmt->fetch();
+
+    if (!$existingLink) {
+        jsonNotFound('Link not found');
+    }
+
+    requireOwnership($existingLink['user_id'], $userId);
+
+    // Validate required fields
+    if (!isset($data['category_id'])) {
+        jsonError('category_id is required', 400);
+    }
+    if (!isset($data['sort_order'])) {
+        jsonError('sort_order is required', 400);
+    }
+
+    $targetCategoryId = (int)$data['category_id'];
+    $newSortOrder = (int)$data['sort_order'];
+
+    // Verify target category exists and user owns it
+    $stmt = $db->prepare("SELECT * FROM categories WHERE id = :id");
+    $stmt->execute([':id' => $targetCategoryId]);
+    $targetCategory = $stmt->fetch();
+
+    if (!$targetCategory) {
+        jsonNotFound('Target category not found');
+    }
+
+    requireOwnership($targetCategory['user_id'], $userId);
+
+    try {
+        $db->beginTransaction();
+
+        // Check if link is currently in the target category
+        $stmt = $db->prepare("SELECT * FROM link_categories WHERE link_id = :link_id AND category_id = :category_id");
+        $stmt->execute([
+            ':link_id' => $linkId,
+            ':category_id' => $targetCategoryId
+        ]);
+        $existingEntry = $stmt->fetch();
+
+        // If moving to a different category, remove from all old categories
+        if (!$existingEntry) {
+            // Remove from all existing categories (since we're moving, not copying)
+            $stmt = $db->prepare("DELETE FROM link_categories WHERE link_id = :link_id");
+            $stmt->execute([':link_id' => $linkId]);
+        }
+
+        // Fetch all links in the target category ordered by sort_order
+        $stmt = $db->prepare("
+            SELECT lc.link_id, lc.sort_order
+            FROM link_categories lc
+            INNER JOIN links l ON lc.link_id = l.id
+            WHERE lc.category_id = :category_id AND l.user_id = :user_id
+            ORDER BY lc.sort_order
+        ");
+        $stmt->execute([
+            ':category_id' => $targetCategoryId,
+            ':user_id' => $userId
+        ]);
+        $siblings = $stmt->fetchAll();
+
+        // Build new order: remove current link if present, then insert at new position
+        $orderedLinkIds = [];
+        foreach ($siblings as $sibling) {
+            if ($sibling['link_id'] != $linkId) {
+                $orderedLinkIds[] = $sibling['link_id'];
+            }
+        }
+
+        // Insert at new position (clamp to valid range)
+        $newSortOrder = max(0, min($newSortOrder, count($orderedLinkIds)));
+        array_splice($orderedLinkIds, $newSortOrder, 0, [$linkId]);
+
+        // Delete all link_categories entries for this category
+        $stmt = $db->prepare("DELETE FROM link_categories WHERE category_id = :category_id AND link_id IN (
+            SELECT id FROM links WHERE user_id = :user_id
+        )");
+        $stmt->execute([
+            ':category_id' => $targetCategoryId,
+            ':user_id' => $userId
+        ]);
+
+        // Reinsert all links with updated sort_order
+        $insertStmt = $db->prepare("
+            INSERT INTO link_categories (link_id, category_id, sort_order)
+            VALUES (:link_id, :category_id, :sort_order)
+        ");
+
+        foreach ($orderedLinkIds as $index => $lId) {
+            $insertStmt->execute([
+                ':link_id' => $lId,
+                ':category_id' => $targetCategoryId,
+                ':sort_order' => $index
+            ]);
+        }
+
+        $db->commit();
+
+        jsonSuccess(['message' => 'Link reordered successfully']);
+    } catch (Exception $e) {
+        $db->rollBack();
+        error_log("Error reordering link: " . $e->getMessage());
+        jsonError('Failed to reorder link', 500);
+    }
 }
 
 /**

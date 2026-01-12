@@ -369,10 +369,18 @@ async function handleContentChange(event) {
         })
         updated = true
       } else if (item.type === 'link') {
-        // TODO: Link reordering not yet supported by backend
-        console.warn('Link reordering not yet implemented in backend')
-        debugStore.addLog('warn', `CategoryCard: Link reordering not yet implemented`)
-        return
+        // Move link into this category
+        debugStore.addLog('api', `CategoryCard: Calling reorderLink to move into "${props.category.name}"`, {
+          linkId: item.id,
+          category_id: props.category.id,
+          sort_order: newIndex
+        })
+        await linksApi.reorderLink(item.id, {
+          category_id: props.category.id,
+          sort_order: newIndex
+        })
+        debugStore.addLog('api', `CategoryCard: reorderLink succeeded`)
+        updated = true
       }
     }
 
@@ -405,10 +413,18 @@ async function handleContentChange(event) {
         debugStore.addLog('api', `CategoryCard: reorderCategory succeeded`)
         updated = true
       } else if (item.type === 'link') {
-        // TODO: Link reordering not yet supported by backend
-        console.warn('Link reordering not yet implemented in backend')
-        debugStore.addLog('warn', `CategoryCard: Link reordering not yet implemented`)
-        return
+        // Reorder link within this category
+        debugStore.addLog('api', `CategoryCard: Calling reorderLink within "${props.category.name}"`, {
+          linkId: item.id,
+          category_id: props.category.id,
+          sort_order: newIndex
+        })
+        await linksApi.reorderLink(item.id, {
+          category_id: props.category.id,
+          sort_order: newIndex
+        })
+        debugStore.addLog('api', `CategoryCard: reorderLink succeeded`)
+        updated = true
       }
     }
 

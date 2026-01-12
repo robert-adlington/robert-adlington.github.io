@@ -255,3 +255,53 @@ The fundamental lesson remains: **Always verify both sides of any interface**. T
 
 **Documented**: 2026-01-11
 **Updated**: 2026-01-11 (changed from "purely visual" to semantic columns per user requirement)
+
+---
+
+### Draggable Links with Reordering and Cross-Category Movement
+
+**Architecture**: Links can be dragged and reordered within categories or moved between categories using the same drag-and-drop infrastructure as categories.
+
+**Key Design Decisions**:
+1. **Move behavior**: Dragging a link to a new category moves it (removes from old category, adds to new one) - does not copy
+2. **Per-category positioning**: Each link has independent sort_order in each category via `link_categories` junction table
+3. **Shared drag groups**: Links and categories both use `group="items"` allowing mixed dragging within the same container
+4. **Consistent visual feedback**: Links use identical drag indicators as categories (ghost effects, drop zones, gap indicators)
+
+**Database Schema**:
+- `link_categories` junction table stores many-to-many relationships between links and categories
+- Each entry has `sort_order` field for link position within that specific category
+- Schema: `link_categories(link_id, category_id, sort_order)` with composite primary key
+
+**Backend Implementation** (`api/links.php:449-560`):
+- `reorderLink($linkId, $data, $userId)` function handles all link movement operations
+- Validates ownership of both link and target category
+- When moving to different category: DELETE from all old categories, INSERT into new category
+- When reordering within same category: UPDATE sort_order for link
+- Renumbers all sibling links in target category to avoid gaps/collisions
+- Transaction-based for data consistency
+
+**Frontend Implementation**:
+- `LinkItem.vue`: Removed `draggable="false"` and `@dragstart.prevent` to enable dragging
+- `CategoryCard.vue`: Handles link drops in root categories via `@change` event
+  - `event.added`: Link moved from another category → calls `reorderLink()` with new category_id
+  - `event.moved`: Link reordered within same category → calls `reorderLink()` with same category_id
+- `SubcategoryItem.vue`: Identical implementation for subcategories
+- All handlers call `linksApi.reorderLink(linkId, { category_id, sort_order })`
+
+**Drag Behaviors**:
+- Drag link within category: Updates sort_order, preserves category_id
+- Drag link to different category: Removes from old category, adds to new category at specified position
+- Drag link onto category drop zone: Adds to end of category's link list
+- Drag link between items: Inserts at gap position, renumbers siblings
+
+**API Contract**:
+```javascript
+// PUT /links/{id}/reorder
+{
+  category_id: 123,    // Target category (required)
+  sort_order: 2        // Target position 0-based (required)
+}
+```
+
+**Documented**: 2026-01-12
