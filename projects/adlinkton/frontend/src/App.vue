@@ -1,5 +1,9 @@
 <template>
-  <div id="app" class="h-full flex flex-col bg-white">
+  <!-- POC Mode: Show TreeDndPOC component -->
+  <TreeDndPOC v-if="showPOC" />
+
+  <!-- Normal App Mode -->
+  <div v-else id="app" class="h-full flex flex-col bg-white">
     <!-- Header -->
     <header class="flex items-center justify-between px-6 py-3 border-b bg-white shadow-sm">
       <div class="flex items-center gap-4">
@@ -145,7 +149,11 @@ import AddLinkModal from './components/AddLinkModal.vue'
 import AddCategoryModal from './components/AddCategoryModal.vue'
 import ImportBookmarksModal from './components/ImportBookmarksModal.vue'
 import DebugPanel from './components/DebugPanel.vue'
+import TreeDndPOC from './components/TreeDndPOC.vue'
 import { categoriesApi } from './api/categories'
+
+// Check if we should show the POC (via URL hash #poc)
+const showPOC = ref(window.location.hash === '#poc')
 
 // Refs
 const categoryGrid = ref(null)
