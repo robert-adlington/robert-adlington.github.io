@@ -2,6 +2,9 @@
   <!-- POC Mode: Show TreeDndPOC component -->
   <TreeDndPOC v-if="showPOC" />
 
+  <!-- Nested Sort POC Mode -->
+  <NestedSortPOC v-else-if="showNestedSortPOC" />
+
   <!-- Normal App Mode -->
   <div v-else id="app" class="h-full flex flex-col bg-white">
     <!-- Header -->
@@ -150,10 +153,12 @@ import AddCategoryModal from './components/AddCategoryModal.vue'
 import ImportBookmarksModal from './components/ImportBookmarksModal.vue'
 import DebugPanel from './components/DebugPanel.vue'
 import TreeDndPOC from './components/TreeDndPOC.vue'
+import NestedSortPOC from './components/NestedSortPOC.vue'
 import { categoriesApi } from './api/categories'
 
 // Check if we should show the POC (via URL hash #poc)
 const showPOC = ref(window.location.hash === '#poc')
+const showNestedSortPOC = ref(window.location.hash === '#nested-sort-poc')
 
 // Refs
 const categoryGrid = ref(null)
