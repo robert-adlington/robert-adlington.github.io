@@ -156,9 +156,11 @@ import TreeDndPOC from './components/TreeDndPOC.vue'
 import NestedSortPOC from './components/NestedSortPOC.vue'
 import { categoriesApi } from './api/categories'
 
-// Check if we should show the POC (via URL hash #poc)
+// Check if we should show the POC (via URL hash)
+// #poc = vue-tree-dnd POC
+// #poc2 = nested-sort POC
 const showPOC = ref(window.location.hash === '#poc')
-const showNestedSortPOC = ref(window.location.hash === '#nested-sort-poc')
+const showNestedSortPOC = ref(window.location.hash === '#poc2')
 
 // Refs
 const categoryGrid = ref(null)
