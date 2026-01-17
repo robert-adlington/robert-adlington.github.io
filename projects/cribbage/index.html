@@ -308,30 +308,41 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      gap: 1.5rem;
+      gap: 1rem;
       padding: 0 1rem;
-      min-width: 100px;
+      min-width: 120px;
     }
 
     .board-logo {
-      font-size: 3rem;
-      opacity: 0.3;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 2rem;
+      font-weight: 900;
+      color: #654321;
+      text-align: center;
+      letter-spacing: 0.1em;
+      text-shadow:
+        2px 2px 0px rgba(255, 255, 255, 0.3),
+        -1px -1px 0px rgba(0, 0, 0, 0.3),
+        0px 3px 5px rgba(0, 0, 0, 0.4);
+      text-transform: uppercase;
+      font-style: italic;
     }
 
     .board-scores {
       display: flex;
-      flex-direction: column;
-      gap: 1rem;
+      flex-direction: row;
+      gap: 0.5rem;
       text-align: center;
     }
 
     .board-score {
-      font-size: 2rem;
+      font-size: 1.5rem;
       font-weight: bold;
-      padding: 0.5rem 1rem;
+      padding: 0.3rem 0.6rem;
       border-radius: 0.5rem;
       background: rgba(255, 255, 255, 0.2);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      min-width: 2.5rem;
     }
 
     .board-score.player1-score {
@@ -343,8 +354,8 @@
     }
 
     .hole {
-      width: 1.2rem;
-      height: 1.2rem;
+      width: 0.65rem;
+      height: 0.65rem;
       background: #654321;
       border-radius: 50%;
       position: relative;
@@ -975,7 +986,7 @@
                 <div className="board-lane player2-lane">{player2LeftLane}</div>
               </div>
               <div className="center-area">
-                <div className="board-logo">🎯</div>
+                <div className="board-logo">Cribbage</div>
                 <div className="board-scores">
                   <div className="board-score player1-score">{player1Score}</div>
                   <div className="board-score player2-score">{player2Score}</div>
