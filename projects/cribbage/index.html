@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Cribbage Scoring System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #388e3c 100%);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #root {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .theme-selector {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .theme-selector select {
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      background: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+
+    .btn:active {
+      transform: scale(0.95);
+    }
+
+    .btn-primary {
+      background: #1976d2;
+      color: white;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn-primary:hover {
+      background: #1565c0;
+    }
+
+    .btn-secondary {
+      background: #616161;
+      color: white;
+    }
+
+    .btn-secondary:hover {
+      background: #424242;
+    }
+
+    /* Main Layout */
+    .game-screen {
+      flex: 1;
+      display: flex;
+      gap: 1rem;
+      padding: 1rem;
+      overflow: hidden;
+    }
+
+    /* Player Panel */
+    .player-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      overflow-y: auto;
+    }
+
+    .player-info {
+      text-align: center;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 1rem;
+    }
+
+    .player-name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .dealer-badge {
+      background: #ffc107;
+      color: #000;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .score-display {
+      margin: 1rem 0;
+    }
+
+    .score-number {
+      font-size: 4rem;
+      font-weight: 700;
+      color: #1976d2;
+    }
+
+    .score-number.leading {
+      color: #2e7d32;
+    }
+
+    .score-diff {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+
+    .last-points {
+      font-size: 0.9rem;
+      color: #1976d2;
+      font-weight: 600;
+      margin-top: 0.25rem;
+    }
+
+    .win-stats {
+      font-size: 0.9rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+
+    /* Scoring Keypad */
+    .scoring-keypad {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .keypad-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 0.5rem;
+    }
+
+    .input-display {
+      background: #f5f5f5;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #333;
+      min-height: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+
+    .keypad-btn {
+      padding: 1.25rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      background: white;
+      color: #333;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s;
+    }
+
+    .keypad-btn:hover {
+      background: #f5f5f5;
+    }
+
+    .keypad-btn:active {
+      transform: scale(0.95);
+    }
+
+    .keypad-btn-wide {
+      grid-column: span 2;
+    }
+
+    .add-points-btn {
+      background: #1976d2;
+      color: white;
+      padding: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .add-points-btn:hover {
+      background: #1565c0;
+    }
+
+    .undo-btn {
+      background: #616161;
+      color: white;
+      padding: 0.75rem;
+      font-size: 1rem;
+    }
+
+    /* Board */
+    .board-container {
+      flex: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .board-card {
+      flex: 1;
+      background: white;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .board-title {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .board-content {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Classic Board */
+    .classic-board {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
+      border-radius: 0.5rem;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .board-row {
+      display: flex;
+      gap: 0.25rem;
+      align-items: center;
+    }
+
+    .board-row.reverse {
+      flex-direction: row-reverse;
+    }
+
+    .hole {
+      width: 0.75rem;
+      height: 0.75rem;
+      background: #654321;
+      border-radius: 50%;
+      position: relative;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    .hole.finish {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    .peg {
+      position: absolute;
+      width: 0.6rem;
+      height: 0.6rem;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .peg.player1 {
+      background: #dc2626;
+    }
+
+    .peg.player2 {
+      background: #2563eb;
+    }
+
+    .peg.leading {
+      box-shadow: 0 0 0 2px #ffc107, 0 2px 4px rgba(0, 0, 0, 0.3);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+
+    /* Themed Boards */
+    .themed-board {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    .themed-board svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .themed-board.mountain {
+      background: linear-gradient(to top, #2e7d32 0%, #78909c 50%, white 100%);
+      border-radius: 0.5rem;
+    }
+
+    .themed-board.skiing {
+      background: linear-gradient(to bottom, white 0%, #bbdefb 50%, #2e7d32 100%);
+      border-radius: 0.5rem;
+    }
+
+    .themed-board.moon {
+      background: linear-gradient(to top, #1a237e 0%, #4a148c 50%, #000 100%);
+      border-radius: 0.5rem;
+    }
+
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 3s infinite;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Game Info */
+    .game-info {
+      text-align: center;
+      background: rgba(0, 0, 0, 0.2);
+      color: white;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .legend-color {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+    }
+
+    .legend-color.player1 {
+      background: #dc2626;
+    }
+
+    .legend-color.player2 {
+      background: #2563eb;
+    }
+
+    /* Setup Screen */
+    .setup-screen {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .setup-card {
+      background: white;
+      border-radius: 1rem;
+      padding: 2rem;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .setup-card h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      color: #333;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #1976d2;
+    }
+
+    .start-btn {
+      width: 100%;
+      padding: 1rem;
+      margin-top: 1rem;
+      background: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .start-btn:hover {
+      background: #1565c0;
+    }
+
+    .how-to-play {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 2px solid #e0e0e0;
+    }
+
+    .how-to-play h3 {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+
+    .how-to-play ul {
+      list-style: none;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    .how-to-play li {
+      margin-bottom: 0.25rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 1rem;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 1rem;
+      padding: 2rem;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-content h2 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .trophy {
+      text-align: center;
+      font-size: 4rem;
+      margin-bottom: 1rem;
+    }
+
+    .winner-name {
+      font-size: 2.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 1rem;
+      color: #1976d2;
+    }
+
+    .skunk-message {
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #ffc107;
+      margin-bottom: 1rem;
+    }
+
+    .final-score {
+      text-align: center;
+      font-size: 1.2rem;
+      color: #666;
+      margin-bottom: 1.5rem;
+    }
+
+    .session-standings {
+      background: #f5f5f5;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .session-standings h3 {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+
+    .session-standings .score {
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .modal-btn {
+      width: 100%;
+      padding: 1rem;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-btn.primary {
+      background: #1976d2;
+      color: white;
+    }
+
+    .modal-btn.primary:hover {
+      background: #1565c0;
+    }
+
+    .modal-btn.secondary {
+      background: #e0e0e0;
+      color: #333;
+    }
+
+    .modal-btn.secondary:hover {
+      background: #d0d0d0;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // ============ API CONFIGURATION ============
+    const API_BASE = '/projects/cribbage/api';
+
+    const api = {
+      request: async (endpoint, options = {}) => {
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+          },
+          ...options
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+
+        return data.data || data;
+      },
+
+      createSession: (sessionData) => {
+        return api.request('/sessions.php', {
+          method: 'POST',
+          body: JSON.stringify(sessionData)
+        });
+      },
+
+      createGame: (sessionId) => {
+        return api.request('/games.php', {
+          method: 'POST',
+          body: JSON.stringify({ session_id: sessionId })
+        });
+      },
+
+      addMove: (gameId, moveData) => {
+        return api.request('/moves.php', {
+          method: 'POST',
+          body: JSON.stringify({ game_id: gameId, ...moveData })
+        });
+      },
+
+      undoMove: (moveId) => {
+        return api.request(`/moves.php?id=${moveId}`, {
+          method: 'DELETE'
+        });
+      }
+    };
+
+    // ============ COMPONENTS ============
+
+    // New Game Setup Component
+    function NewGameSetup({ onStart }) {
+      const [player1Name, setPlayer1Name] = useState('');
+      const [player2Name, setPlayer2Name] = useState('');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (player1Name.trim() && player2Name.trim()) {
+          onStart(player1Name.trim(), player2Name.trim());
+        }
+      };
+
+      return (
+        <div className="setup-screen">
+          <div className="setup-card">
+            <h2>New Cribbage Game</h2>
+            <form onSubmit={handleSubmit}>
+              <div className="form-group">
+                <label>Player 1 Name</label>
+                <input
+                  type="text"
+                  value={player1Name}
+                  onChange={(e) => setPlayer1Name(e.target.value)}
+                  placeholder="Enter player 1 name"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Player 2 Name</label>
+                <input
+                  type="text"
+                  value={player2Name}
+                  onChange={(e) => setPlayer2Name(e.target.value)}
+                  placeholder="Enter player 2 name"
+                  required
+                />
+              </div>
+              <button type="submit" className="start-btn">
+                Start Game
+              </button>
+            </form>
+            <div className="how-to-play">
+              <h3>How to Play:</h3>
+              <ul>
+                <li>• First player to 121 points wins</li>
+                <li>• Win before opponent reaches 90 = Skunk (2 game wins)</li>
+                <li>• Use the keypad to enter points scored</li>
+                <li>• Track is completed twice (60 points each lap) + 1 point</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Scoring Keypad Component
+    function ScoringKeypad({ onAddPoints, onUndo }) {
+      const [input, setInput] = useState('');
+
+      const appendDigit = (digit) => {
+        if (input.length < 3) {
+          setInput(input + digit);
+        }
+      };
+
+      const addQuickPoints = (points) => {
+        onAddPoints(points);
+      };
+
+      const submitPoints = () => {
+        const points = parseInt(input) || 0;
+        if (points > 0) {
+          onAddPoints(points);
+          setInput('');
+        }
+      };
+
+      return (
+        <div className="scoring-keypad">
+          <div className="keypad-title">Add Points</div>
+          <div className="input-display">{input || '0'}</div>
+
+          <div className="keypad-grid">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
+              <button key={n} className="keypad-btn" onClick={() => appendDigit(n)}>
+                {n}
+              </button>
+            ))}
+          </div>
+
+          <div className="keypad-grid">
+            <button className="keypad-btn" onClick={() => appendDigit(0)}>0</button>
+            <button className="keypad-btn keypad-btn-wide" onClick={() => addQuickPoints(10)}>
+              1-
+            </button>
+          </div>
+
+          <div className="keypad-grid">
+            <button className="keypad-btn" onClick={() => addQuickPoints(20)}>2-</button>
+            <button className="keypad-btn keypad-btn-wide add-points-btn" onClick={submitPoints}>
+              Add Points
+            </button>
+          </div>
+
+          <button className="keypad-btn undo-btn" onClick={onUndo}>
+            Undo Last Move
+          </button>
+        </div>
+      );
+    }
+
+    // Player Panel Component
+    function PlayerPanel({ player, name, score, lastPoints, isDealer, isLeading, scoreDiff, sessionWins, onAddPoints, onUndo }) {
+      return (
+        <div className="player-panel">
+          <div className="player-info">
+            <div className="player-name">
+              {name}
+              {isDealer && <span className="dealer-badge">DEALER</span>}
+            </div>
+            <div className="score-display">
+              <div className={`score-number ${isLeading ? 'leading' : ''}`}>{score}</div>
+              <div className="score-diff">
+                {scoreDiff > 0 ? (isLeading ? `+${scoreDiff}` : `-${scoreDiff}`) : 'Tied'}
+              </div>
+              {lastPoints > 0 && <div className="last-points">Last: +{lastPoints}</div>}
+            </div>
+            <div className="win-stats">
+              <div>Session: {sessionWins} wins</div>
+            </div>
+          </div>
+          <ScoringKeypad
+            onAddPoints={onAddPoints}
+            onUndo={onUndo}
+          />
+        </div>
+      );
+    }
+
+    // Cribbage Board Component
+    function CribbageBoard({ player1Score, player2Score, player1LastPoints, player2LastPoints, theme }) {
+      const hasPlayer1Peg = (position) => {
+        const leadingPos = player1Score;
+        const trailingPos = player1Score - player1LastPoints;
+        return position === leadingPos || (player1LastPoints > 0 && position === trailingPos);
+      };
+
+      const hasPlayer2Peg = (position) => {
+        const leadingPos = player2Score;
+        const trailingPos = player2Score - player2LastPoints;
+        return position === leadingPos || (player2LastPoints > 0 && position === trailingPos);
+      };
+
+      const isLeadingPeg = (player, position) => {
+        return player === 1 ? position === player1Score : position === player2Score;
+      };
+
+      const renderClassicBoard = () => {
+        const renderHole = (pos) => (
+          <div key={pos} className={`hole ${pos === 121 ? 'finish' : ''}`}>
+            {hasPlayer1Peg(pos) && (
+              <div className={`peg player1 ${isLeadingPeg(1, pos) ? 'leading' : ''}`} />
+            )}
+            {hasPlayer2Peg(pos) && (
+              <div className={`peg player2 ${isLeadingPeg(2, pos) ? 'leading' : ''}`} />
+            )}
+          </div>
+        );
+
+        return (
+          <div className="classic-board">
+            <div className="board-row">
+              {Array.from({ length: 60 }, (_, i) => renderHole(i + 1))}
+            </div>
+            <div className="board-row reverse">
+              {Array.from({ length: 60 }, (_, i) => renderHole(i + 61))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+              {renderHole(121)}
+            </div>
+          </div>
+        );
+      };
+
+      const getMountainPos = (score) => {
+        const progress = score / 121;
+        const y = 390 - (progress * 380);
+        const x = 150 + Math.sin(progress * Math.PI * 2) * 40;
+        return { x, y };
+      };
+
+      const getSkiingPos = (score) => {
+        const progress = score / 121;
+        const y = 10 + (progress * 380);
+        const x = 150 + Math.sin(progress * Math.PI * 3) * 50;
+        return { x, y };
+      };
+
+      const getMoonPos = (score) => {
+        const progress = score / 121;
+        const y = 390 - (progress * 380);
+        const x = 150 + Math.sin(progress * Math.PI * 2) * 40;
+        return { x, y };
+      };
+
+      const renderThemedBoard = () => {
+        if (theme === 'mountain') {
+          const p1Pos = getMountainPos(player1Score);
+          const p2Pos = getMountainPos(player2Score);
+          return (
+            <div className="themed-board mountain">
+              <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet">
+                <path d="M 10 390 Q 50 350, 90 310 Q 130 270, 170 230 Q 210 190, 150 150 Q 90 110, 130 70 Q 170 30, 150 10"
+                  fill="none" stroke="#8B4513" strokeWidth="8" strokeDasharray="5,5" />
+                <circle cx={p1Pos.x} cy={p1Pos.y} r="8" fill="#DC2626" />
+                <circle cx={p2Pos.x + 15} cy={p2Pos.y} r="8" fill="#2563EB" />
+                <text x="150" y="15" textAnchor="middle" fill="white" fontWeight="bold">⛰️ 121</text>
+              </svg>
+            </div>
+          );
+        } else if (theme === 'skiing') {
+          const p1Pos = getSkiingPos(player1Score);
+          const p2Pos = getSkiingPos(player2Score);
+          return (
+            <div className="themed-board skiing">
+              <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet">
+                <path d="M 150 10 Q 190 50, 210 90 Q 230 130, 180 170 Q 130 210, 170 250 Q 210 290, 150 330 Q 90 370, 150 390"
+                  fill="none" stroke="#0EA5E9" strokeWidth="8" strokeDasharray="5,5" />
+                <circle cx={p1Pos.x} cy={p1Pos.y} r="8" fill="#DC2626" />
+                <circle cx={p2Pos.x + 15} cy={p2Pos.y} r="8" fill="#2563EB" />
+                <text x="150" y="395" textAnchor="middle" fill="white" fontWeight="bold">🎿 121</text>
+              </svg>
+            </div>
+          );
+        } else if (theme === 'moon') {
+          const p1Pos = getMoonPos(player1Score);
+          const p2Pos = getMoonPos(player2Score);
+          const stars = Array.from({ length: 50 }, (_, i) => ({
+            left: `${(i * 37) % 100}%`,
+            top: `${(i * 53) % 100}%`,
+            width: `${1 + (i % 3)}px`,
+            height: `${1 + (i % 3)}px`,
+          }));
+          return (
+            <div className="themed-board moon">
+              {stars.map((style, i) => (
+                <div key={i} className="star" style={style} />
+              ))}
+              <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet" style={{ position: 'relative', zIndex: 10 }}>
+                <path d="M 150 390 Q 100 350, 120 310 Q 140 270, 100 230 Q 60 190, 100 150 Q 140 110, 120 70 Q 100 30, 150 10"
+                  fill="none" stroke="#FCD34D" strokeWidth="4" strokeDasharray="3,3" opacity="0.5" />
+                <text x={p1Pos.x} y={p1Pos.y} textAnchor="middle" fontSize="20">🚀</text>
+                <text x={p2Pos.x + 15} y={p2Pos.y} textAnchor="middle" fontSize="20">🚀</text>
+                <text x="150" y="20" textAnchor="middle" fontSize="30">🌙</text>
+              </svg>
+            </div>
+          );
+        }
+      };
+
+      return (
+        <div className="board-card">
+          <div className="board-title">
+            {theme === 'classic' && 'Cribbage Board'}
+            {theme === 'mountain' && 'Mountain Climb'}
+            {theme === 'skiing' && 'Ski Down the Mountain'}
+            {theme === 'moon' && 'Fly to the Moon'}
+          </div>
+          <div className="board-content">
+            {theme === 'classic' ? renderClassicBoard() : renderThemedBoard()}
+          </div>
+          <div className="legend">
+            <div className="legend-item">
+              <div className="legend-color player1"></div>
+              <span>Player 1</span>
+            </div>
+            <div className="legend-item">
+              <div className="legend-color player2"></div>
+              <span>Player 2</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Game Complete Modal Component
+    function GameComplete({ winner, winnerName, isSkunk, player1Score, player2Score, sessionStats, onNewGame, onNewSession }) {
+      return (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="trophy">{isSkunk ? '🏆🏆' : '🏆'}</div>
+            <div className="winner-name">{winnerName} Wins!</div>
+            {isSkunk && <div className="skunk-message">SKUNK! (2 Game Wins)</div>}
+            <div className="final-score">Final Score: {player1Score} - {player2Score}</div>
+            <div className="session-standings">
+              <h3>Session Standings</h3>
+              <div className="score">{sessionStats.player1} - {sessionStats.player2}</div>
+            </div>
+            <div className="modal-actions">
+              <button className="modal-btn primary" onClick={onNewGame}>
+                Play Another Game
+              </button>
+              <button className="modal-btn secondary" onClick={onNewSession}>
+                New Session (Different Players)
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Main App Component
+    function App() {
+      const [session, setSession] = useState(null);
+      const [currentGame, setCurrentGame] = useState(null);
+      const [moves, setMoves] = useState([]);
+      const [boardTheme, setBoardTheme] = useState('classic');
+      const [showMenu, setShowMenu] = useState(false);
+      const [error, setError] = useState(null);
+
+      const player1Score = currentGame?.player1_score || 0;
+      const player2Score = currentGame?.player2_score || 0;
+      const scoreDiff = Math.abs(player1Score - player2Score);
+      const player1Leading = player1Score > player2Score;
+
+      const lastMove = moves.length > 0 ? moves[moves.length - 1] : null;
+      const player1LastPoints = lastMove?.player === 1 ? lastMove.points : 0;
+      const player2LastPoints = lastMove?.player === 2 ? lastMove.points : 0;
+
+      const sessionStats = {
+        player1: session?.player1_total_wins || 0,
+        player2: session?.player2_total_wins || 0
+      };
+
+      const handleStartSession = async (player1Name, player2Name) => {
+        try {
+          const data = await api.createSession({
+            player1_name: player1Name,
+            player2_name: player2Name
+          });
+          setSession(data.session);
+          setCurrentGame(data.game);
+          setMoves([]);
+        } catch (err) {
+          setError(err.message);
+          setTimeout(() => setError(null), 3000);
+        }
+      };
+
+      const handleAddPoints = async (player, points) => {
+        if (!currentGame || currentGame.is_complete) return;
+
+        try {
+          const data = await api.addMove(currentGame.id, { player, points });
+          setCurrentGame(data.game);
+          setMoves([...moves, data.move]);
+
+          // Update session stats if game is complete
+          if (data.game.is_complete && session) {
+            const gamesWon = data.game.is_skunk ? 2 : 1;
+            setSession({
+              ...session,
+              player1_total_wins: session.player1_total_wins + (data.game.winner === 1 ? gamesWon : 0),
+              player2_total_wins: session.player2_total_wins + (data.game.winner === 2 ? gamesWon : 0)
+            });
+          }
+        } catch (err) {
+          setError(err.message);
+          setTimeout(() => setError(null), 3000);
+        }
+      };
+
+      const handleUndo = async () => {
+        if (moves.length === 0) return;
+
+        try {
+          const lastMoveId = moves[moves.length - 1].id;
+          const data = await api.undoMove(lastMoveId);
+          setCurrentGame(data.game);
+          setMoves(moves.slice(0, -1));
+        } catch (err) {
+          setError(err.message);
+          setTimeout(() => setError(null), 3000);
+        }
+      };
+
+      const handleNewGame = async () => {
+        setShowMenu(false);
+        if (!session) return;
+
+        try {
+          const data = await api.createGame(session.id);
+          setCurrentGame(data.game);
+          setMoves([]);
+        } catch (err) {
+          setError(err.message);
+          setTimeout(() => setError(null), 3000);
+        }
+      };
+
+      const handleNewSession = () => {
+        setShowMenu(false);
+        setSession(null);
+        setCurrentGame(null);
+        setMoves([]);
+        setBoardTheme('classic');
+      };
+
+      if (!session) {
+        return <NewGameSetup onStart={handleStartSession} />;
+      }
+
+      return (
+        <>
+          <div className="header">
+            <h1>Cribbage Scoring</h1>
+            <div className="theme-selector">
+              <select value={boardTheme} onChange={(e) => setBoardTheme(e.target.value)}>
+                <option value="classic">Classic Board</option>
+                <option value="mountain">Mountain Climb</option>
+                <option value="skiing">Skiing</option>
+                <option value="moon">Moon Flight</option>
+              </select>
+              <button className="btn btn-secondary" onClick={() => setShowMenu(!showMenu)}>
+                Menu
+              </button>
+            </div>
+          </div>
+
+          <div className="game-screen">
+            <PlayerPanel
+              player="1"
+              name={session.player1_name}
+              score={player1Score}
+              lastPoints={player1LastPoints}
+              isDealer={currentGame?.player1_is_dealer}
+              isLeading={player1Leading}
+              scoreDiff={scoreDiff}
+              sessionWins={sessionStats.player1}
+              onAddPoints={(pts) => handleAddPoints(1, pts)}
+              onUndo={handleUndo}
+            />
+
+            <div className="board-container">
+              <CribbageBoard
+                player1Score={player1Score}
+                player2Score={player2Score}
+                player1LastPoints={player1LastPoints}
+                player2LastPoints={player2LastPoints}
+                theme={boardTheme}
+              />
+              <div className="game-info">
+                Game {currentGame?.game_number || 0}
+                {(sessionStats.player1 > 0 || sessionStats.player2 > 0) && (
+                  <> | Session: {session.player1_name} {sessionStats.player1} - {sessionStats.player2} {session.player2_name}</>
+                )}
+              </div>
+            </div>
+
+            <PlayerPanel
+              player="2"
+              name={session.player2_name}
+              score={player2Score}
+              lastPoints={player2LastPoints}
+              isDealer={currentGame?.player1_is_dealer === false}
+              isLeading={!player1Leading && player2Score > player1Score}
+              scoreDiff={scoreDiff}
+              sessionWins={sessionStats.player2}
+              onAddPoints={(pts) => handleAddPoints(2, pts)}
+              onUndo={handleUndo}
+            />
+          </div>
+
+          {currentGame?.is_complete && (
+            <GameComplete
+              winner={currentGame.winner}
+              winnerName={currentGame.winner === 1 ? session.player1_name : session.player2_name}
+              isSkunk={currentGame.is_skunk}
+              player1Score={player1Score}
+              player2Score={player2Score}
+              sessionStats={sessionStats}
+              onNewGame={handleNewGame}
+              onNewSession={handleNewSession}
+            />
+          )}
+
+          {showMenu && (
+            <div className="modal-overlay" onClick={() => setShowMenu(false)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <h2>Menu</h2>
+                <div className="modal-actions">
+                  <button className="modal-btn primary" onClick={handleNewGame}>
+                    Start New Game
+                  </button>
+                  <button className="modal-btn secondary" onClick={handleNewSession}>
+                    New Session (Different Players)
+                  </button>
+                  <button className="modal-btn secondary" onClick={() => setShowMenu(false)}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div style={{
+              position: 'fixed',
+              bottom: '1rem',
+              right: '1rem',
+              background: '#dc2626',
+              color: 'white',
+              padding: '1rem 1.5rem',
+              borderRadius: '0.5rem',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+            }}>
+              {error}
+            </div>
+          )}
+        </>
+      );
+    }
+
+    // Render app
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>

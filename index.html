@@ -571,6 +571,14 @@
                 </div>
             </div>
 
+            <a href="projects/cribbage/" id="cribbage-card" class="project-card card" style="display: none;">
+                <div class="project-icon">🎯</div>
+                <div>
+                    <h3 class="card-title">Cribbage <span style="color: #888; font-size: 0.85em; font-weight: 400;">(Admin Only)</span></h3>
+                    <p class="card-excerpt">Digital scoring system for cribbage games</p>
+                </div>
+            </a>
+
             <a href="https://adlington.fr/projects/random-robby/" target="_blank" class="project-card card">
                 <div class="project-icon">🎲</div>
                 <div>
@@ -724,6 +732,7 @@
         const resetSuccessMessage = document.getElementById('reset-success-message');
         const backToLogin = document.getElementById('back-to-login');
         const adlinktonCard = document.getElementById('adlinkton-card');
+        const cribbageCard = document.getElementById('cribbage-card');
 
         // API Helper
         async function apiRequest(endpoint, options = {}) {
@@ -813,9 +822,11 @@
                 if (currentUser.is_admin) {
                     adminToggle.classList.add('visible');
                     adlinktonCard.style.display = 'flex';
+                    cribbageCard.style.display = 'flex';
                 } else {
                     adminToggle.classList.remove('visible');
                     adlinktonCard.style.display = 'none';
+                    cribbageCard.style.display = 'none';
                 }
             } else {
                 loginBtn.style.display = 'block';
@@ -823,6 +834,7 @@
                 adminToggle.classList.remove('visible');
                 adminMenu.classList.remove('open');
                 adlinktonCard.style.display = 'none';
+                cribbageCard.style.display = 'none';
             }
         }
         
