@@ -9,7 +9,7 @@
  * DELETE /api/games.php?id=123    - Delete game
  */
 
-require_once __DIR__ . '/../../api/auth.php';
+require_once __DIR__ . '/../../../api/auth.php';
 
 handlePreflight();
 

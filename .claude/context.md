@@ -488,13 +488,32 @@ Always check which project owns which tables before modifying.
 
 ## Known Issues & Solutions
 
-### Issue: PHP Require Paths After Restructuring
+### Issue: PHP Require Paths for Projects
 
-**Problem:** After moving from `adlington/` to root, relative paths in PHP files broke.
+**Problem:** Project API files need correct relative paths to reach shared `/api/` directory.
 
-**Solution:** Update `__DIR__` relative paths:
-- Before: `require_once __DIR__ . '/../../../api/auth.php';`
-- After: `require_once __DIR__ . '/../../api/auth.php';`
+**CRITICAL:** For files in `/projects/{project}/api/`, use **three levels** up:
+
+**✅ CORRECT:**
+```php
+require_once __DIR__ . '/../../../api/auth.php';
+require_once __DIR__ . '/../../../api/database.php';
+require_once __DIR__ . '/../../../api/utils.php';
+```
+
+**❌ WRONG:**
+```php
+require_once __DIR__ . '/../../api/auth.php';  // Points to /projects/api/ (doesn't exist!)
+```
+
+**Path breakdown for `/projects/cribbage/api/sessions.php`:**
+- `__DIR__` = `/projects/cribbage/api`
+- `../` = `/projects/cribbage`
+- `../../` = `/projects`
+- `../../../` = `/` (root)
+- `../../../api/auth.php` = `/api/auth.php` ✓
+
+**Historical Note:** Commit 212aaef (restructuring) incorrectly changed these from `../../../` to `../../`, breaking both contract-whist and cribbage. This was fixed in January 2025.
 
 ### Issue: Hardcoded `/adlington/` Paths
 
