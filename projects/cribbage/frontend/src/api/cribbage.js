@@ -1,4 +1,4 @@
-const API_BASE = '/projects/cribbage-scoring-system/api'
+const API_BASE = '/projects/cribbage/api'
 
 async function request(endpoint, options = {}) {
   const response = await fetch(`${API_BASE}${endpoint}`, {

@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
-  base: '/projects/cribbage-scoring-system/dist/',
+  base: '/projects/cribbage/dist/',
   plugins: [vue()],
   resolve: {
     alias: {
@@ -26,7 +26,7 @@ export default defineConfig({
         target: 'http://localhost',
         changeOrigin: true
       },
-      '/projects/cribbage-scoring-system/api': {
+      '/projects/cribbage/api': {
         target: 'http://localhost',
         changeOrigin: true
       }
