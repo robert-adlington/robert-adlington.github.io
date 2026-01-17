@@ -283,32 +283,63 @@
     .classic-board {
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, #8b4513 0%, #a0522d 100%);
-      border-radius: 0.5rem;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          #c19a6b 0px,
+          #d4a574 2px,
+          #c19a6b 4px,
+          #b8926a 6px,
+          #c19a6b 8px,
+          #d4a574 10px,
+          #c19a6b 12px
+        ),
+        linear-gradient(135deg, #d4a574 0%, #c19a6b 50%, #b8926a 100%);
+      border-radius: 0.75rem;
       padding: 2rem;
       display: flex;
       flex-direction: column;
-      justify-content: space-around;
-      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+      justify-content: space-between;
+      box-shadow:
+        inset 0 2px 8px rgba(0, 0, 0, 0.2),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+      border: 3px solid #8b7355;
     }
 
-    .board-row {
+    .board-lanes {
       display: flex;
-      gap: 0.25rem;
-      align-items: center;
+      gap: 2rem;
+      justify-content: center;
+      align-items: flex-start;
+      flex: 1;
+      padding: 1rem 0;
     }
 
-    .board-row.reverse {
-      flex-direction: row-reverse;
+    .board-lane {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
     }
 
     .hole {
-      width: 0.75rem;
-      height: 0.75rem;
+      width: 0.8rem;
+      height: 0.8rem;
       background: #654321;
       border-radius: 50%;
       position: relative;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+      transition: all 0.2s;
+    }
+
+    .hole.group-end {
+      margin-bottom: 0.6rem;
+    }
+
+    .finish-hole-container {
+      display: flex;
+      justify-content: center;
+      padding-top: 1rem;
+      border-top: 2px solid rgba(139, 115, 85, 0.3);
     }
 
     .hole.finish {
@@ -883,8 +914,8 @@
       };
 
       const renderClassicBoard = () => {
-        const renderHole = (pos) => (
-          <div key={pos} className={`hole ${pos === 121 ? 'finish' : ''}`}>
+        const renderHole = (pos, groupEnd) => (
+          <div key={pos} className={`hole ${pos === 121 ? 'finish' : ''} ${groupEnd ? 'group-end' : ''}`}>
             {hasPlayer1Peg(pos) && (
               <div className={`peg player1 ${isLeadingPeg(1, pos) ? 'leading' : ''}`} />
             )}
@@ -894,16 +925,34 @@
           </div>
         );
 
+        // Build vertical lanes: 30 up left, 30 down right, 30 up left, 30 down right
+        const leftLane = [];
+        const rightLane = [];
+
+        // First lap: 1-30 up left, 31-60 down right
+        for (let i = 1; i <= 30; i++) {
+          leftLane.push(renderHole(i, i % 5 === 0));
+        }
+        for (let i = 60; i >= 31; i--) {
+          rightLane.push(renderHole(i, i % 5 === 1));
+        }
+
+        // Second lap: 61-90 up left, 91-120 down right
+        for (let i = 61; i <= 90; i++) {
+          leftLane.push(renderHole(i, i % 5 === 0));
+        }
+        for (let i = 120; i >= 91; i--) {
+          rightLane.push(renderHole(i, i % 5 === 1));
+        }
+
         return (
           <div className="classic-board">
-            <div className="board-row">
-              {Array.from({ length: 60 }, (_, i) => renderHole(i + 1))}
+            <div className="board-lanes">
+              <div className="board-lane">{leftLane}</div>
+              <div className="board-lane">{rightLane}</div>
             </div>
-            <div className="board-row reverse">
-              {Array.from({ length: 60 }, (_, i) => renderHole(i + 61))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
-              {renderHole(121)}
+            <div className="finish-hole-container">
+              {renderHole(121, false)}
             </div>
           </div>
         );
