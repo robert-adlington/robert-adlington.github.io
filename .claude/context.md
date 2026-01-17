@@ -536,6 +536,53 @@ const response = await apiClient.post('/import/bookmarks', formData)
 - The `apiClient` handles this conversion automatically
 - Direct axios calls result in `ERR_HTTP2_PROTOCOL_ERROR` or 404s
 
+### Issue: Foreign Key Constraint Errors (errno 150)
+
+**Problem:** Creating tables with foreign keys fails with MySQL error #1005 (errno: 150 "Foreign key constraint is incorrectly formed").
+
+**Root Cause:**
+InnoDB requires **exact** data type matching for foreign key relationships, including:
+- Base type must match (INT, VARCHAR, etc.)
+- UNSIGNED modifier must match
+- Character set and collation must match (for strings)
+
+**Common scenario:**
+- Existing table: `users` has `id INT UNSIGNED`
+- New table: `cribbage_sessions` has `user_id INT` (missing UNSIGNED)
+- Result: Foreign key constraint fails
+
+**❌ WRONG:**
+```sql
+CREATE TABLE IF NOT EXISTS cribbage_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,           -- Missing UNSIGNED
+    user_id INT NOT NULL,                        -- Missing UNSIGNED
+    FOREIGN KEY (user_id) REFERENCES users(id)   -- Will fail!
+) ENGINE=InnoDB;
+```
+
+**✅ CORRECT:**
+```sql
+CREATE TABLE IF NOT EXISTS cribbage_sessions (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,  -- Matches users.id
+    user_id INT UNSIGNED NOT NULL,               -- Matches users.id
+    FOREIGN KEY (user_id) REFERENCES users(id)   -- Works!
+) ENGINE=InnoDB;
+```
+
+**Solution checklist:**
+- [ ] Check referenced table's column type: `DESCRIBE users;`
+- [ ] Ensure exact type match including UNSIGNED
+- [ ] For this project, use `INT UNSIGNED` for all ID columns
+- [ ] Existing tables use `INT UNSIGNED` for: `users.id`, `players.id`, `whist_games.id`
+
+**Quick reference - Standard ID column types in this project:**
+```sql
+id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+user_id INT UNSIGNED NOT NULL,
+player_id INT UNSIGNED,
+game_id INT UNSIGNED NOT NULL,
+```
+
 ---
 
 ## Development Workflow
@@ -584,4 +631,4 @@ npm run dev
 
 ---
 
-**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines + Adlinkton apiClient requirement)
+**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines + Adlinkton apiClient requirement + Foreign key INT UNSIGNED constraint issue)
