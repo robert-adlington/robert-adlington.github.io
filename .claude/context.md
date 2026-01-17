@@ -536,6 +536,52 @@ grep -r "/adlington/" . --exclude-dir=".git" --exclude-dir="node_modules"
 - [ ] Is MySQL running on Hostinger?
 - [ ] Check `api/test.php` for detailed diagnostics
 
+### Issue: JSON API Returns "Unexpected token '<'" Error
+
+**Problem:** JavaScript frontend shows error: `SyntaxError: Unexpected token '<', "<br />... is not valid JSON"`
+
+**Root Cause:**
+PHP's `display_errors` setting outputs error messages as HTML with `<br />` tags, which breaks JSON responses. When the frontend tries to parse the response as JSON, it encounters HTML instead.
+
+**Symptoms:**
+- API call completes (shows in Network tab)
+- Response body contains HTML error message instead of JSON
+- Console shows "Unexpected token '<'" error
+- Error message includes `<br />` or other HTML tags
+
+**❌ WRONG:**
+```php
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);  // Outputs HTML - breaks JSON!
+
+// ... rest of API code
+```
+
+**✅ CORRECT:**
+```php
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);  // Don't output errors
+ini_set('log_errors', 1);      // Log to error_log instead
+
+// ... rest of API code
+```
+
+**Why this matters:**
+- JSON APIs must return ONLY JSON, no extra output
+- PHP errors with `display_errors=1` inject HTML before the JSON
+- This makes the response invalid JSON
+- Errors should be logged to error_log, not displayed to the client
+
+**How to debug:**
+1. Check Network tab - look at the actual response body
+2. If you see HTML/PHP error messages, turn off `display_errors`
+3. Check server error logs for the actual error: `/var/log/php-errors.log`
+4. Fix the underlying error (authentication, database, etc.)
+
+**Rule:** In production API endpoints, **ALWAYS set `display_errors = 0`**
+
 ### Issue: Favicons Not Loading
 
 **Problem:** Browser can't find favicon files.

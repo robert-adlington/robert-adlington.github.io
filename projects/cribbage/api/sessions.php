@@ -1,7 +1,8 @@
 <?php
-// Enable error reporting for debugging
+// Enable error logging (but not display, which breaks JSON)
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 
 require_once __DIR__ . '/../../api/auth.php';
 require_once __DIR__ . '/../../api/database.php';
