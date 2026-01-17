@@ -2,11 +2,11 @@
 
 -- Table for cribbage game sessions
 CREATE TABLE IF NOT EXISTS cribbage_sessions (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
     session_name VARCHAR(255),
-    player1_id INT,
-    player2_id INT,
+    player1_id INT UNSIGNED,
+    player2_id INT UNSIGNED,
     player1_name VARCHAR(100) NOT NULL,
     player2_name VARCHAR(100) NOT NULL,
     player1_total_wins INT DEFAULT 0,
@@ -23,8 +23,8 @@ CREATE TABLE IF NOT EXISTS cribbage_sessions (
 
 -- Table for individual cribbage games within a session
 CREATE TABLE IF NOT EXISTS cribbage_games (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    session_id INT NOT NULL,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    session_id INT UNSIGNED NOT NULL,
     game_number INT NOT NULL,
     player1_score INT DEFAULT 0,
     player2_score INT DEFAULT 0,
@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS cribbage_games (
 
 -- Table for scoring moves/hands within a game
 CREATE TABLE IF NOT EXISTS cribbage_moves (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    game_id INT NOT NULL,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    game_id INT UNSIGNED NOT NULL,
     player INT NOT NULL, -- 1 or 2
     points INT NOT NULL,
     player1_score_after INT NOT NULL,
