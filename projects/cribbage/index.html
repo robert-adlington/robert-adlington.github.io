@@ -296,7 +296,7 @@
         ),
         linear-gradient(135deg, #d4a574 0%, #c19a6b 50%, #b8926a 100%);
       border-radius: 0.75rem;
-      padding: 2rem;
+      padding: 1.5rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -304,58 +304,111 @@
         inset 0 2px 8px rgba(0, 0, 0, 0.2),
         0 4px 12px rgba(0, 0, 0, 0.3);
       border: 3px solid #8b7355;
+      overflow-y: auto;
     }
 
     .board-lanes {
       display: flex;
-      gap: 2rem;
+      gap: 3rem;
       justify-content: center;
-      align-items: flex-start;
+      align-items: stretch;
       flex: 1;
-      padding: 1rem 0;
+      min-height: 0;
+    }
+
+    .lanes-group {
+      display: flex;
+      gap: 0.75rem;
     }
 
     .board-lane {
       display: flex;
       flex-direction: column;
-      gap: 0.4rem;
+      gap: 0.35rem;
+      min-height: 0;
+    }
+
+    .center-area {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0 1rem;
+      min-width: 100px;
+    }
+
+    .board-logo {
+      font-size: 3rem;
+      opacity: 0.3;
+    }
+
+    .board-scores {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      text-align: center;
+    }
+
+    .board-score {
+      font-size: 2rem;
+      font-weight: bold;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      background: rgba(255, 255, 255, 0.2);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .board-score.player1-score {
+      color: #dc2626;
+    }
+
+    .board-score.player2-score {
+      color: #2563eb;
     }
 
     .hole {
-      width: 0.8rem;
-      height: 0.8rem;
+      width: 0.65rem;
+      height: 0.65rem;
       background: #654321;
       border-radius: 50%;
       position: relative;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
       transition: all 0.2s;
+      flex-shrink: 0;
     }
 
     .hole.group-end {
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.4rem;
     }
 
     .finish-hole-container {
       display: flex;
       justify-content: center;
       padding-top: 1rem;
+      margin-top: 0.5rem;
       border-top: 2px solid rgba(139, 115, 85, 0.3);
     }
 
     .hole.finish {
-      width: 1.5rem;
-      height: 1.5rem;
+      width: 1.2rem;
+      height: 1.2rem;
     }
 
     .peg {
       position: absolute;
-      width: 0.6rem;
-      height: 0.6rem;
+      width: 0.5rem;
+      height: 0.5rem;
       border-radius: 50%;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .hole.finish .peg {
+      width: 0.9rem;
+      height: 0.9rem;
     }
 
     .peg.player1 {
@@ -925,31 +978,57 @@
           </div>
         );
 
-        // Build vertical lanes: 30 up left, 30 down right, 30 up left, 30 down right
-        const leftLane = [];
-        const rightLane = [];
+        // Build 4 vertical lanes: 2 going up, 2 going down
+        // Lane 1: 1-30 up (bottom to top)
+        // Lane 2: 31-60 down (top to bottom)
+        // Lane 3: 61-90 up (bottom to top)
+        // Lane 4: 91-120 down (top to bottom)
 
-        // First lap: 1-30 up left, 31-60 down right
+        const lane1 = []; // 1-30 going up
+        const lane2 = []; // 31-60 going down (reversed)
+        const lane3 = []; // 61-90 going up
+        const lane4 = []; // 91-120 going down (reversed)
+
+        // Lane 1: 1-30 from bottom to top
         for (let i = 1; i <= 30; i++) {
-          leftLane.push(renderHole(i, i % 5 === 0));
+          lane1.push(renderHole(i, i % 5 === 0));
         }
-        for (let i = 60; i >= 31; i--) {
-          rightLane.push(renderHole(i, i % 5 === 1));
+        lane1.reverse(); // Display from top to bottom visually
+
+        // Lane 2: 31-60 from top to bottom
+        for (let i = 31; i <= 60; i++) {
+          lane2.push(renderHole(i, i % 5 === 1));
         }
 
-        // Second lap: 61-90 up left, 91-120 down right
+        // Lane 3: 61-90 from bottom to top
         for (let i = 61; i <= 90; i++) {
-          leftLane.push(renderHole(i, i % 5 === 0));
+          lane3.push(renderHole(i, i % 5 === 0));
         }
-        for (let i = 120; i >= 91; i--) {
-          rightLane.push(renderHole(i, i % 5 === 1));
+        lane3.reverse(); // Display from top to bottom visually
+
+        // Lane 4: 91-120 from top to bottom
+        for (let i = 91; i <= 120; i++) {
+          lane4.push(renderHole(i, i % 5 === 1));
         }
 
         return (
           <div className="classic-board">
             <div className="board-lanes">
-              <div className="board-lane">{leftLane}</div>
-              <div className="board-lane">{rightLane}</div>
+              <div className="lanes-group">
+                <div className="board-lane">{lane1}</div>
+                <div className="board-lane">{lane2}</div>
+              </div>
+              <div className="center-area">
+                <div className="board-logo">🎯</div>
+                <div className="board-scores">
+                  <div className="board-score player1-score">{player1Score}</div>
+                  <div className="board-score player2-score">{player2Score}</div>
+                </div>
+              </div>
+              <div className="lanes-group">
+                <div className="board-lane">{lane3}</div>
+                <div className="board-lane">{lane4}</div>
+              </div>
             </div>
             <div className="finish-hole-container">
               {renderHole(121, false)}
