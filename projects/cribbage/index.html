@@ -107,7 +107,7 @@
       border-radius: 1rem;
       padding: 1.5rem;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      overflow-y: auto;
+      min-height: 0;
     }
 
     .player-info {
@@ -252,31 +252,7 @@
       flex: 2;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
-    }
-
-    .board-card {
-      flex: 1;
-      background: white;
-      border-radius: 1rem;
-      padding: 1.5rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .board-title {
-      text-align: center;
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-bottom: 1rem;
-    }
-
-    .board-content {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
+      min-height: 0;
     }
 
     /* Classic Board */
@@ -296,7 +272,7 @@
         ),
         linear-gradient(135deg, #d4a574 0%, #c19a6b 50%, #b8926a 100%);
       border-radius: 0.75rem;
-      padding: 1.5rem;
+      padding: 1rem;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -304,7 +280,6 @@
         inset 0 2px 8px rgba(0, 0, 0, 0.2),
         0 4px 12px rgba(0, 0, 0, 0.3);
       border: 3px solid #8b7355;
-      overflow-y: auto;
     }
 
     .board-lanes {
@@ -476,34 +451,6 @@
       padding: 0.75rem;
       border-radius: 0.5rem;
       font-size: 0.9rem;
-    }
-
-    .legend {
-      display: flex;
-      justify-content: center;
-      gap: 2rem;
-      margin-top: 1rem;
-      font-size: 0.9rem;
-    }
-
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .legend-color {
-      width: 1rem;
-      height: 1rem;
-      border-radius: 50%;
-    }
-
-    .legend-color.player1 {
-      background: #dc2626;
-    }
-
-    .legend-color.player2 {
-      background: #2563eb;
     }
 
     /* Setup Screen */
@@ -967,8 +914,8 @@
       };
 
       const renderClassicBoard = () => {
-        const renderHole = (pos, groupEnd) => (
-          <div key={pos} className={`hole ${pos === 121 ? 'finish' : ''} ${groupEnd ? 'group-end' : ''}`}>
+        const renderHole = (pos, isGroupEnd) => (
+          <div key={pos} className={`hole ${pos === 121 ? 'finish' : ''} ${isGroupEnd ? 'group-end' : ''}`}>
             {hasPlayer1Peg(pos) && (
               <div className={`peg player1 ${isLeadingPeg(1, pos) ? 'leading' : ''}`} />
             )}
@@ -978,37 +925,39 @@
           </div>
         );
 
-        // Build 4 vertical lanes: 2 going up, 2 going down
-        // Lane 1: 1-30 up (bottom to top)
-        // Lane 2: 31-60 down (top to bottom)
-        // Lane 3: 61-90 up (bottom to top)
-        // Lane 4: 91-120 down (top to bottom)
+        // Build 4 vertical lanes in VISUAL order (top to bottom on screen)
+        // Lane 1: 30 down to 1 (going up in score, but displayed top-to-bottom)
+        // Lane 2: 31 up to 60 (going down in score, displayed top-to-bottom)
+        // Lane 3: 90 down to 61 (going up in score, but displayed top-to-bottom)
+        // Lane 4: 91 up to 120 (going down in score, displayed top-to-bottom)
 
-        const lane1 = []; // 1-30 going up
-        const lane2 = []; // 31-60 going down (reversed)
-        const lane3 = []; // 61-90 going up
-        const lane4 = []; // 91-120 going down (reversed)
+        const lane1 = []; // 30->1 visually top to bottom
+        const lane2 = []; // 31->60 visually top to bottom
+        const lane3 = []; // 90->61 visually top to bottom
+        const lane4 = []; // 91->120 visually top to bottom
 
-        // Lane 1: 1-30 from bottom to top
-        for (let i = 1; i <= 30; i++) {
-          lane1.push(renderHole(i, i % 5 === 0));
+        // Lane 1: Display 30 at top down to 1 at bottom, mark every 5th hole
+        for (let i = 30; i >= 1; i--) {
+          const visualPos = 30 - i; // 0-29
+          lane1.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 1));
         }
-        lane1.reverse(); // Display from top to bottom visually
 
-        // Lane 2: 31-60 from top to bottom
+        // Lane 2: Display 31 at top down to 60 at bottom
         for (let i = 31; i <= 60; i++) {
-          lane2.push(renderHole(i, i % 5 === 1));
+          const visualPos = i - 31; // 0-29
+          lane2.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 60));
         }
 
-        // Lane 3: 61-90 from bottom to top
-        for (let i = 61; i <= 90; i++) {
-          lane3.push(renderHole(i, i % 5 === 0));
+        // Lane 3: Display 90 at top down to 61 at bottom
+        for (let i = 90; i >= 61; i--) {
+          const visualPos = 90 - i; // 0-29
+          lane3.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 61));
         }
-        lane3.reverse(); // Display from top to bottom visually
 
-        // Lane 4: 91-120 from top to bottom
+        // Lane 4: Display 91 at top down to 120 at bottom
         for (let i = 91; i <= 120; i++) {
-          lane4.push(renderHole(i, i % 5 === 1));
+          const visualPos = i - 91; // 0-29
+          lane4.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 120));
         }
 
         return (
@@ -1113,29 +1062,7 @@
         }
       };
 
-      return (
-        <div className="board-card">
-          <div className="board-title">
-            {theme === 'classic' && 'Cribbage Board'}
-            {theme === 'mountain' && 'Mountain Climb'}
-            {theme === 'skiing' && 'Ski Down the Mountain'}
-            {theme === 'moon' && 'Fly to the Moon'}
-          </div>
-          <div className="board-content">
-            {theme === 'classic' ? renderClassicBoard() : renderThemedBoard()}
-          </div>
-          <div className="legend">
-            <div className="legend-item">
-              <div className="legend-color player1"></div>
-              <span>Player 1</span>
-            </div>
-            <div className="legend-item">
-              <div className="legend-color player2"></div>
-              <span>Player 2</span>
-            </div>
-          </div>
-        </div>
-      );
+      return theme === 'classic' ? renderClassicBoard() : renderThemedBoard();
     }
 
     // Game Complete Modal Component
