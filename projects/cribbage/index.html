@@ -651,6 +651,8 @@
       },
 
       createSession: (sessionData) => {
+        console.log('🔷 api.createSession called with:', sessionData);
+        console.log('🔷 Making POST request to:', `${API_BASE}/sessions.php`);
         return api.request('/sessions.php', {
           method: 'POST',
           body: JSON.stringify(sessionData)
@@ -686,9 +688,13 @@
       const [player2Name, setPlayer2Name] = useState('');
 
       const handleSubmit = (e) => {
+        console.log('🔵 Form submitted!', { player1Name, player2Name });
         e.preventDefault();
         if (player1Name.trim() && player2Name.trim()) {
+          console.log('🟢 Player names valid, calling onStart...');
           onStart(player1Name.trim(), player2Name.trim());
+        } else {
+          console.log('🔴 Player names invalid!');
         }
       };
 
@@ -1036,15 +1042,19 @@
       };
 
       const handleStartSession = async (player1Name, player2Name) => {
+        console.log('🟡 handleStartSession called with:', { player1Name, player2Name });
         try {
+          console.log('🟣 About to call api.createSession...');
           const data = await api.createSession({
             player1_name: player1Name,
             player2_name: player2Name
           });
+          console.log('✅ Session created successfully:', data);
           setSession(data.session);
           setCurrentGame(data.game);
           setMoves([]);
         } catch (err) {
+          console.error('❌ Error creating session:', err);
           setError(err.message);
           setTimeout(() => setError(null), 3000);
         }
