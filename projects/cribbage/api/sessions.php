@@ -1,4 +1,8 @@
 <?php
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once __DIR__ . '/../../api/auth.php';
 require_once __DIR__ . '/../../api/database.php';
 require_once __DIR__ . '/../../api/utils.php';
@@ -13,7 +17,9 @@ try {
         'DELETE' => 'handleDelete',
     ]);
 } catch (Exception $e) {
-    error($e->getMessage(), 400);
+    error_log('Cribbage API Error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    error($e->getMessage() . "\n\nTrace:\n" . $e->getTraceAsString(), 500);
 }
 
 function handleGet(): void {
