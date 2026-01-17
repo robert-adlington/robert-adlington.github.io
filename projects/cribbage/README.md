@@ -26,22 +26,15 @@ Run the migration to create necessary tables:
 mysql -u your_user -p your_database < migrations/001_create_cribbage_tables.sql
 ```
 
-### Frontend Development
+### Running the Application
 
-```bash
-cd frontend
-npm install
-npm run dev
+No build process required! Simply open `index.html` in a web browser or access via:
+
+```
+https://your-domain.com/projects/cribbage/
 ```
 
-### Production Build
-
-```bash
-cd frontend
-npm run build
-```
-
-The built files will be in the `dist` directory.
+The app uses React from CDN, so there's no need to install dependencies or run a build step.
 
 ## Usage
 
@@ -63,7 +56,16 @@ The built files will be in the `dist` directory.
 
 ## Technology Stack
 
-- **Frontend**: Vue.js 3 + Pinia + Tailwind CSS + Vite
+- **Frontend**: React 18 (CDN) with Babel standalone - single HTML file, no build process
 - **Backend**: PHP with PDO
 - **Database**: MySQL/MariaDB
 - **Authentication**: Integrated with existing site auth system
+
+## Architecture
+
+This project follows the same pattern as `contract-whist` - a single-file React application with all components, styles, and logic in one `index.html` file. This approach provides:
+
+- **No build step**: Works immediately without npm install or compilation
+- **Simple deployment**: Just upload the HTML file and API directory
+- **Easy maintenance**: All code in one place for straightforward debugging
+- **Consistent patterns**: Matches other card game scoring systems in the codebase
