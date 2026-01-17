@@ -343,8 +343,8 @@
     }
 
     .hole {
-      width: 0.65rem;
-      height: 0.65rem;
+      width: 1.2rem;
+      height: 1.2rem;
       background: #654321;
       border-radius: 50%;
       position: relative;
@@ -365,15 +365,20 @@
       border-top: 2px solid rgba(139, 115, 85, 0.3);
     }
 
+    .finish-hole-wrapper {
+      display: flex;
+      gap: 0.75rem;
+    }
+
     .hole.finish {
-      width: 1.2rem;
-      height: 1.2rem;
+      width: 2rem;
+      height: 2rem;
     }
 
     .peg {
       position: absolute;
-      width: 0.5rem;
-      height: 0.5rem;
+      width: 1rem;
+      height: 1rem;
       border-radius: 50%;
       top: 50%;
       left: 50%;
@@ -382,8 +387,8 @@
     }
 
     .hole.finish .peg {
-      width: 0.9rem;
-      height: 0.9rem;
+      width: 1.8rem;
+      height: 1.8rem;
     }
 
     .peg.player1 {
@@ -914,58 +919,60 @@
       };
 
       const renderClassicBoard = () => {
-        const renderHole = (pos, isGroupEnd) => (
-          <div key={pos} className={`hole ${pos === 121 ? 'finish' : ''} ${isGroupEnd ? 'group-end' : ''}`}>
-            {hasPlayer1Peg(pos) && (
+        const renderHole = (pos, isGroupEnd, playerLane) => (
+          <div key={`${playerLane}-${pos}`} className={`hole ${pos === 121 ? 'finish' : ''} ${isGroupEnd ? 'group-end' : ''}`}>
+            {playerLane === 1 && hasPlayer1Peg(pos) && (
               <div className={`peg player1 ${isLeadingPeg(1, pos) ? 'leading' : ''}`} />
             )}
-            {hasPlayer2Peg(pos) && (
+            {playerLane === 2 && hasPlayer2Peg(pos) && (
               <div className={`peg player2 ${isLeadingPeg(2, pos) ? 'leading' : ''}`} />
             )}
           </div>
         );
 
-        // Build 4 vertical lanes in VISUAL order (top to bottom on screen)
-        // Lane 1: 30 down to 1 (going up in score, but displayed top-to-bottom)
-        // Lane 2: 31 up to 60 (going down in score, displayed top-to-bottom)
-        // Lane 3: 90 down to 61 (going up in score, but displayed top-to-bottom)
-        // Lane 4: 91 up to 120 (going down in score, displayed top-to-bottom)
+        // Build 4 lanes - each player gets their own complete track
+        // Left double lane (1-30 up, 61-90 up):
+        //   - Player 1 (red) left sub-lane
+        //   - Player 2 (blue) right sub-lane
+        // Right double lane (31-60 down, 91-120 down):
+        //   - Player 1 (red) left sub-lane
+        //   - Player 2 (blue) right sub-lane
 
-        const lane1 = []; // 30->1 visually top to bottom
-        const lane2 = []; // 31->60 visually top to bottom
-        const lane3 = []; // 90->61 visually top to bottom
-        const lane4 = []; // 91->120 visually top to bottom
+        const player1LeftLane = [];  // Holes 1-30, 61-90 for player 1
+        const player2LeftLane = [];  // Holes 1-30, 61-90 for player 2
+        const player1RightLane = []; // Holes 31-60, 91-120 for player 1
+        const player2RightLane = []; // Holes 31-60, 91-120 for player 2
 
-        // Lane 1: Display 30 at top down to 1 at bottom, mark every 5th hole
+        // Left lanes: 1-30 bottom to top (display top to bottom), then 61-90
         for (let i = 30; i >= 1; i--) {
-          const visualPos = 30 - i; // 0-29
-          lane1.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 1));
+          const visualPos = 30 - i;
+          player1LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 1, 1));
+          player2LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 1, 2));
         }
-
-        // Lane 2: Display 31 at top down to 60 at bottom
-        for (let i = 31; i <= 60; i++) {
-          const visualPos = i - 31; // 0-29
-          lane2.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 60));
-        }
-
-        // Lane 3: Display 90 at top down to 61 at bottom
         for (let i = 90; i >= 61; i--) {
-          const visualPos = 90 - i; // 0-29
-          lane3.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 61));
+          const visualPos = 90 - i;
+          player1LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 61, 1));
+          player2LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 61, 2));
         }
 
-        // Lane 4: Display 91 at top down to 120 at bottom
+        // Right lanes: 31-60 top to bottom, then 91-120
+        for (let i = 31; i <= 60; i++) {
+          const visualPos = i - 31;
+          player1RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 60, 1));
+          player2RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 60, 2));
+        }
         for (let i = 91; i <= 120; i++) {
-          const visualPos = i - 91; // 0-29
-          lane4.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 120));
+          const visualPos = i - 91;
+          player1RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 120, 1));
+          player2RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 120, 2));
         }
 
         return (
           <div className="classic-board">
             <div className="board-lanes">
               <div className="lanes-group">
-                <div className="board-lane">{lane1}</div>
-                <div className="board-lane">{lane2}</div>
+                <div className="board-lane player1-lane">{player1LeftLane}</div>
+                <div className="board-lane player2-lane">{player2LeftLane}</div>
               </div>
               <div className="center-area">
                 <div className="board-logo">🎯</div>
@@ -975,12 +982,15 @@
                 </div>
               </div>
               <div className="lanes-group">
-                <div className="board-lane">{lane3}</div>
-                <div className="board-lane">{lane4}</div>
+                <div className="board-lane player1-lane">{player1RightLane}</div>
+                <div className="board-lane player2-lane">{player2RightLane}</div>
               </div>
             </div>
             <div className="finish-hole-container">
-              {renderHole(121, false)}
+              <div className="finish-hole-wrapper">
+                {renderHole(121, false, 1)}
+                {renderHole(121, false, 2)}
+              </div>
             </div>
           </div>
         );
