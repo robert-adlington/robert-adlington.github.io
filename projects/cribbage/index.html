@@ -754,56 +754,84 @@
 
     // Scoring Keypad Component
     function ScoringKeypad({ onAddPoints, onUndo }) {
-      const [input, setInput] = useState('');
+      const [prefix, setPrefix] = useState(null); // null, '1-', or '2-'
+      const [lastScore, setLastScore] = useState(null);
 
-      const appendDigit = (digit) => {
-        if (input.length < 3) {
-          setInput(input + digit);
-        }
-      };
+      const handleDigit = (digit) => {
+        if (prefix) {
+          // Combine prefix with digit
+          const prefixValue = prefix === '1-' ? 10 : 20;
+          const points = prefixValue + digit;
 
-      const addQuickPoints = (points) => {
-        onAddPoints(points);
-      };
+          // Validate: 19 is impossible in cribbage
+          if (points === 19) {
+            alert('19 is not a valid cribbage score!');
+            setPrefix(null);
+            return;
+          }
 
-      const submitPoints = () => {
-        const points = parseInt(input) || 0;
-        if (points > 0) {
+          // Add the points and clear prefix
           onAddPoints(points);
-          setInput('');
+          setLastScore(points);
+          setPrefix(null);
+        } else {
+          // Single digit - add immediately
+          onAddPoints(digit);
+          setLastScore(digit);
         }
+      };
+
+      const handleZero = () => {
+        if (prefix) {
+          // Makes 10 or 20
+          const points = prefix === '1-' ? 10 : 20;
+          onAddPoints(points);
+          setLastScore(points);
+          setPrefix(null);
+        }
+        // Ignore 0 if no prefix (can't score 0 points)
+      };
+
+      const handlePrefix = (newPrefix) => {
+        setPrefix(newPrefix);
+      };
+
+      const getDisplayText = () => {
+        if (prefix) {
+          return `${prefix}_`; // Show prefix waiting for digit
+        }
+        if (lastScore !== null) {
+          return `Last: ${lastScore}`;
+        }
+        return 'Ready';
       };
 
       return (
         <div className="scoring-keypad">
           <div className="keypad-title">Add Points</div>
-          <div className="input-display">{input || '0'}</div>
+          <div className="input-display">{getDisplayText()}</div>
 
           <div className="keypad-grid">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
-              <button key={n} className="keypad-btn" onClick={() => appendDigit(n)}>
+              <button key={n} className="keypad-btn" onClick={() => handleDigit(n)}>
                 {n}
               </button>
             ))}
           </div>
 
           <div className="keypad-grid">
-            <button className="keypad-btn" onClick={() => appendDigit(0)}>0</button>
-            <button className="keypad-btn keypad-btn-wide" onClick={() => addQuickPoints(10)}>
+            <button className="keypad-btn" onClick={handleZero}>0</button>
+            <button className="keypad-btn keypad-btn-wide" onClick={() => handlePrefix('1-')}>
               1-
             </button>
           </div>
 
           <div className="keypad-grid">
-            <button className="keypad-btn" onClick={() => addQuickPoints(20)}>2-</button>
-            <button className="keypad-btn keypad-btn-wide add-points-btn" onClick={submitPoints}>
-              Add Points
+            <button className="keypad-btn" onClick={() => handlePrefix('2-')}>2-</button>
+            <button className="keypad-btn keypad-btn-wide undo-btn" onClick={onUndo}>
+              Undo
             </button>
           </div>
-
-          <button className="keypad-btn undo-btn" onClick={onUndo}>
-            Undo Last Move
-          </button>
         </div>
       );
     }
