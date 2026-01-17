@@ -313,19 +313,10 @@
       min-width: 120px;
     }
 
-    .board-logo {
-      font-family: Georgia, 'Times New Roman', serif;
-      font-size: 2rem;
-      font-weight: 900;
-      color: #654321;
-      text-align: center;
-      letter-spacing: 0.1em;
-      text-shadow:
-        2px 2px 0px rgba(255, 255, 255, 0.3),
-        -1px -1px 0px rgba(0, 0, 0, 0.3),
-        0px 3px 5px rgba(0, 0, 0, 0.4);
-      text-transform: uppercase;
-      font-style: italic;
+    .board-logo-svg {
+      width: 180px;
+      height: auto;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
     }
 
     .board-scores {
@@ -978,6 +969,14 @@
           player2RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 120, 2));
         }
 
+        console.log('Hole counts:', {
+          player1Left: player1LeftLane.length,
+          player2Left: player2LeftLane.length,
+          player1Right: player1RightLane.length,
+          player2Right: player2RightLane.length,
+          total: player1LeftLane.length + player2LeftLane.length + player1RightLane.length + player2RightLane.length
+        });
+
         return (
           <div className="classic-board">
             <div className="board-lanes">
@@ -986,7 +985,42 @@
                 <div className="board-lane player2-lane">{player2LeftLane}</div>
               </div>
               <div className="center-area">
-                <div className="board-logo">Cribbage</div>
+                <svg className="board-logo-svg" viewBox="0 0 300 100" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="textGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" style={{ stopColor: '#8B4513', stopOpacity: 1 }} />
+                      <stop offset="50%" style={{ stopColor: '#D2691E', stopOpacity: 1 }} />
+                      <stop offset="100%" style={{ stopColor: '#654321', stopOpacity: 1 }} />
+                    </linearGradient>
+                    <filter id="shadow">
+                      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+                      <feOffset dx="2" dy="3" result="offsetblur"/>
+                      <feComponentTransfer>
+                        <feFuncA type="linear" slope="0.5"/>
+                      </feComponentTransfer>
+                      <feMerge>
+                        <feMergeNode/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </defs>
+
+                  {/* Decorative background curves */}
+                  <path d="M 10 50 Q 30 30, 50 50 T 90 50" fill="none" stroke="rgba(139, 69, 19, 0.3)" strokeWidth="2"/>
+                  <path d="M 210 50 Q 230 30, 250 50 T 290 50" fill="none" stroke="rgba(139, 69, 19, 0.3)" strokeWidth="2"/>
+
+                  {/* Main text with decorative styling */}
+                  <text x="150" y="65" textAnchor="middle" fontSize="48" fontWeight="900" fontFamily="Georgia, serif" fontStyle="italic" fill="url(#textGradient)" stroke="#5D4E37" strokeWidth="1.5" filter="url(#shadow)">
+                    CRIBBAGE
+                  </text>
+
+                  {/* Decorative underline */}
+                  <path d="M 40 75 Q 150 82, 260 75" fill="none" stroke="#8B4513" strokeWidth="2" opacity="0.6"/>
+
+                  {/* Small ornamental elements */}
+                  <circle cx="35" cy="50" r="3" fill="#8B4513" opacity="0.4"/>
+                  <circle cx="265" cy="50" r="3" fill="#8B4513" opacity="0.4"/>
+                </svg>
                 <div className="board-scores">
                   <div className="board-score player1-score">{player1Score}</div>
                   <div className="board-score player2-score">{player2Score}</div>
