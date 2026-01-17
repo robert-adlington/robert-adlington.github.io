@@ -422,11 +422,53 @@ Always check which project owns which tables before modifying.
    ```
 
 3. **If needs authentication:**
+
+   **Backend (PHP):**
    ```php
    <?php
    require_once __DIR__ . '/../../api/auth.php';
    $user = Auth::requireAuth();
    ```
+
+   **Frontend (React single-file apps):**
+
+   **CRITICAL:** If your React app uses authenticated API endpoints, you MUST add this authentication check in the App component's useEffect. Without it, users will see cryptic 500 errors when the API rejects unauthenticated requests.
+
+   ```javascript
+   function App() {
+     const [session, setSession] = useState(null);
+     // ... other state
+
+     // Check authentication on mount
+     useEffect(() => {
+       const checkAuth = async () => {
+         try {
+           const response = await fetch('/api/auth-api.php?action=me', {
+             credentials: 'include'
+           });
+           const data = await response.json();
+
+           if (!data.success || !data.data) {
+             // Not logged in - redirect to homepage
+             window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
+           }
+         } catch (error) {
+           // Authentication failed - redirect to homepage
+           window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
+         }
+       };
+       checkAuth();
+     }, []);
+
+     // ... rest of component
+   }
+   ```
+
+   **Why this is needed:**
+   - The API endpoints use `Auth::requireAuth()` which returns 500 errors if not authenticated
+   - Without the frontend check, users see "Start Game" button but get errors when clicking it
+   - The redirect includes a return URL so users come back after logging in
+   - This pattern is used in `contract-whist` and `cribbage`
 
 ### API Endpoints
 
@@ -631,4 +673,4 @@ npm run dev
 
 ---
 
-**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines + Adlinkton apiClient requirement + Foreign key INT UNSIGNED constraint issue)
+**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines + Adlinkton apiClient requirement + Foreign key INT UNSIGNED constraint issue + Frontend authentication check pattern)
