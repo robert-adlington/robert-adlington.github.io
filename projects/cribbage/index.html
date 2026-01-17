@@ -1000,6 +1000,27 @@
       const [showMenu, setShowMenu] = useState(false);
       const [error, setError] = useState(null);
 
+      // Check authentication on mount
+      useEffect(() => {
+        const checkAuth = async () => {
+          try {
+            const response = await fetch('/api/auth-api.php?action=me', {
+              credentials: 'include'
+            });
+            const data = await response.json();
+
+            if (!data.success || !data.data) {
+              // Not logged in - redirect to homepage
+              window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
+            }
+          } catch (error) {
+            // Authentication failed - redirect to homepage
+            window.location.href = '/index.html?return=' + encodeURIComponent(window.location.pathname);
+          }
+        };
+        checkAuth();
+      }, []);
+
       const player1Score = currentGame?.player1_score || 0;
       const player2Score = currentGame?.player2_score || 0;
       const scoreDiff = Math.abs(player1Score - player2Score);
