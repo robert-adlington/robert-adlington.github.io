@@ -940,41 +940,34 @@
         //   - Player 1 (red) left sub-lane
         //   - Player 2 (blue) right sub-lane
 
-        const player1LeftLane = [];  // Holes 1-30, 61-90 for player 1
-        const player2LeftLane = [];  // Holes 1-30, 61-90 for player 2
-        const player1RightLane = []; // Holes 31-60, 91-120 for player 1
-        const player2RightLane = []; // Holes 31-60, 91-120 for player 2
+        const player1LeftLane = [];  // Positions 1-30 (also used for 61-90)
+        const player2LeftLane = [];  // Positions 1-30 (also used for 61-90)
+        const player1RightLane = []; // Positions 31-60 (also used for 91-120)
+        const player2RightLane = []; // Positions 31-60 (also used for 91-120)
 
-        // Left lanes: 1-30 bottom to top (display top to bottom), then 61-90
+        // Left lanes: positions 1-30 (displayed top to bottom)
+        // These same holes are reused for positions 61-90 (second lap)
         for (let i = 30; i >= 1; i--) {
           const visualPos = 30 - i;
           player1LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 1, 1));
           player2LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 1, 2));
         }
-        for (let i = 90; i >= 61; i--) {
-          const visualPos = 90 - i;
-          player1LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 61, 1));
-          player2LeftLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 61, 2));
-        }
 
-        // Right lanes: 31-60 top to bottom, then 91-120
+        // Right lanes: positions 31-60 (displayed top to bottom)
+        // These same holes are reused for positions 91-120 (second lap)
         for (let i = 31; i <= 60; i++) {
           const visualPos = i - 31;
           player1RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 60, 1));
           player2RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 60, 2));
         }
-        for (let i = 91; i <= 120; i++) {
-          const visualPos = i - 91;
-          player1RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 120, 1));
-          player2RightLane.push(renderHole(i, (visualPos + 1) % 5 === 0 && i !== 120, 2));
-        }
 
-        console.log('Hole counts:', {
+        console.log('Hole counts (each hole used twice for 2 laps):', {
           player1Left: player1LeftLane.length,
           player2Left: player2LeftLane.length,
           player1Right: player1RightLane.length,
           player2Right: player2RightLane.length,
-          total: player1LeftLane.length + player2LeftLane.length + player1RightLane.length + player2RightLane.length
+          totalPhysicalHoles: player1LeftLane.length + player1RightLane.length + player2LeftLane.length + player2RightLane.length,
+          note: 'Each hole represents 2 positions (e.g., hole 1 = positions 1 and 61)'
         });
 
         return (
