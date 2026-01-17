@@ -1,7 +1,7 @@
 <?php
-// Enable error logging (but not display, which breaks JSON)
+// TEMPORARY: Enable display_errors to see the actual error
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
 require_once __DIR__ . '/../../api/auth.php';
@@ -87,7 +87,10 @@ function handleCreate(): void {
     $user = Auth::requireAuth();
     $data = getJsonBody();
 
-    validateRequired($data, ['player1_name', 'player2_name']);
+    $errors = validateRequired($data, ['player1_name', 'player2_name']);
+    if (!empty($errors)) {
+        error('Validation failed', 400, $errors);
+    }
 
     $db = db();
 
