@@ -153,10 +153,44 @@
       color: #1976d2;
     }
 
+    .last-points-inline {
+      font-size: 2.8rem;
+      font-weight: 400;
+    }
+
     .score-diff {
-      font-size: 0.9rem;
+      font-size: 1.8rem;
       color: #666;
       margin-top: 0.5rem;
+      font-weight: 600;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      max-width: 121px;
+      margin: 1rem auto 0;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      height: 16px;
+      position: relative;
+    }
+
+    .progress-bar {
+      height: 8px;
+      transition: width 0.3s ease;
+      position: absolute;
+      left: 0;
+    }
+
+    .progress-bar-player1 {
+      background: #d32f2f;
+      top: 0;
+    }
+
+    .progress-bar-player2 {
+      background: #1976d2;
+      bottom: 0;
     }
 
     .last-points {
@@ -397,16 +431,6 @@
       border-top: 2px solid rgba(139, 115, 85, 0.3);
     }
 
-    .finish-hole-wrapper {
-      display: flex;
-      gap: 0.75rem;
-    }
-
-    .hole.finish {
-      width: 2rem;
-      height: 2rem;
-    }
-
     .peg {
       position: absolute;
       width: 1rem;
@@ -416,11 +440,6 @@
       left: 50%;
       transform: translate(-50%, -50%);
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    .hole.finish .peg {
-      width: 1.8rem;
-      height: 1.8rem;
     }
 
     .peg.player1 {
@@ -1165,7 +1184,7 @@
         if (prefix) {
           return `${prefix}_`; // Show prefix waiting for digit
         }
-        return 'Ready';
+        return ''; // Remove "Ready" display
       };
 
       return (
@@ -1200,8 +1219,12 @@
     }
 
     // Player Panel Component
-    function PlayerPanel({ player, name, score, lastPoints, isLeading, scoreDiff, onAddPoints, onUndo }) {
+    function PlayerPanel({ player, name, score, lastPoints, isLeading, scoreDiff, player1Score, player2Score, onAddPoints, onUndo }) {
       const playerColor = player === '1' ? 'player1' : 'player2';
+
+      // Calculate progress bar widths (max score is 121)
+      const player1Percentage = (player1Score / 121) * 100;
+      const player2Percentage = (player2Score / 121) * 100;
 
       return (
         <div className="player-panel">
@@ -1211,10 +1234,14 @@
             </div>
             <div className="score-display">
               <div className={`score-number ${playerColor}`}>
-                {score}{lastPoints > 0 && ` (+${lastPoints})`}
+                {score}<span className="last-points-inline"> (+{lastPoints})</span>
               </div>
               <div className="score-diff">
                 {scoreDiff > 0 ? (isLeading ? `Leads By: ${scoreDiff}` : `Trails By: ${scoreDiff}`) : 'Tied'}
+              </div>
+              <div className="progress-bar-container">
+                <div className="progress-bar progress-bar-player1" style={{ width: `${player1Percentage}%` }}></div>
+                <div className="progress-bar progress-bar-player2" style={{ width: `${player2Percentage}%` }}></div>
               </div>
             </div>
           </div>
@@ -1337,9 +1364,13 @@
               </div>
             </div>
             <div className="finish-hole-container">
-              <div className="finish-hole-wrapper">
-                {renderHole(121, false, 1)}
-                {renderHole(121, false, 2)}
+              <div className="hole">
+                {hasPlayer1Peg(121) && (
+                  <div className={`peg player1 ${isLeadingPeg(1, 121) ? 'leading' : ''}`} />
+                )}
+                {hasPlayer2Peg(121) && (
+                  <div className={`peg player2 ${isLeadingPeg(2, 121) ? 'leading' : ''}`} />
+                )}
               </div>
             </div>
           </div>
@@ -1487,9 +1518,11 @@
       const scoreDiff = Math.abs(player1Score - player2Score);
       const player1Leading = player1Score > player2Score;
 
-      const lastMove = moves.length > 0 ? moves[moves.length - 1] : null;
-      const player1LastPoints = lastMove?.player === 1 ? lastMove.points : 0;
-      const player2LastPoints = lastMove?.player === 2 ? lastMove.points : 0;
+      // Find the most recent move for each player to show trailing peg correctly
+      const player1Moves = moves.filter(m => m.player === 1);
+      const player2Moves = moves.filter(m => m.player === 2);
+      const player1LastPoints = player1Moves.length > 0 ? player1Moves[player1Moves.length - 1].points : 0;
+      const player2LastPoints = player2Moves.length > 0 ? player2Moves[player2Moves.length - 1].points : 0;
 
       const sessionStats = {
         player1: session?.player1_total_wins || 0,
@@ -1610,6 +1643,8 @@
               lastPoints={player1LastPoints}
               isLeading={player1Leading}
               scoreDiff={scoreDiff}
+              player1Score={player1Score}
+              player2Score={player2Score}
               onAddPoints={(pts) => handleAddPoints(1, pts)}
               onUndo={handleUndo}
             />
@@ -1635,6 +1670,8 @@
               lastPoints={player2LastPoints}
               isLeading={!player1Leading && player2Score > player1Score}
               scoreDiff={scoreDiff}
+              player1Score={player1Score}
+              player2Score={player2Score}
               onAddPoints={(pts) => handleAddPoints(2, pts)}
               onUndo={handleUndo}
             />
