@@ -904,20 +904,31 @@
 
     // Cribbage Board Component
     function CribbageBoard({ player1Score, player2Score, player1LastPoints, player2LastPoints, theme }) {
-      const hasPlayer1Peg = (position) => {
-        const leadingPos = player1Score;
-        const trailingPos = player1Score - player1LastPoints;
-        return position === leadingPos || (player1LastPoints > 0 && position === trailingPos);
+      // Map score (0-121) to physical hole position (1-121)
+      // Holes 1-60 are reused for scores 1-60 and 61-120
+      const scoreToHole = (score) => {
+        if (score === 0) return 0;
+        if (score === 121) return 121;
+        if (score <= 60) return score;
+        // Second lap: scores 61-120 map back to holes 1-60
+        return score - 60;
       };
 
-      const hasPlayer2Peg = (position) => {
-        const leadingPos = player2Score;
-        const trailingPos = player2Score - player2LastPoints;
-        return position === leadingPos || (player2LastPoints > 0 && position === trailingPos);
+      const hasPlayer1Peg = (holePosition) => {
+        const leadingHole = scoreToHole(player1Score);
+        const trailingHole = scoreToHole(player1Score - player1LastPoints);
+        return holePosition === leadingHole || (player1LastPoints > 0 && holePosition === trailingHole);
       };
 
-      const isLeadingPeg = (player, position) => {
-        return player === 1 ? position === player1Score : position === player2Score;
+      const hasPlayer2Peg = (holePosition) => {
+        const leadingHole = scoreToHole(player2Score);
+        const trailingHole = scoreToHole(player2Score - player2LastPoints);
+        return holePosition === leadingHole || (player2LastPoints > 0 && holePosition === trailingHole);
+      };
+
+      const isLeadingPeg = (player, holePosition) => {
+        const leadingHole = player === 1 ? scoreToHole(player1Score) : scoreToHole(player2Score);
+        return holePosition === leadingHole;
       };
 
       const renderClassicBoard = () => {

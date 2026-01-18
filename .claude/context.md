@@ -470,6 +470,119 @@ Always check which project owns which tables before modifying.
    - The redirect includes a return URL so users come back after logging in
    - This pattern is used in `contract-whist` and `cribbage`
 
+### Cribbage Board Implementation Pattern
+
+**Critical Concept:** Real cribbage boards have **60 physical holes per player** that are reused for **two complete laps** to reach 121 points.
+
+#### Board Structure
+
+- **Left lane:** Holes 1-30 (bottom to top)
+  - First lap: Scores 1-30
+  - Second lap: Scores 61-90 (reusing same 30 holes)
+- **Right lane:** Holes 31-60 (top to bottom)
+  - First lap: Scores 31-60
+  - Second lap: Scores 91-120 (reusing same 30 holes)
+- **Finish hole:** Position 121 (separate hole at bottom center)
+
+#### Score-to-Hole Mapping (REQUIRED)
+
+**❌ WRONG APPROACH:**
+```javascript
+// This fails on second lap!
+const hasPlayerPeg = (holePosition) => {
+  return holePosition === playerScore;  // Won't work for scores 61-120
+};
+```
+
+**✅ CORRECT APPROACH:**
+```javascript
+// Map score to physical hole position
+const scoreToHole = (score) => {
+  if (score === 0) return 0;
+  if (score === 121) return 121;
+  if (score <= 60) return score;        // First lap: direct mapping
+  return score - 60;                     // Second lap: subtract 60 to reuse holes
+};
+
+const hasPlayerPeg = (holePosition) => {
+  const leadingHole = scoreToHole(playerScore);
+  const trailingHole = scoreToHole(playerScore - lastPoints);
+  return holePosition === leadingHole ||
+         (lastPoints > 0 && holePosition === trailingHole);
+};
+```
+
+#### Two-Peg System
+
+Each player has two pegs to show:
+1. **Leading peg:** Current score position
+2. **Trailing peg:** Previous score position (current score - last points added)
+
+**Why both are needed:**
+- Shows how many points were just scored (distance between pegs)
+- Prevents disputes about previous position
+- Traditional cribbage board design
+
+#### Common Mistakes to Avoid
+
+1. **Creating 120 holes per player** ❌
+   - Real boards only have 60 physical holes
+   - Must reuse holes for second lap
+
+2. **Direct score-to-position mapping** ❌
+   ```javascript
+   // This fails when score > 60
+   <div key={score}>{renderHole(score)}</div>
+   ```
+
+3. **Forgetting trailing peg** ❌
+   ```javascript
+   // Only showing current position - missing trailing peg
+   const hasPeg = pos => pos === playerScore;
+   ```
+
+4. **Not mapping scores to holes** ❌
+   - Score 61 must map to hole 1
+   - Score 90 must map to hole 30
+   - Score 91 must map to hole 31
+   - Score 120 must map to hole 60
+
+#### Implementation Checklist
+
+When creating new board themes:
+
+- [ ] Create exactly 30 holes per lane (60 total + finish hole)
+- [ ] Implement `scoreToHole()` mapping function
+- [ ] Check both leading and trailing peg positions
+- [ ] Map BOTH current and previous scores through `scoreToHole()`
+- [ ] Test with scores 0, 30, 60, 61, 90, 91, 120, 121
+- [ ] Verify trailing peg appears correctly at all score ranges
+
+#### Example: Rendering Holes with Pegs
+
+```javascript
+const renderHole = (holePos, isGroupEnd, playerLane) => (
+  <div key={`${playerLane}-${holePos}`} className="hole">
+    {playerLane === 1 && hasPlayer1Peg(holePos) && (
+      <div className={`peg player1 ${isLeadingPeg(1, holePos) ? 'leading' : ''}`} />
+    )}
+    {playerLane === 2 && hasPlayer2Peg(holePos) && (
+      <div className={`peg player2 ${isLeadingPeg(2, holePos) ? 'leading' : ''}`} />
+    )}
+  </div>
+);
+
+// Build lanes with holes 1-30 and 31-60 only
+for (let holePos = 30; holePos >= 1; holePos--) {
+  player1LeftLane.push(renderHole(holePos, shouldShowGap, 1));
+  player2LeftLane.push(renderHole(holePos, shouldShowGap, 2));
+}
+```
+
+**Reference Implementation:** `/projects/cribbage/index.html` (see `CribbageBoard` component)
+
+---
+
 ### API Endpoints
 
 **Pattern:** `/projects/{project}/api/{endpoint}.php`
@@ -738,4 +851,4 @@ npm run dev
 
 ---
 
-**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines + Adlinkton apiClient requirement + Foreign key INT UNSIGNED constraint issue + Frontend authentication check pattern)
+**Last Updated:** January 2025 (Repository restructuring + Database migration guidelines + Adlinkton apiClient requirement + Foreign key INT UNSIGNED constraint issue + Frontend authentication check pattern + Cribbage board implementation pattern)
