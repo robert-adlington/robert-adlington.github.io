@@ -1377,25 +1377,37 @@
       };
 
       const getMountainPos = (score, player) => {
-        // Mountain path: up left edge (1-60), down right edge (61-120), summit (121)
-        // Player 1 stays on left side, Player 2 stays on right side of the path
-        if (score === 0) return { x: player === 1 ? 15 : 85, y: 95 };
-        if (score === 121) return { x: 50, y: 5 }; // Summit/top center
+        // Mountain path following the actual edge of the triangular mountain
+        // Base: bottom corners, Peak: top center at (50%, 5%)
+
+        if (score === 0) {
+          // Start at base
+          return { x: player === 1 ? 10 : 90, y: 98 };
+        }
+
+        if (score === 121) {
+          // Summit - top center
+          return { x: 50, y: 5 };
+        }
 
         if (score <= 60) {
           // Climbing up left edge (1-60)
           const progress = score / 60;
-          // Player 1 on left edge, Player 2 slightly offset to right
-          const x = player === 1 ? 10 + (progress * 5) : 20 + (progress * 5);
-          const y = 95 - (progress * 85); // Bottom to near-top
-          return { x, y };
+          // Left edge goes from bottom-left (10%, 98%) to peak (50%, 5%)
+          const x = 10 + (progress * 40); // 10% to 50%
+          const y = 98 - (progress * 93); // 98% to 5%
+
+          // Offset player 2 slightly to the right for visibility
+          return { x: player === 1 ? x : x + 3, y };
         } else {
           // Descending down right edge (61-120)
           const progress = (score - 60) / 60;
-          // Player 1 slightly offset from right edge, Player 2 on right edge
-          const x = player === 1 ? 75 + (progress * 5) : 85 + (progress * 5);
-          const y = 10 + (progress * 85); // Near-top to bottom
-          return { x, y };
+          // Right edge goes from peak (50%, 5%) to bottom-right (90%, 98%)
+          const x = 50 + (progress * 40); // 50% to 90%
+          const y = 5 + (progress * 93); // 5% to 98%
+
+          // Offset player 1 slightly to the left for visibility
+          return { x: player === 1 ? x - 3 : x, y };
         }
       };
 
@@ -1419,7 +1431,15 @@
           const p2Pos = getMountainPos(player2Score, 2);
 
           return (
-            <div className="themed-board mountain" style={{ position: 'relative', width: '100%', height: '100%', backgroundImage: 'url(mountain.png)', backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+            <div className="themed-board mountain" style={{
+              position: 'relative',
+              width: '100%',
+              height: '100%',
+              backgroundImage: 'url(mountain.png)',
+              backgroundSize: '100% 100%',  // Fill width and height completely
+              backgroundPosition: 'bottom center',
+              backgroundRepeat: 'no-repeat'
+            }}>
               {/* Player 1 climber - red jersey, left edge */}
               <img
                 src="climber.png"
@@ -1429,8 +1449,8 @@
                   position: 'absolute',
                   left: `${p1Pos.x}%`,
                   top: `${p1Pos.y}%`,
-                  width: '40px',
-                  height: '40px',
+                  width: '50px',
+                  height: '50px',
                   transform: 'translate(-50%, -50%)',
                   filter: 'hue-rotate(-60deg) saturate(1.5)' // Convert blue to red
                 }}
@@ -1444,8 +1464,8 @@
                   position: 'absolute',
                   left: `${p2Pos.x}%`,
                   top: `${p2Pos.y}%`,
-                  width: '40px',
-                  height: '40px',
+                  width: '50px',
+                  height: '50px',
                   transform: 'translate(-50%, -50%) scaleX(-1)' // Flip horizontally
                 }}
               />
