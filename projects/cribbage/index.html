@@ -143,11 +143,14 @@
     .score-number {
       font-size: 4rem;
       font-weight: 700;
-      color: #1976d2;
     }
 
-    .score-number.leading {
-      color: #2e7d32;
+    .score-number.player1 {
+      color: #d32f2f;
+    }
+
+    .score-number.player2 {
+      color: #1976d2;
     }
 
     .score-diff {
@@ -227,6 +230,14 @@
 
     .keypad-btn-wide {
       grid-column: span 2;
+    }
+
+    .keypad-btn-full {
+      grid-column: span 3;
+    }
+
+    .keypad-grid-three {
+      grid-template-columns: repeat(3, 1fr);
     }
 
     .add-points-btn {
@@ -317,6 +328,25 @@
       width: 180px;
       height: auto;
       filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    }
+
+    .board-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .board-stat-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .board-stat-label {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #5D4E37;
+      min-width: 4rem;
     }
 
     .board-scores {
@@ -770,6 +800,8 @@
       const [player2Name, setPlayer2Name] = useState('');
       const [friends, setFriends] = useState([]);
       const [isLoadingFriends, setIsLoadingFriends] = useState(true);
+      const [showDealerSelect, setShowDealerSelect] = useState(false);
+      const [dealerAnnouncement, setDealerAnnouncement] = useState('');
 
       // Load friends on mount
       useEffect(() => {
@@ -790,11 +822,33 @@
         console.log('🔵 Form submitted!', { player1Name, player2Name });
         e.preventDefault();
         if (player1Name.trim() && player2Name.trim()) {
-          console.log('🟢 Player names valid, calling onStart...');
-          onStart(player1Name.trim(), player2Name.trim());
+          console.log('🟢 Player names valid, showing dealer selection...');
+          setShowDealerSelect(true);
         } else {
           console.log('🔴 Player names invalid!');
         }
+      };
+
+      const handleDealerChoice = (dealer) => {
+        let chosenDealer;
+        let dealerName;
+
+        if (dealer === 'random') {
+          chosenDealer = Math.random() < 0.5 ? 1 : 2;
+          dealerName = chosenDealer === 1 ? player1Name.trim() : player2Name.trim();
+          setDealerAnnouncement(`${dealerName} will deal first!`);
+        } else {
+          chosenDealer = dealer;
+          onStart(player1Name.trim(), player2Name.trim(), chosenDealer === 1);
+          setShowDealerSelect(false);
+        }
+      };
+
+      const handleAnnouncementOk = () => {
+        const dealer = dealerAnnouncement.includes(player1Name.trim()) ? 1 : 2;
+        onStart(player1Name.trim(), player2Name.trim(), dealer === 1);
+        setDealerAnnouncement('');
+        setShowDealerSelect(false);
       };
 
       const addFriendToSlot = (friend, slot) => {
@@ -876,6 +930,36 @@
                 <li>• Track is completed twice (60 points each lap) + 1 point</li>
               </ul>
             </div>
+
+            {showDealerSelect && !dealerAnnouncement && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', maxWidth: '400px', textAlign: 'center' }}>
+                  <h3 style={{ marginBottom: '20px' }}>Who will deal first?</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <button className="btn start-btn" onClick={() => handleDealerChoice(1)} style={{ width: '100%' }}>
+                      {player1Name.trim()}
+                    </button>
+                    <button className="btn start-btn" onClick={() => handleDealerChoice(2)} style={{ width: '100%' }}>
+                      {player2Name.trim()}
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => handleDealerChoice('random')} style={{ width: '100%' }}>
+                      Random
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {dealerAnnouncement && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', maxWidth: '400px', textAlign: 'center' }}>
+                  <h3 style={{ marginBottom: '20px', fontSize: '24px' }}>{dealerAnnouncement}</h3>
+                  <button className="btn start-btn" onClick={handleAnnouncementOk} style={{ width: '100%' }}>
+                    OK
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
@@ -1040,7 +1124,6 @@
     // Scoring Keypad Component
     function ScoringKeypad({ onAddPoints, onUndo }) {
       const [prefix, setPrefix] = useState(null); // null, '1-', or '2-'
-      const [lastScore, setLastScore] = useState(null);
 
       const handleDigit = (digit) => {
         if (prefix) {
@@ -1057,12 +1140,10 @@
 
           // Add the points and clear prefix
           onAddPoints(points);
-          setLastScore(points);
           setPrefix(null);
         } else {
           // Single digit - add immediately
           onAddPoints(digit);
-          setLastScore(digit);
         }
       };
 
@@ -1071,7 +1152,6 @@
           // Makes 10 or 20
           const points = prefix === '1-' ? 10 : 20;
           onAddPoints(points);
-          setLastScore(points);
           setPrefix(null);
         }
         // Ignore 0 if no prefix (can't score 0 points)
@@ -1085,15 +1165,11 @@
         if (prefix) {
           return `${prefix}_`; // Show prefix waiting for digit
         }
-        if (lastScore !== null) {
-          return `Last: ${lastScore}`;
-        }
         return 'Ready';
       };
 
       return (
         <div className="scoring-keypad">
-          <div className="keypad-title">Add Points</div>
           <div className="input-display">{getDisplayText()}</div>
 
           <div className="keypad-grid">
@@ -1104,16 +1180,18 @@
             ))}
           </div>
 
-          <div className="keypad-grid">
+          <div className="keypad-grid keypad-grid-three">
             <button className="keypad-btn" onClick={handleZero}>0</button>
-            <button className="keypad-btn keypad-btn-wide" onClick={() => handlePrefix('1-')}>
+            <button className="keypad-btn" onClick={() => handlePrefix('1-')}>
               1-
+            </button>
+            <button className="keypad-btn" onClick={() => handlePrefix('2-')}>
+              2-
             </button>
           </div>
 
           <div className="keypad-grid">
-            <button className="keypad-btn" onClick={() => handlePrefix('2-')}>2-</button>
-            <button className="keypad-btn keypad-btn-wide undo-btn" onClick={onUndo}>
+            <button className="keypad-btn keypad-btn-full undo-btn" onClick={onUndo}>
               Undo
             </button>
           </div>
@@ -1122,23 +1200,22 @@
     }
 
     // Player Panel Component
-    function PlayerPanel({ player, name, score, lastPoints, isDealer, isLeading, scoreDiff, sessionWins, onAddPoints, onUndo }) {
+    function PlayerPanel({ player, name, score, lastPoints, isLeading, scoreDiff, onAddPoints, onUndo }) {
+      const playerColor = player === '1' ? 'player1' : 'player2';
+
       return (
         <div className="player-panel">
           <div className="player-info">
             <div className="player-name">
               {name}
-              {isDealer && <span className="dealer-badge">DEALER</span>}
             </div>
             <div className="score-display">
-              <div className={`score-number ${isLeading ? 'leading' : ''}`}>{score}</div>
-              <div className="score-diff">
-                {scoreDiff > 0 ? (isLeading ? `+${scoreDiff}` : `-${scoreDiff}`) : 'Tied'}
+              <div className={`score-number ${playerColor}`}>
+                {score}{lastPoints > 0 && ` (+${lastPoints})`}
               </div>
-              {lastPoints > 0 && <div className="last-points">Last: +{lastPoints}</div>}
-            </div>
-            <div className="win-stats">
-              <div>Session: {sessionWins} wins</div>
+              <div className="score-diff">
+                {scoreDiff > 0 ? (isLeading ? `Leads By: ${scoreDiff}` : `Trails By: ${scoreDiff}`) : 'Tied'}
+              </div>
             </div>
           </div>
           <ScoringKeypad
@@ -1150,7 +1227,7 @@
     }
 
     // Cribbage Board Component
-    function CribbageBoard({ player1Score, player2Score, player1LastPoints, player2LastPoints, theme }) {
+    function CribbageBoard({ player1Score, player2Score, player1LastPoints, player2LastPoints, sessionWins, theme }) {
       // Map score (0-121) to physical hole position (1-121)
       // Holes 1-60 are reused for scores 1-60 and 61-120
       const scoreToHole = (score) => {
@@ -1237,9 +1314,21 @@
               </div>
               <div className="center-area">
                 <img src="cribbage_logo.png" alt="Cribbage" className="board-logo" />
-                <div className="board-scores">
-                  <div className="board-score player1-score">{player1Score}</div>
-                  <div className="board-score player2-score">{player2Score}</div>
+                <div className="board-stats">
+                  <div className="board-stat-row">
+                    <span className="board-stat-label">Points</span>
+                    <div className="board-scores">
+                      <div className="board-score player1-score">{player1Score}</div>
+                      <div className="board-score player2-score">{player2Score}</div>
+                    </div>
+                  </div>
+                  <div className="board-stat-row">
+                    <span className="board-stat-label">Games</span>
+                    <div className="board-scores">
+                      <div className="board-score player1-score">{sessionWins?.player1 || 0}</div>
+                      <div className="board-score player2-score">{sessionWins?.player2 || 0}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="lanes-group">
@@ -1407,13 +1496,14 @@
         player2: session?.player2_total_wins || 0
       };
 
-      const handleStartSession = async (player1Name, player2Name) => {
-        console.log('🟡 handleStartSession called with:', { player1Name, player2Name });
+      const handleStartSession = async (player1Name, player2Name, player1IsDealer = true) => {
+        console.log('🟡 handleStartSession called with:', { player1Name, player2Name, player1IsDealer });
         try {
           console.log('🟣 About to call api.createSession...');
           const data = await api.createSession({
             player1_name: player1Name,
-            player2_name: player2Name
+            player2_name: player2Name,
+            player1_is_dealer: player1IsDealer
           });
           console.log('✅ Session created successfully:', data);
           setSession(data.session);
@@ -1518,10 +1608,8 @@
               name={session.player1_name}
               score={player1Score}
               lastPoints={player1LastPoints}
-              isDealer={currentGame?.player1_is_dealer}
               isLeading={player1Leading}
               scoreDiff={scoreDiff}
-              sessionWins={sessionStats.player1}
               onAddPoints={(pts) => handleAddPoints(1, pts)}
               onUndo={handleUndo}
             />
@@ -1532,13 +1620,11 @@
                 player2Score={player2Score}
                 player1LastPoints={player1LastPoints}
                 player2LastPoints={player2LastPoints}
+                sessionWins={sessionStats}
                 theme={boardTheme}
               />
               <div className="game-info">
                 Game {currentGame?.game_number || 0}
-                {(sessionStats.player1 > 0 || sessionStats.player2 > 0) && (
-                  <> | Session: {session.player1_name} {sessionStats.player1} - {sessionStats.player2} {session.player2_name}</>
-                )}
               </div>
             </div>
 
@@ -1547,10 +1633,8 @@
               name={session.player2_name}
               score={player2Score}
               lastPoints={player2LastPoints}
-              isDealer={currentGame?.player1_is_dealer === false}
               isLeading={!player1Leading && player2Score > player1Score}
               scoreDiff={scoreDiff}
-              sessionWins={sessionStats.player2}
               onAddPoints={(pts) => handleAddPoints(2, pts)}
               onUndo={handleUndo}
             />
