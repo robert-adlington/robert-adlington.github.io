@@ -114,7 +114,6 @@
       text-align: center;
       padding-bottom: 1rem;
       border-bottom: 2px solid #e0e0e0;
-      margin-bottom: 1rem;
     }
 
     .player-name {
@@ -1377,11 +1376,27 @@
         );
       };
 
-      const getMountainPos = (score) => {
-        const progress = score / 121;
-        const y = 390 - (progress * 380);
-        const x = 150 + Math.sin(progress * Math.PI * 2) * 40;
-        return { x, y };
+      const getMountainPos = (score, player) => {
+        // Mountain path: up left edge (1-60), down right edge (61-120), summit (121)
+        // Player 1 stays on left side, Player 2 stays on right side of the path
+        if (score === 0) return { x: player === 1 ? 15 : 85, y: 95 };
+        if (score === 121) return { x: 50, y: 5 }; // Summit/top center
+
+        if (score <= 60) {
+          // Climbing up left edge (1-60)
+          const progress = score / 60;
+          // Player 1 on left edge, Player 2 slightly offset to right
+          const x = player === 1 ? 10 + (progress * 5) : 20 + (progress * 5);
+          const y = 95 - (progress * 85); // Bottom to near-top
+          return { x, y };
+        } else {
+          // Descending down right edge (61-120)
+          const progress = (score - 60) / 60;
+          // Player 1 slightly offset from right edge, Player 2 on right edge
+          const x = player === 1 ? 75 + (progress * 5) : 85 + (progress * 5);
+          const y = 10 + (progress * 85); // Near-top to bottom
+          return { x, y };
+        }
       };
 
       const getSkiingPos = (score) => {
@@ -1400,17 +1415,40 @@
 
       const renderThemedBoard = () => {
         if (theme === 'mountain') {
-          const p1Pos = getMountainPos(player1Score);
-          const p2Pos = getMountainPos(player2Score);
+          const p1Pos = getMountainPos(player1Score, 1);
+          const p2Pos = getMountainPos(player2Score, 2);
+
           return (
-            <div className="themed-board mountain">
-              <svg viewBox="0 0 300 400" preserveAspectRatio="xMidYMid meet">
-                <path d="M 10 390 Q 50 350, 90 310 Q 130 270, 170 230 Q 210 190, 150 150 Q 90 110, 130 70 Q 170 30, 150 10"
-                  fill="none" stroke="#8B4513" strokeWidth="8" strokeDasharray="5,5" />
-                <circle cx={p1Pos.x} cy={p1Pos.y} r="8" fill="#DC2626" />
-                <circle cx={p2Pos.x + 15} cy={p2Pos.y} r="8" fill="#2563EB" />
-                <text x="150" y="15" textAnchor="middle" fill="white" fontWeight="bold">⛰️ 121</text>
-              </svg>
+            <div className="themed-board mountain" style={{ position: 'relative', width: '100%', height: '100%', backgroundImage: 'url(mountain.png)', backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+              {/* Player 1 climber - red jersey, left edge */}
+              <img
+                src="climber.png"
+                alt="Player 1"
+                className="climber climber-player1"
+                style={{
+                  position: 'absolute',
+                  left: `${p1Pos.x}%`,
+                  top: `${p1Pos.y}%`,
+                  width: '40px',
+                  height: '40px',
+                  transform: 'translate(-50%, -50%)',
+                  filter: 'hue-rotate(-60deg) saturate(1.5)' // Convert blue to red
+                }}
+              />
+              {/* Player 2 climber - blue jersey, right edge, flipped */}
+              <img
+                src="blue_climber.png"
+                alt="Player 2"
+                className="climber climber-player2"
+                style={{
+                  position: 'absolute',
+                  left: `${p2Pos.x}%`,
+                  top: `${p2Pos.y}%`,
+                  width: '40px',
+                  height: '40px',
+                  transform: 'translate(-50%, -50%) scaleX(-1)' // Flip horizontally
+                }}
+              />
             </div>
           );
         } else if (theme === 'skiing') {
